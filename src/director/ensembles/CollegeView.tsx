@@ -9,7 +9,7 @@ import {
   todayStr, parseDate, formatTimeRange, ensembleColor,
   collegeEnsembles, collegeClasses, groupKindLabel,
 } from '../utils';
-import { seedCollegeProgram } from '../seedCollege';
+import { seedCollegeProgram, collegeSeedSummary } from '../seedCollege';
 import { COLLEGE_CLASSES, COLLEGE_ENSEMBLES } from '../collegeClasses';
 import { ORG } from '../../org';
 import type { DirNavigate } from '../types-nav';
@@ -59,9 +59,7 @@ export function CollegeView({ onNavigate }: { onNavigate: DirNavigate }) {
     setSeedMsg('');
     try {
       const r = await seedCollegeProgram();
-      setSeedMsg(
-        `College: ${r.ensembles} ensemble(s), ${r.classes} class(es), ${r.sessions} calendar session(s).`,
-      );
+      setSeedMsg(collegeSeedSummary(r));
       setSeedState('done');
     } catch (e) {
       setSeedMsg(e instanceof Error ? e.message : String(e));

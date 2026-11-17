@@ -243,7 +243,28 @@
   "grading": {
     "periods": [
       { "id": "2026-q1", "termId": "2026-fall", "name": "Quarter 1", "ordinal": "1st Quarter", "short": "Q1",
-        "start": "2026-08-13", "end": "2026-10-16", "schoolDays": 45 },
+        "start": "2026-08-13", "end": "2026-10-16", "schoolDays": 45,
+        "plans": {
+          "default": [
+            { "id": "attendance", "label": "Attendance & Punctuality", "weight": 30, "showsRoll": true },
+            { "id": "prep", "label": "Preparation & Participation", "weight": 10 },
+            { "id": "exams", "label": "Playing Exams", "weight": 15, "suggest": "exams",
+              "assignmentTypes": ["Playing Exam", "Written Test", "Other"] },
+            { "id": "performance", "label": "Performance", "weight": 20, "assignmentTypes": ["Performance"] },
+            { "id": "concerts", "label": "Required Performance Attendance", "weight": 15, "suggest": "concerts" },
+            { "id": "professionalism", "label": "Professionalism", "weight": 10 }
+          ],
+          "college": [
+            { "id": "attendance", "label": "Attendance & Punctuality", "weight": 30, "showsRoll": true },
+            { "id": "prep", "label": "Preparation & Participation", "weight": 10 },
+            { "id": "exams", "label": "Exams & Tests", "weight": 15, "suggest": "exams",
+              "assignmentTypes": ["Playing Exam", "Written Test", "Other"] },
+            { "id": "performance", "label": "Performance", "weight": 20, "assignmentTypes": ["Performance"] },
+            { "id": "concerts", "label": "Required Performance Attendance", "weight": 15, "suggest": "concerts" },
+            { "id": "professionalism", "label": "Professionalism", "weight": 10 },
+            { "id": "lessons", "label": "Applied Lessons", "weight": 15, "suggest": "lessons" }
+          ]
+        } },
       { "id": "2026-q2", "termId": "2026-fall", "name": "Quarter 2", "ordinal": "2nd Quarter", "short": "Q2",
         "start": "2026-10-19", "end": "2027-01-14", "schoolDays": 46 },
       { "id": "2027-q3", "termId": "2027-spring", "name": "Quarter 3", "ordinal": "3rd Quarter", "short": "Q3",
@@ -263,7 +284,7 @@
         { "id": "exams", "label": "Playing Exams", "weight": 15, "suggest": "exams",
           "assignmentTypes": ["Playing Exam", "Written Test", "Other"] },
         { "id": "performance", "label": "Performance", "weight": 20, "assignmentTypes": ["Performance"] },
-        { "id": "concerts", "label": "Required Performance Attendance", "weight": 15, "suggest": "concerts" },
+        { "id": "concerts", "label": "Required Performance Attendance", "weight": 10, "suggest": "concerts" },
         { "id": "professionalism", "label": "Professionalism", "weight": 10 }
       ],
       "college": [
@@ -272,7 +293,7 @@
         { "id": "exams", "label": "Exams & Tests", "weight": 15, "suggest": "exams",
           "assignmentTypes": ["Playing Exam", "Written Test", "Other"] },
         { "id": "performance", "label": "Performance", "weight": 20, "assignmentTypes": ["Performance"] },
-        { "id": "concerts", "label": "Required Performance Attendance", "weight": 15, "suggest": "concerts" },
+        { "id": "concerts", "label": "Required Performance Attendance", "weight": 10, "suggest": "concerts" },
         { "id": "professionalism", "label": "Professionalism", "weight": 10 },
         { "id": "lessons", "label": "Applied Lessons", "weight": 15, "suggest": "lessons" }
       ]

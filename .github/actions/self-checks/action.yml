@@ -737,3 +737,38 @@ runs:
     - name: Check in-app recording type
       run: node src/shared/recordingType.selfcheck.ts
       shell: bash
+
+    # A picked video whose bytes are all zero is refused at pick time, while
+    # the student still holds the phone (#blank-video).
+    - name: Check blank video refusal
+      run: node src/shared/blankVideo.selfcheck.ts
+      shell: bash
+
+    # Ask, the answering half: a reading of the question and the public
+    # records in, an answer object out. It pins the states (answered, nothing
+    # posted, not understood, ask who is asking), that an archived or missing
+    # saved student is never told "nothing today", that a change carries the
+    # director's own note and no other words, that a post, form or assignment
+    # that has not gone live never appears, that a concert a student only
+    # attends adds no music, that the short path gives the whole roster's
+    # answer, and that no typed word reaches a sentence. A sentence states a
+    # fact and never starts yes or no, a day gone by is the past and never
+    # next year, what is over today is not "next", and school is answered
+    # only inside the calendar's own year. Nothing imports the module yet.
+    # Plain node on purpose: it must load without the org config.
+    - name: Check Ask (the answers)
+      run: node src/shared/ask/answer.selfcheck.ts
+      shell: bash
+
+    # The college calendar clean-up tool (#college-hs-calendar-deps). It may
+    # only remove a generated college meeting on a day Miami Dade College
+    # holds no classes, and never one a person has touched: roll, a change
+    # note, a cancel, an edit, a roster move, or a date already past. Each
+    # delete carries the update time the read saw, and only the nwsa-hub
+    # project is accepted. It also pins the seed that follows a prune: the
+    # script, the in-app button and the workflow create what is missing and
+    # never write over a meeting that exists. Pure, on invented events. The
+    # live run is the Prune College Sessions workflow.
+    - name: Check college session pruning
+      run: node scripts/prune-college-sessions.mjs --selfcheck
+      shell: bash

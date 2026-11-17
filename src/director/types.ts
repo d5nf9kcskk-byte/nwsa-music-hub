@@ -44,7 +44,7 @@ import type { FormKind } from '../shared/formKind';
  * (label: Student Assistant). Words live in STAFF_ROLE_LABEL below; the
  * wire value never moves.
  */
-export type StaffRole = 'owner' | 'director' | 'teacher' | 'classroom' | 'assistant';
+export type StaffRole = 'owner' | 'director' | 'teacher' | 'classroom' | 'assistant' | 'chaperone';
 
 /** The ONE place each role's user-facing words live. Anything that prints a
  *  role reads this — so a future rename is a label edit, never a data one. */
@@ -54,6 +54,8 @@ export const STAFF_ROLE_LABEL: Record<StaffRole, string> = {
   teacher: 'Applied Teacher',
   classroom: 'Classroom Teacher',
   assistant: 'Student Assistant',
+  // Read-only: field-trip forms and who has turned them in (#chaperone).
+  chaperone: 'Chaperone',
 };
 
 /**
@@ -243,6 +245,22 @@ export type EventType = 'Rehearsal' | 'Concert' | 'Sectional' | 'Class' | 'Event
 export type EventStatus = 'Scheduled' | 'Completed' | 'Cancelled';
 
 /**
+ * Equipment a concert needs on stage (#equipment): chair and stand counts,
+ * the conductor's podium/stand, and the percussion battery itemized by
+ * instrument, one line per instrument (instrument, quantity, and which
+ * pieces use it). Shown to everyone on the public event page so the venue,
+ * the crew, and families can see what the concert takes. ABSENT = nothing
+ * renders, which is every event that predates the field.
+ */
+export interface EventEquipment {
+  chairs?: number;
+  stands?: number;
+  /** Conductor podium and stand. */
+  podium?: boolean;
+  percussion?: string[];
+}
+
+/**
  * Unified calendar item — rehearsals, concerts, sectionals, and other events
  * all share one shape so they render on a single calendar. A concert can span
  * several ensembles, so ensembleIds is an array.
@@ -386,6 +404,13 @@ export interface CalendarEvent {
    * it a character at a time.
    */
   links?: AnnouncementLink[];
+  /**
+   * Equipment needed for this concert (#equipment): chairs, music stands,
+   * conductor podium/stand, and the percussion battery itemized by
+   * instrument. Rendered on the public event page for anyone to see.
+   * ABSENT = no equipment area renders.
+   */
+  equipment?: EventEquipment;
   /* ── Change tracking (#17, #40) ── */
   updatedAt?: number;       // Date.now() of last edit
   updatedBy?: string;       // director email
@@ -1501,6 +1526,9 @@ export interface SignupForm {
   /** What kind of form this is (#forms) — a label and a starting template.
    *  Absent on forms made before kinds existed; read it with formKindOf(). */
   formKind?: FormKind;
+  /** Chaperones see this form and who turned it in (#chaperone). Permission
+   *  slips always show to them; this adds any other form. Absent = off. */
+  chaperoneVisible?: boolean;
   createdAt: number;
   updatedAt?: number;
   updatedBy?: string; // director's display name (falls back to email)

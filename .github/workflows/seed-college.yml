@@ -2,15 +2,32 @@ name: Seed College Program
 
 # Creates college ensembles (Chamber Orchestra, Vocal Ensemble), dual-enrollment
 # college classes with teacher names, and their Class calendar sessions.
-# Idempotent — run dry first, then apply.
+# Run dry first, then apply.
+#
+# BY DEFAULT IT ONLY ADDS WHAT IS MISSING. It creates the docs that do not
+# exist and leaves every existing group and class meeting exactly as it is.
+# That is the script's own default, so every way into this workflow gets it.
+#
+# It OVERWRITES only when explicitly asked: "Missing only" unticked here, or
+# `"missing_only": false` in the trigger file. That run pushes the class list
+# onto every meeting, and puts a cancelled or moved class meeting back to its
+# generated time, room and "Scheduled" status (scripts/seed-college.mjs).
 #
 # Cloud agents can trigger by pushing a change to
-# `.github/triggers/seed-college` (see file for dry_run flag).
+# `.github/triggers/seed-college`. The file is JSON. Example of the safe run,
+# listed first without writing:
+#   { "dry_run": true, "requestedAt": "...", "note": "..." }
+# A trigger file with no "missing_only" key adds what is missing and
+# overwrites nothing. Pushing ANY change to that file on main starts a run.
 on:
   workflow_dispatch:
     inputs:
       dry_run:
         description: 'List what would change without writing anything'
+        type: boolean
+        default: true
+      missing_only:
+        description: 'Missing only: create what does not exist, overwrite nothing'
         type: boolean
         default: true
   push:
@@ -20,6 +37,13 @@ on:
 
 permissions:
   contents: read
+
+# One Hub-tool run at a time. A seed and a Prune College Sessions run must
+# never overlap: one creates class meetings while the other deletes them.
+# Shared with Hub Calendar, Hub Announcement and Prune College Sessions.
+concurrency:
+  group: hub-tools
+  cancel-in-progress: false
 
 jobs:
   seed:
@@ -37,7 +61,9 @@ jobs:
           EXTRA=""
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             [ "${{ inputs.dry_run }}" = "true" ] && EXTRA="--dry-run"
+            [ "${{ inputs.missing_only }}" = "false" ] && EXTRA="$EXTRA --overwrite"
           elif [ -f .github/triggers/seed-college ]; then
             grep -q '"dry_run"[[:space:]]*:[[:space:]]*true' .github/triggers/seed-college && EXTRA="--dry-run"
+            grep -q '"missing_only"[[:space:]]*:[[:space:]]*false' .github/triggers/seed-college && EXTRA="$EXTRA --overwrite"
           fi
           node scripts/seed-college.mjs $EXTRA

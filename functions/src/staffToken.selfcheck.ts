@@ -146,16 +146,19 @@ for (const provider of ['password', 'anonymous', 'custom', 'phone', 'microsoft.c
     if (name === 'hasRole' || name === 'boundGoogleSignIn' || name === 'roleClaimValid') continue;
     check(/\b(is\w+Role|hasRole)\(/.test(body), `${name}() reads the caller's directors doc only behind a role helper`);
   }
-  // roleClaimValid only compares a label; each rule that uses it asks
-  // isKnownRole() first.
+  // roleClaimValid only compares a label; each rule that uses it asks a
+  // role helper first: isKnownRole(), or for the sign-in receipt that or
+  // isChaperoneRole() (#chaperone). Both go through hasRole.
   const claimUses = [...fsRules.matchAll(/allow create: if ([^;]*roleClaimValid\([^;]*);/g)];
-  check(claimUses.length === 2 && claimUses.every(m => m[1].startsWith('isKnownRole()')), 'roleClaimValid is used only in rules that begin with isKnownRole()');
+  check(claimUses.length === 2 && claimUses.every(m => m[1].startsWith('isKnownRole()') || m[1].startsWith('(isKnownRole() || isChaperoneRole())')),
+    'roleClaimValid is used only in rules that begin with a role helper');
+  check(fsFn('isChaperoneRole') === "function isChaperoneRole() { return hasRole('chaperone');", 'isChaperoneRole reads the role through hasRole, so through the gate');
   check(!/myDirectorDoc\(\)/.test(fsRules.slice(fsRules.indexOf('match /directors/{email}'))) , 'no rule below the helpers reads the caller\'s directors doc directly');
   const stRole = stFn('hasRole');
-  for (const g of ['isStaff', 'isTeacher', 'isClassroom', 'isAssistant']) {
+  for (const g of ['isStaff', 'isTeacher', 'isClassroom', 'isAssistant', 'isChaperone']) {
     check(/honouredSignIn\(\)/.test(stFn(g)) && /email_verified == true/.test(stFn(g)), `storage.rules ${g}() is a full gate`);
   }
-  check(stRole !== '' && [...stRules.matchAll(/hasRole\(/g)].length >= 4, 'storage.rules reads roles through hasRole, inside those gates');
+  check(stRole !== '' && [...stRules.matchAll(/hasRole\(/g)].length >= 5, 'storage.rules reads roles through hasRole, inside those gates');
 
   // The switch is the server's alone, and nothing else can match it.
   check(/match \/serverConfig\/\{doc\}\s*\{ allow read: if isOwner\(\); allow write: if false; \}/.test(fsRules), 'no client can write the switch; only the Owner can read it');

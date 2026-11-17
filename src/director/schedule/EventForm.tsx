@@ -21,7 +21,7 @@ import { useAnnouncements } from '../hooks/useAnnouncements';
 import { announceChange } from './changeOps';
 import { changeReceipt } from './changePlan';
 import { concertChartFor, chartPieceIds, isPieceChart } from '../../shared/concertRosters';
-import type { CalendarEvent, Ensemble, EventType, EventStatus, SeatingChart } from '../types';
+import type { CalendarEvent, Ensemble, EventType, EventStatus, SeatingChart, EventEquipment } from '../types';
 import { backdropClose } from '../../shared/backdropClose';
 import { GroupPicker } from '../components/GroupPicker';
 import { ChangeNoteEsField } from './ChangeNoteEsField';
@@ -407,6 +407,21 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
           .filter(b => b.instrument && b.url);
       }
       if (form.partBooksSharedUrl !== undefined) data.partBooksSharedUrl = form.partBooksSharedUrl.trim();
+      // Equipment (#equipment): same discipline as part books — untouched
+      // when the loaded event had none and the director added none; saving
+      // normalizes to clean totals and trimmed, non-empty percussion lines,
+      // and clearing everything writes an empty object, which renders
+      // nothing (undefined would be dropped and keep the old values).
+      if (form.equipment !== undefined) {
+        const eq = form.equipment;
+        const cleaned: EventEquipment = {};
+        if (eq.chairs != null && Number.isFinite(eq.chairs)) cleaned.chairs = eq.chairs;
+        if (eq.stands != null && Number.isFinite(eq.stands)) cleaned.stands = eq.stands;
+        if (eq.podium) cleaned.podium = true;
+        const percussion = (eq.percussion ?? []).map(s => s.trim()).filter(Boolean);
+        if (percussion.length) cleaned.percussion = percussion;
+        data.equipment = cleaned;
+      }
       // #banner-drafter. Off: no write ever carries a Spanish note (the form
       // copied the loaded event, so drop whatever it copied; useEvents still
       // clears a stale one if the English changed). On: the box's text is the
@@ -1015,6 +1030,66 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
                   onChange={e => set('dress', e.target.value)}
                   placeholder="e.g. Concert black — long sleeves, black shoes"
                 />
+              </div>
+              <div className="dir-section-title" style={{ margin: '6px 0 2px' }}>Equipment</div>
+              <div className="dir-field-hint" style={{ marginBottom: 10 }}>
+                Shown to everyone on the public event page — chairs, stands, conductor
+                podium/stand, and the percussion battery for this concert's repertoire.
+              </div>
+              <div className="dir-field-row">
+                <div className="dir-field">
+                  <label className="dir-label">Chairs</label>
+                  <input
+                    className="dir-input"
+                    type="number"
+                    min="0"
+                    value={form.equipment?.chairs ?? ''}
+                    onChange={e => set('equipment', {
+                      ...(form.equipment ?? {}),
+                      chairs: e.target.value === '' ? undefined : Number(e.target.value),
+                    })}
+                  />
+                </div>
+                <div className="dir-field">
+                  <label className="dir-label">Music stands</label>
+                  <input
+                    className="dir-input"
+                    type="number"
+                    min="0"
+                    value={form.equipment?.stands ?? ''}
+                    onChange={e => set('equipment', {
+                      ...(form.equipment ?? {}),
+                      stands: e.target.value === '' ? undefined : Number(e.target.value),
+                    })}
+                  />
+                </div>
+              </div>
+              <div className="dir-field">
+                <label className="dir-checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={!!form.equipment?.podium}
+                    onChange={e => set('equipment', { ...(form.equipment ?? {}), podium: e.target.checked })}
+                  />{' '}
+                  Conductor podium/stand
+                </label>
+              </div>
+              <div className="dir-field">
+                <label className="dir-label">Percussion</label>
+                <textarea
+                  className="dir-input"
+                  rows={5}
+                  value={(form.equipment?.percussion ?? []).join('\n')}
+                  onChange={e => set('equipment', {
+                    ...(form.equipment ?? {}),
+                    percussion: e.target.value.split('\n'),
+                  })}
+                  placeholder={'One instrument per line, e.g.\nTimpani (set of 4 drums) — 1 set\nBass drum — 1'}
+                />
+                <div className="dir-field-hint" style={{ marginTop: 4 }}>
+                  Itemize by instrument with quantities and which pieces use each.
+                  Never a percussion player count.
+                </div>
               </div>
               <div className="dir-field">
                 <label className="dir-label">Our slot</label>

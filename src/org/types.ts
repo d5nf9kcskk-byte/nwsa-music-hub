@@ -1,6 +1,6 @@
 import type { CalendarBundle } from '../shared/calendarBundles';
 import type { Term } from '../shared/concertCheckin';
-import type { CommentRules, GradeCategory } from '../shared/ensembleGrades';
+import type { CommentRules, GradePlans } from '../shared/ensembleGrades';
 import type { GradingPeriod } from '../shared/gradingPeriods';
 import type { ReportLayout } from '../shared/interimReport';
 
@@ -17,14 +17,11 @@ export interface OrgGrading {
    * course that grades differently, keyed by ensemble id or by the pseudo-id
    * of a non-ensemble report such as `applied`. An entry present but EMPTY means
    * grading is deliberately off for that group and must never be
-   * re-defaulted (the `Assignment.rubric` three-state rule).
+   * re-defaulted (the `Assignment.rubric` three-state rule). `college` is
+   * every college table's plan; `default` when absent. These are the STANDING
+   * plans: a period with its own `plans` uses those instead (`planFor()`).
    */
-  plans: {
-    default: GradeCategory[];
-    /** Every college table's plan (#gradebook, Nov 2026); `default` when absent. */
-    college?: GradeCategory[];
-    byGroupKey?: Record<string, GradeCategory[]>;
-  };
+  plans: GradePlans;
   /** When the district requires a written reason alongside a grade. */
   commentRules: CommentRules;
   /** The district's comment code list: code → what it means. */

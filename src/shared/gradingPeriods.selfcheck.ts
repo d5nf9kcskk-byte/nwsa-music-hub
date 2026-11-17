@@ -13,7 +13,8 @@ import {
   currentGradingPeriod, defaultCutoff, inWindow, periodForDate, sortPeriods, windowFor,
   type GradingPeriod,
 } from './gradingPeriods.ts';
-import { MDCPS_NO_SCHOOL } from './academicCalendars.ts';
+import { MDCPS_NO_SCHOOL, MDCPS_YEAR } from './academicCalendars.ts';
+import { planFor } from './ensembleGrades.ts';
 // The org's real config, read as JSON rather than through `ORG`, so this runs
 // under plain Node with no Vite defines shim (the pattern in
 // functions/src/concertTally.ts).
@@ -145,10 +146,52 @@ for (let i = 1; i < inOrder.length; i++) {
 assert(inOrder[0].start === '2026-08-13', 'the year opens on the district first day of school');
 assert(inOrder[3].end === '2027-06-03', 'and closes on the district last day');
 
+// The year each calendar says it covers is the year it really covers. Ask
+// answers "is there school" only inside it, so a wrong edge here would have
+// it say "there is school" on a day the lists know nothing about.
+assert(
+  MDCPS_YEAR.from === inOrder[0].start && MDCPS_YEAR.to === inOrder[3].end,
+  'MDCPS_YEAR runs from the first grading period\'s first day to the last one\'s last day',
+);
+// (MDC_YEAR is held to the college's own calendar in
+// src/director/campusCalendar.selfcheck.ts.)
+
 /* ── ordering is by date and never mutates the caller ──────────────────── */
 
 const shuffled = [PERIODS[2], PERIODS[0], PERIODS[3], PERIODS[1]];
 assert(sortPeriods(shuffled).map(p => p.id).join(',') === 'q1,q2,q3,q4', 'sorted by start date');
 assert(shuffled[0].id === 'q3', 'sortPeriods does not mutate its argument');
+
+/* ── a quarter sent to the district keeps its weights (#gradebook-period-plans) */
+// Q1 went to the teacher of record with Required Performance Attendance at 15
+// points. The director lowered it to 10 from Q2 on (2026-11-16). Q1's finals
+// on screen must keep matching the report card, so its weights are FROZEN
+// here: changing the standing plans must never move them.
+{
+  const grading = NWSA.grading as unknown as {
+    periods: GradingPeriod[];
+    plans: Parameters<typeof planFor>[0];
+  };
+  const byId = Object.fromEntries(grading.periods.map(p => [p.id, p]));
+  const weights = (periodId: string, groupKey: string, world: 'hs' | 'college') =>
+    planFor(grading.plans, byId[periodId].plans, groupKey, world).map(c => `${c.id}:${c.weight}`).join(',');
+
+  const Q1_HS = 'attendance:30,prep:10,exams:15,performance:20,concerts:15,professionalism:10';
+  const Q1_COLLEGE = `${Q1_HS},lessons:15`;
+  assert(weights('2026-q1', 'symphony-orchestra', 'hs') === Q1_HS, 'Q1 high school tables keep the weights Q1 was sent with');
+  assert(weights('2026-q1', 'symphony-orchestra', 'college') === Q1_COLLEGE, 'Q1 college tables keep theirs');
+  assert(weights('2026-q1', 'applied', 'hs') === 'lessons:100', 'Q1 applied follows the standing applied plan (unchanged)');
+
+  for (const id of ['2026-q2', '2027-q3', '2027-q4']) {
+    const concerts = planFor(grading.plans, byId[id].plans, 'symphony-orchestra', 'hs').find(c => c.id === 'concerts');
+    assert(concerts?.weight === 10, `${id}: Required Performance Attendance is 10 points (director, 2026-11-16)`);
+  }
+  // Same categories in every quarter, so marks keyed by category id mean the
+  // same thing whichever plan reads them.
+  const ids = (periodId: string, world: 'hs' | 'college') =>
+    planFor(grading.plans, byId[periodId].plans, 'x', world).map(c => c.id).join(',');
+  assert(ids('2026-q1', 'hs') === ids('2026-q2', 'hs'), 'Q1 and Q2 high school plans have the same categories');
+  assert(ids('2026-q1', 'college') === ids('2026-q2', 'college'), 'Q1 and Q2 college plans have the same categories');
+}
 
 console.log('gradingPeriods.selfcheck: all assertions passed');

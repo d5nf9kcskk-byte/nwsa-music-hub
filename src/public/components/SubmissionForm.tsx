@@ -7,6 +7,7 @@ import { usePublicSubmissionReceipts } from '../hooks/usePublicSubmissionReceipt
 import { primaryStudent, rememberStudent } from '../../shared/identity';
 import { withRetry } from '../../shared/withRetry';
 import { chunkCountFor } from '../../shared/submissionChunks';
+import { isBlankVideoFile } from '../../shared/blankVideo';
 import {
   sessionForFile, sessionForRecording, uploadChunks, finalizeChunkedSubmission,
 } from '../chunkedUpload';
@@ -250,6 +251,10 @@ export function SubmissionForm({ assignment, students, onSubmitted }: Submission
     setError('');
     if (file.size > maxSizeMB * MB) {
       setError(t('vid.tooBig', { max: String(maxSizeMB), size: formatFileSize(file.size) }));
+      return;
+    }
+    if (await isBlankVideoFile(file)) {
+      setError(t('vid.blankFile'));
       return;
     }
     const durationSeconds = await probeDuration(file);

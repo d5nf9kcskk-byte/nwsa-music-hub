@@ -1,74 +1,58 @@
-import { doc, writeBatch } from 'firebase/firestore';
+import { collection, doc, getDocsFromServer, writeBatch } from 'firebase/firestore';
 import { db } from './firebase';
-import { COLLEGE_CLASSES, COLLEGE_ENSEMBLES, COLLEGE_TERM } from './collegeClasses';
-import { collegeChamberRehearsalPatches, collegeClassEventDocs } from './collegeSchedule';
+import { absorbedEventIds, missingCollegeDocs } from './collegeSchedule';
 
 const CHUNK = 499;
 
 /**
- * Create college ensembles + college class groups, and write their Class /
- * Rehearsal calendar sessions for the MDC term. Idempotent (stable ids).
- * Does not enroll students — college rosters are managed in the Hub.
+ * Add whatever is MISSING from the college program: the college ensembles and
+ * class groups that do not exist, and the class meetings that do not exist.
+ * Does not enroll students. College rosters are managed in the Hub.
+ *
+ * It never writes over a doc that exists (#college-hs-calendar-deps). This
+ * used to merge the generator's fields onto every group and every meeting,
+ * `status: 'Scheduled'` among them, so one click put a cancelled class back on
+ * students' calendars and replaced an edited note. Now it reads which docs
+ * exist and writes only the others. `missingCollegeDocs()` is the one
+ * decision, shared with scripts/seed-college.mjs: nothing that exists, and
+ * nothing a combined block is holding.
+ *
+ * The read is from the SERVER, never the local cache. A tab that has been
+ * open for days must not decide what is missing from what it remembers, and
+ * offline it fails instead of guessing.
  */
-export async function seedCollegeProgram(): Promise<{
-  ensembles: number;
-  classes: number;
-  sessions: number;
-}> {
+export async function seedCollegeProgram(): Promise<{ groups: number; sessions: number }> {
   if (!db) throw new Error('Firebase is not configured.');
   const dbRef = db;
 
-  const ops: ((batch: ReturnType<typeof writeBatch>) => void)[] = [];
+  const [groupSnap, eventSnap] = await Promise.all([
+    getDocsFromServer(collection(dbRef, 'ensembles')),
+    getDocsFromServer(collection(dbRef, 'events')),
+  ]);
+  const { groups, sessions } = missingCollegeDocs({
+    groupIds: new Set(groupSnap.docs.map(d => d.id)),
+    eventIds: new Set(eventSnap.docs.map(d => d.id)),
+    absorbed: absorbedEventIds(eventSnap.docs.map(d => d.data())),
+  });
 
-  for (const e of COLLEGE_ENSEMBLES) {
-    const { id, ...data } = e;
-    ops.push(batch => batch.set(doc(dbRef, 'ensembles', id), {
-      ...data,
-      kind: 'ensemble',
-      collegeLevel: true,
-    }, { merge: true }));
-  }
-
-  for (const c of COLLEGE_CLASSES) {
-    ops.push(batch => batch.set(doc(dbRef, 'ensembles', c.id), {
-      kind: 'class',
-      collegeLevel: true,
-      name: c.title,
-      order: c.order,
-      conductorName: c.teacher,
-      ...(c.room ? { defaultLocation: c.room } : {}),
-      ...(c.courseCode ? { courseCode: c.courseCode } : {}),
-      term: c.term ?? COLLEGE_TERM,
-      defaultStartTime: c.start,
-      defaultEndTime: c.end,
-      meetingDays: c.days,
-    }, { merge: true }));
-  }
-
-  // { merge: true } is load-bearing, not tidiness. A bare set() here REPLACED
-  // each session doc, so re-running this — which the "Set up college program"
-  // button does, in one click — wiped every college class meeting's
-  // `status: 'Cancelled'` and `changeNote`, silently putting cancelled classes
-  // back on students' calendars. The group writes above already merged, and so
-  // does collegeChamberRehearsalPatches below; this one line was the outlier.
-  const sessions = collegeClassEventDocs();
-  for (const { id, data } of sessions) {
-    ops.push(batch => batch.set(doc(dbRef, 'events', id), data, { merge: true }));
-  }
-
-  for (const { id, data } of collegeChamberRehearsalPatches()) {
-    ops.push(batch => batch.set(doc(dbRef, 'events', id), data, { merge: true }));
-  }
-
-  for (let i = 0; i < ops.length; i += CHUNK) {
+  // ponytail: the browser SDK has no create-only write. A doc that appears in
+  // the seconds between the read above and this write would be replaced. Only
+  // another seed writes these ids. Use a transaction per chunk if that matters.
+  const writes = [
+    ...groups.map(g => ({ ref: doc(dbRef, 'ensembles', g.id), data: g.data })),
+    ...sessions.map(s => ({ ref: doc(dbRef, 'events', s.id), data: s.data })),
+  ];
+  for (let i = 0; i < writes.length; i += CHUNK) {
     const batch = writeBatch(dbRef);
-    for (const op of ops.slice(i, i + CHUNK)) op(batch);
+    for (const w of writes.slice(i, i + CHUNK)) batch.set(w.ref, w.data);
     await batch.commit();
   }
 
-  return {
-    ensembles: COLLEGE_ENSEMBLES.length,
-    classes: COLLEGE_CLASSES.length,
-    sessions: sessions.length,
-  };
+  return { groups: groups.length, sessions: sessions.length };
+}
+
+/** What the two buttons say when the seed is done. */
+export function collegeSeedSummary(r: { groups: number; sessions: number }): string {
+  if (r.groups === 0 && r.sessions === 0) return 'College: nothing was missing. Nothing was changed.';
+  return `College: added ${r.groups} group(s) and ${r.sessions} class meeting(s). Nothing that already existed was changed.`;
 }

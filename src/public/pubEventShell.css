@@ -154,3 +154,20 @@
   line-height: 1.45;
   color: var(--pub-muted);
 }
+
+/* Equipment needed (#equipment): totals rows reuse the day-sheet row
+   styles; the percussion battery is a plain itemized list. */
+.pub-equipment-perc-head {
+  margin-top: 12px;
+  font-weight: 700;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--pub-muted);
+}
+.pub-equipment-perc {
+  margin: 6px 0 0;
+  padding-left: 20px;
+  line-height: 1.5;
+}
+.pub-equipment-perc li { padding: 2px 0; }

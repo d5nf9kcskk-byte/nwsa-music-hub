@@ -349,8 +349,9 @@ MDCPS teacher-planning day even though MDC was in full session that day.
   MDCPS-only closure — simply did not exist in Firestore until 2026-09-19.
   The director reported it as "you cancelled the college classes"; they had
   never been created. After changing which calendar a generator asks, re-run
-  that generator (`Seed College Program` is idempotent and `workflow_dispatch`)
-  and verify against the live data, which is world-readable for `events`.
+  that generator (`Seed College Program` is `workflow_dispatch`, and by
+  default it only adds what is missing, below) and verify against the live
+  data, which is world-readable for `events`.
 - **`scripts/calendar-closures-audit.mjs` is that verification**, as a command
   (*Audit Calendar Closures*, `workflow_dispatch`). It asks the live project
   whether every closure agrees with both calendars, in BOTH directions: no
@@ -367,6 +368,50 @@ MDCPS teacher-planning day even though MDC was in full session that day.
   in `.github/actions/self-checks`: those are pure and offline and gate every
   build, and this one needs the network and live data. Run it after a seed,
   after editing either calendar, and when setting up a new school year.
+- **The college's term dates come from MDC's own published calendar and final
+  exam schedule, never from the high school's last day** (2026-11-12). The
+  code ended the college's spring on June 3, 2027, which is the MDCPS last
+  day. It ran spring break through March 29, which is an MDCPS teacher
+  planning day. It had classes on March 4, MDC's Employee Retreat. The real
+  dates: the term is Jan 4 to April 30, 2027 (last day of classes and final
+  exams), spring break is March 22 to 28, classes resume March 29, and
+  March 4 has no classes. The three sources, all on mdc.edu and listed with
+  their URLs above `MDC_NO_SCHOOL` in `src/shared/academicCalendars.ts`: the
+  Final Exam Schedule for Spring 2027 (Term 2273), the Academic Calendar, and
+  the 2027 holidays page. `MDC_YEAR` holds the year's two outer dates and
+  `isCollegeSessionDay()` reads them. `campusCalendar.selfcheck.ts` pins each
+  fact from both sides, and that every `MDC_NO_SCHOOL` date is inside a term
+  (Memorial Day is an MDC holiday a month after the term ends, so it is not
+  listed). On the live calendar the wrong dates had left 155 generated
+  college meetings after April 30 and 7 on March 4, and none on March 29.
+  - **`scripts/prune-college-sessions.mjs` (*Prune College Sessions*
+    workflow) removes them.** Preview by default; it deletes only with
+    `--apply` and the service account. It removes a generated college meeting
+    on a day the college holds no classes, and refuses any that a person has
+    touched (roll, a change note, a cancel, an edit, a roster move) or that
+    has already happened. It reads `events` and the event id field of
+    `rosterOverridesPublic` and nothing else. It runs only against the
+    `nwsa-hub` project. Each delete carries the update time the read saw
+    (`UPDATE_TIME` in `scripts/lib/hubTool.mjs`), so a meeting somebody
+    cancels or edits between the read and the delete fails its batch instead
+    of being deleted. Its `--selfcheck` runs in the self-checks.
+  - **A college seed only ADDS WHAT IS MISSING.** `missingCollegeDocs()` in
+    `collegeSchedule.ts` is the ONE decision behind `scripts/seed-college.mjs`
+    (its default), the in-app "Add college program" and "Set up college
+    program" buttons (`seedCollege.ts`), and the prune's "Missing classes"
+    list: the groups and class meetings that do not exist, never one that
+    does, and never one a combined block is holding (`changeFrom.absorbed`).
+    That is how the March 29 classes get added after a prune. The old run
+    merged the generator's fields over every meeting, `status` included, so a
+    cancelled class came back as Scheduled. It still exists as `--overwrite`
+    (the workflow's "Missing only" unticked, or `"missing_only": false` in the
+    trigger file) and nowhere else. Do not give a seed a merge back.
+  - **No seed creates a College Chamber Orchestra rehearsal safely.**
+    `scripts/add-ensembles.mjs` and the in-app `seedCalendar()` write over
+    every rehearsal that exists. The prune lists missing rehearsals apart
+    from missing classes and says they need adding by hand.
+  - *Seed College Program* and *Prune College Sessions* share the `hub-tools`
+    concurrency group, so one never creates while the other deletes.
 - **A cancelled day takes the day's private LESSONS with it.** They are in
   another collection and were never in `dayEvents`, so a cancelled Monday used
   to look empty with a violin lesson still on it. It cannot be tidied up
@@ -1238,7 +1283,7 @@ for them), `boundUid` (the one Hub sign-in account that goes with it),
   of signing in gets a clause on purpose or gets nothing. Every gate calls
   it: `signedIn()` and `verifiedSelf()` in `firestore.rules` (the only two
   places that file reads a token for access; every role helper goes through
-  `hasRole()`, which asks `signedIn()` first), the four staff helpers in
+  `hasRole()`, which asks `signedIn()` first), the five staff helpers in
   `storage.rules`, and `staffFromIdToken()` in `functions/src/index.ts`, the
   ONE place a function may call `verifyIdToken` to learn who is asking
   (`bindGoogle` aside, which is what makes the record). Each such function
@@ -1521,6 +1566,15 @@ in `.github/actions/self-checks`.
 - **An interim covers the QUARTER TO DATE**, never the weeks since the last
   report. Getting this wrong produces numbers that are individually plausible
   and collectively wrong.
+- **A quarter already sent keeps its weights** (#gradebook-period-plans,
+  director 2026-11-16). Weights are read on every render, so changing
+  `grading.plans` re-grades every quarter on screen, including ones the
+  district already has. A period's own `plans` replaces the standing plans for
+  that period only, and `planFor()` in `ensembleGrades.ts` is the ONE
+  resolver. Q1 2026 is frozen at Required Performance Attendance 15 (the
+  standing plans dropped it to 10 from Q2). Before changing a standing weight
+  mid-year, copy the current plans onto every quarter already sent.
+  `gradingPeriods.selfcheck.ts` pins Q1's exact weights.
 - **Every district-specific string is org config** (`ORG.grading`): the
   weights, the comment codes, the comment triggers (79 or lower, effort 3,
   conduct C or lower), the standing request shown at the top of the screen,

@@ -294,20 +294,55 @@ export function runCorpus(label: string, cases: AskCase[], parse: Parse) {
   return count;
 }
 
+const resolve = (spec: string) => fileURLToPath(new URL(spec, import.meta.url));
+/** The answering half: the ONE file in Ask that reads records. */
+const ANSWERER = resolve('./answer.ts');
+const ANSWERER_CHECK = resolve('./answer.selfcheck.ts');
 /**
- * The import boundary (design 3.7), as an allowlist. Every `.ts` file in
- * `dir` may import only what `allowed` says, given the ABSOLUTE path the
- * import resolves to. A self-check may also use Node's own modules.
+ * Everything the answerer may import, and nothing else: the parser's own
+ * files, and the rules the public pages already answer with. Public
+ * projections and pure rules only. Never `director/utils`, the org config,
+ * React or Firestore. Adding a line here is a decision, not a chore.
+ */
+export const ANSWERER_MAY_IMPORT: readonly string[] = [
+  './corpus.ts', './parse.ts', './templates.ts',
+  '../fuzzy.ts', '../studentDay.ts', '../changeNoteEs.ts', '../pureRules.ts', '../studentRepertoire.ts',
+  '../concertRosters.ts', '../requiredAudience.ts', '../signupEligibility.ts', '../formLink.ts',
+  '../personName.ts', '../publicLesson.ts',
+  '../../director/groupKind.ts', '../../director/types.ts',
+].map(resolve);
+
+/**
+ * The import boundary (design 3.7), as TWO named allowlists, checked in every
+ * `.ts` file under `dir`, folders inside it included.
+ *
+ *   The parser's files (every file but the answerer): only what `allowed`
+ *   says, given the ABSOLUTE path the import resolves to, and NEVER the
+ *   answerer. The parser reads no record, and it must not reach one through
+ *   the file that does. Only the answerer's own self-check may import it.
+ *
+ *   The answerer (answer.ts): only ANSWERER_MAY_IMPORT.
+ *
+ * A self-check may also use Node's own modules.
  */
 export function checkImports(dir: URL, allowed: (path: string) => boolean, what: string) {
-  for (const file of readdirSync(dir).filter(f => f.endsWith('.ts'))) {
-    const at = new URL(file, dir);
+  const files = (d: URL): URL[] => readdirSync(d, { withFileTypes: true }).flatMap(e => (e.isDirectory()
+    ? files(new URL(`${e.name}/`, d))
+    : e.name.endsWith('.ts') ? [new URL(e.name, d)] : []));
+  const root = fileURLToPath(dir);
+  for (const at of files(dir)) {
+    const path = fileURLToPath(at);
+    const file = path.slice(root.length);
     for (const m of readFileSync(at, 'utf8').matchAll(/(?:\bfrom\s*|\bimport\s*\(?\s*)['"]([^'"]+)['"]/g)) {
       const spec = m[1];
-      const ok = spec.startsWith('.')
-        ? allowed(fileURLToPath(new URL(spec, at)))
-        : spec.startsWith('node:') && file.endsWith('.selfcheck.ts');
-      if (!ok) fail(`${file} imports "${spec}"; ${what}`);
+      const to = spec.startsWith('.') ? fileURLToPath(new URL(spec, at)) : spec;
+      if (path === ANSWERER) {
+        if (!ANSWERER_MAY_IMPORT.includes(to)) fail(`${file} imports "${spec}"; the answerer may import only ANSWERER_MAY_IMPORT (askKit.selfcheck.ts)`);
+      } else if (!spec.startsWith('.')) {
+        if (!(spec.startsWith('node:') && file.endsWith('.selfcheck.ts'))) fail(`${file} imports "${spec}"; ${what}`);
+      } else if (to === ANSWERER) {
+        if (path !== ANSWERER_CHECK) fail(`${file} imports the answerer; only answer.selfcheck.ts may. The parser reads no record`);
+      } else if (!allowed(to)) fail(`${file} imports "${spec}"; ${what}`);
     }
   }
 }
