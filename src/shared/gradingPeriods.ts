@@ -33,6 +33,8 @@
  * printed calendar, rather than merely looking plausible.
  */
 
+import type { PeriodPlans } from './ensembleGrades.ts';
+
 /** One MDCPS grading period. Dates are verbatim from the district calendar. */
 export interface GradingPeriod {
   id: string;
@@ -54,6 +56,13 @@ export interface GradingPeriod {
    * count stops matching and CI says so.
    */
   schoolDays?: number;
+  /**
+   * This period's own weights, replacing the standing plans for it alone
+   * (`planFor()` in ensembleGrades.ts). Set on a quarter once it has been sent
+   * to the district, before the standing weights change, so its finals stay
+   * what was reported. Absent = the standing plans.
+   */
+  plans?: PeriodPlans;
 }
 
 /** Which report is being produced: the mid-quarter interim, or the quarter. */

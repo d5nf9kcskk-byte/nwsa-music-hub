@@ -39,3 +39,11 @@ export function formKindOf(form: { formKind?: FormKind; signPdf?: unknown; audie
   if (form.audienceMode === 'open') return 'open';
   return 'signup';
 }
+
+/** Does a chaperone see this form (#chaperone)? Every permission slip, plus
+ *  any form a director ticked "Chaperones can see this form" on. The string
+ *  'true' counts too: the Fix One Field workflow writes text only, and it was
+ *  used to share a live form before the checkbox had shipped. */
+export function chaperoneSees(form: { formKind?: FormKind; signPdf?: unknown; audienceMode?: string; chaperoneVisible?: boolean | string }): boolean {
+  return formKindOf(form) === 'permission' || form.chaperoneVisible === true || form.chaperoneVisible === 'true';
+}

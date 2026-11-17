@@ -193,6 +193,42 @@ export function tallyGrade(
   };
 }
 
+/**
+ * A course's weighted plans. `default` answers for any group without its own;
+ * `college` for every college table; `byGroupKey` for a course that grades
+ * differently, keyed by ensemble id or a pseudo-id such as `applied`. An entry
+ * present but EMPTY means grading is deliberately off there and must never be
+ * re-defaulted (`??`, never `||`).
+ */
+export interface GradePlans {
+  default: GradeCategory[];
+  college?: GradeCategory[];
+  byGroupKey?: Record<string, GradeCategory[]>;
+}
+
+/**
+ * A grading period's OWN plans (#gradebook-period-plans, Nov 2026). Any part a
+ * period names replaces the standing plan for that period only; the parts it
+ * leaves out follow the standing plan. This exists so a quarter already sent
+ * to the district keeps the weights it was sent with: the director lowered
+ * Required Performance Attendance from 15 to 10 in Q2, and without this Q1's
+ * finals on screen would stop matching the report card.
+ */
+export type PeriodPlans = Partial<GradePlans>;
+
+/** The ONE answer to "which plan grades this table in this period". */
+export function planFor(
+  plans: GradePlans,
+  periodPlans: PeriodPlans | undefined,
+  groupKey: string,
+  world: 'hs' | 'college',
+): GradeCategory[] {
+  const own = periodPlans?.byGroupKey?.[groupKey] ?? plans.byGroupKey?.[groupKey];
+  if (own) return own;
+  const base = periodPlans?.default ?? plans.default;
+  return world === 'college' ? periodPlans?.college ?? plans.college ?? base : base;
+}
+
 /** A sentence naming what is wrong with an edited plan, or null. */
 export function planProblem(categories: GradeCategory[]): string | null {
   if (categories.length === 0) return null; // empty = grading off here, on purpose

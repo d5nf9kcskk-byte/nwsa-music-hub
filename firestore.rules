@@ -256,6 +256,14 @@ service cloud.firestore {
       return hasRole('assistant');
     }
 
+    // Chaperone (#chaperone): READ-ONLY, field-trip forms only. Deliberately
+    // NOT in isKnownRole(): a chaperone reads signupResponses and
+    // signupAudiences (to see who turned a form in) and nothing else that is
+    // staff-only, and writes nothing but their own sign-in receipt.
+    function isChaperoneRole() {
+      return hasRole('chaperone');
+    }
+
     // Does this assistant's directors doc list capability `c`?
     function assistantHas(c) {
       return isAssistantRole()
@@ -672,7 +680,7 @@ service cloud.firestore {
     // student doc ids shared with studentsPublic. Assistants with the
     // signups capability may manage invite lists for forms they create.
     match /signupAudiences/{formId} {
-      allow read: if canManageSignups();
+      allow read: if canManageSignups() || isChaperoneRole();
       allow create, update: if canManageSignups()
         && request.resource.data.keys().hasOnly(['studentIds'])
         && request.resource.data.studentIds is list
@@ -1072,7 +1080,7 @@ service cloud.firestore {
       // A response names a student, their grade, a contact address and a
       // signature — staff-eyes only (plus assistants managing sign-ups),
       // and never listable by the public side.
-      allow read: if canManageSignups();
+      allow read: if canManageSignups() || isChaperoneRole();
       allow update, delete: if canManageSignups();
     }
 
@@ -1713,7 +1721,7 @@ service cloud.firestore {
       // display-only — it is the resolved display name, which has no
       // server-side source of truth (it can fall back to the Google account
       // name), so it is never used for access decisions anywhere.
-      allow create: if isKnownRole()
+      allow create: if (isKnownRole() || isChaperoneRole())
         && request.resource.data.keys().hasOnly(['email', 'name', 'role', 'at'])
         && request.resource.data.email == request.auth.token.email
         && roleClaimValid(request.resource.data.role)

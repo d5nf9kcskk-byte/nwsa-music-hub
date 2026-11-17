@@ -172,6 +172,11 @@ const storageList = idToken => fetch(
   `http://${ST_HOST}/v0/b/${BUCKET}/o?prefix=${encodeURIComponent('submissions/a1/s1/')}&delimiter=%2F`,
   { headers: { Authorization: `Firebase ${idToken}` } },
 ).then(r => r.status);
+/** A signed field trip form in Storage (staff, or a chaperone): 403 when refused, 404 when let in (no such file here). */
+const signedFormGet = idToken => fetch(
+  `http://${ST_HOST}/v0/b/${BUCKET}/o/${encodeURIComponent('signupSignedForms/f1/s1/form.pdf')}`,
+  { headers: { Authorization: `Firebase ${idToken}` } },
+).then(r => r.status);
 
 /** Each gate's answer for this token. Firestore's two reads must agree with each other. */
 async function gates(idToken, email) {
@@ -270,6 +275,21 @@ async function s2_switchOn_everyRole() {
     must(out && answer === 'again' && stillOut && after.firestore && after.functions && after.storage === storageWant,
       `${who}: out before (${shape(before)}); the app asks, "${answer}"; still out until they sign in once more; then in`);
   }
+
+  // A chaperone (#chaperone) may open field trip forms and nothing else, so
+  // the three probes above do not fit: ask for the two things they may open.
+  // A missing form answers 404 when the rules let the caller in, 403 when not.
+  const chap = 'chaperone@school.test';
+  await list(chap, 'chaperone');
+  const c = await google('chaperone-phone', chap);
+  const t0 = await tokenOf(c.d);
+  const outC = await fsGet('signupResponses/none', t0) === 403 && await signedFormGet(t0) === 403;
+  const answerC = await askToBind(c.d);
+  const t1 = await tokenOf((await google('chaperone-phone', chap, undefined, c.d)).d);
+  must(outC && answerC === 'again' && await fsGet('signupResponses/none', t1) === 404 && await signedFormGet(t1) === 404,
+    'chaperone: no form answers and no signed forms before; the app asks, "again"; both open once they have signed in once more');
+  must(await fsGet('students/probe', t1) === 403 && await storageList(t1) === 403 && await functionsGate(t1) === false,
+    'and a confirmed chaperone still gets nothing else: no roster, no staff files, no staff functions');
 }
 
 async function s3_whoMayWriteTheRecord() {

@@ -21,7 +21,7 @@ import type { ConcertAttendance } from '../../shared/calendarView';
 import { activeCollegePreset, collegeFilterIds, type CollegeFilterPreset } from '../../shared/collegeCalendarFilter';
 import { seedCalendar, seedSchoolCalendar, seedExtraSchedule } from '../seedCalendar';
 import { seedAcademicClasses } from '../seedAcademicClasses';
-import { seedCollegeProgram } from '../seedCollege';
+import { seedCollegeProgram, collegeSeedSummary } from '../seedCollege';
 import { useMonthSwipe } from '../../shared/useMonthSwipe';
 import {
   todayStr, toDateStr, parseDate, addDays, formatTimeRange, ensembleColor, musicEnsembles, assignmentEmoji, CONCERT_COLOR, ASSIGN_COLOR, APPT_COLOR,
@@ -173,7 +173,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
     setCollegeMsg('');
     try {
       const r = await seedCollegeProgram();
-      setCollegeMsg(`College: ${r.ensembles} ensemble(s), ${r.classes} class(es), ${r.sessions} session(s).`);
+      setCollegeMsg(collegeSeedSummary(r));
       setCollegeState('done');
     } catch (e) {
       setCollegeMsg(e instanceof Error ? e.message : String(e));
@@ -560,7 +560,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
               className="dir-tool-btn"
               onClick={handleSeedCollege}
               disabled={collegeState === 'seeding'}
-              title="Add college ensembles, dual-enrollment classes, and their calendar sessions"
+              title="Adds any college group or class meeting that is missing. Nothing that already exists is changed."
             >
               <Sparkles size={15} /> {collegeState === 'seeding' ? 'Adding…' : 'Add college program'}
             </button>

@@ -5,7 +5,7 @@
  * This repo keeps no rules test suite: each one so far was written for one
  * change and thrown away. This is the general-purpose one. It signs in with
  * GOOGLE as every role (owner, director, a legacy doc with no role, applied
- * teacher, classroom teacher, student assistant), as a Google account that
+ * teacher, classroom teacher, student assistant, chaperone), as a Google account that
  * is not listed, and as nobody, and puts the same battery of reads and
  * writes to every collection in firestore.rules and every path in
  * storage.rules. It does not judge the answers. It RECORDS them, so two
@@ -100,6 +100,7 @@ const PEOPLE = {
   teacher: { roles: ['teacher'], assignedStudentIds: ['stu-1'] },
   classroom: { roles: ['classroom'], assignedEnsembleIds: ['ens-1'] },
   assistant: { roles: ['assistant'], assignedEnsembleIds: ['ens-1'], assistantCapabilities: ['schedule', 'repertoire', 'signups', 'announcements'] },
+  chaperone: { roles: ['chaperone'] }, // view-only: field trip forms (#chaperone)
   unlisted: null, // a real Google account that nobody added
   nobody: undefined, // not signed in
 };

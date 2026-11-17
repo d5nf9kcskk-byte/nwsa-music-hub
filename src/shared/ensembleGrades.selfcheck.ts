@@ -10,7 +10,7 @@ import {
   COVERAGE_FLOOR, FULL_MARKS, attendanceByStudent, byLastName, commentReasons, concertItemScore,
   concertRoll, concertSuggestion, itemAverage, itemKey, parseItemKey, rollEffect,
   conductValue, effortValue, examEvidence, fillValueFor, gradeValue, lastFirst, lastName,
-  displayName, meetingsHeld, parseName, planProblem, rowReadiness, tallyGrade,
+  displayName, meetingsHeld, parseName, planFor, planProblem, rowReadiness, tallyGrade,
   categoryResult, cleanLabel, concertRequiredOf, concertRole, concertScore, customKey,
   parseColumnKey, tallyCount, tallyKey,
   type ConcertLike, type ConcertRoll, type GradeCategory, type MarkLike,
@@ -462,5 +462,32 @@ assert(cs({ role: 'audience' }) === 0 && cs({ role: 'audience', hasIn: true }) =
 assert(cs({ role: 'audience', hasIn: true, entryOnly: true }) === 100, 'an entry-only night credits the arrival alone');
 assert(cs({ role: 'audience', roll: 'excused' }) === null, 'an audience member excused on a roll is blank');
 assert(cs({ roll: 'absent', hasIn: true, hasOut: true }) === 100, 'a completed pair of scans outranks an Absent mark');
+
+/* ── a period's own plans (#gradebook-period-plans) ─────────────────────── */
+// A quarter already sent to the district keeps the weights it was sent with.
+{
+  const c = (id: string, weight: number): GradeCategory => ({ id, label: id, weight });
+  const STANDING = {
+    default: [c('concerts', 10)],
+    college: [c('concerts', 10), c('lessons', 15)],
+    byGroupKey: { applied: [c('lessons', 100)] },
+  };
+  const FROZEN = { default: [c('concerts', 15)], college: [c('concerts', 15), c('lessons', 15)] };
+  const w = (plan: GradeCategory[]) => plan.map(x => `${x.id}:${x.weight}`).join(',');
+  assert(w(planFor(STANDING, undefined, 'symphony-orchestra', 'hs')) === 'concerts:10',
+    'no period plans: the standing default');
+  assert(w(planFor(STANDING, FROZEN, 'symphony-orchestra', 'hs')) === 'concerts:15',
+    "a period's own default replaces the standing one for that period");
+  assert(w(planFor(STANDING, FROZEN, 'symphony-orchestra', 'college')) === 'concerts:15,lessons:15',
+    "a period's own college plan replaces the standing college plan");
+  assert(w(planFor(STANDING, FROZEN, 'applied', 'hs')) === 'lessons:100',
+    'a part the period leaves out (applied) follows the standing plan');
+  assert(w(planFor(STANDING, { default: [c('concerts', 15)] }, 'x', 'college')) === 'concerts:10,lessons:15',
+    'overriding only the default leaves college tables on the standing college plan');
+  assert(w(planFor({ default: [c('concerts', 10)] }, { default: [c('concerts', 15)] }, 'x', 'college')) === 'concerts:15',
+    "with no college plan anywhere, a college table follows the period's default");
+  assert(planFor(STANDING, { byGroupKey: { applied: [] } }, 'applied', 'hs').length === 0,
+    'an EMPTY plan is grading turned off, never re-defaulted');
+}
 
 console.log('ensembleGrades.selfcheck: all assertions passed');
