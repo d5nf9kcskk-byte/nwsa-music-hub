@@ -707,6 +707,13 @@ reader, pinned by `partBooks.selfcheck.ts` in the self-checks.
 - **A student's own book uses the SAME matcher as a piece's own part**
   (`findPartForInstrument`), so the two can never disagree about a student's
   chair. Do not write a second matcher for books.
+- **The matcher matches whole instruments** (Nov 2026). An instrument may end
+  a longer word ("cello" in "Violoncello 1", "bass" in "Contrabass") or be
+  plural ("Basses"), but never starts one and never merely modifies another,
+  so a Bass player is never handed a Bassoon, Bass Trombone or Bass Drum book
+  and a bassoonist never the Bass book. Before, plain substring matching did
+  both on live cards (nine and thirteen). `partForInstrument.selfcheck.ts`
+  pins it with label lists copied from those cards.
 - **Only a performer is offered their own book.** The concert card on a
   student's schedule already lists only what they play (#student-repertoire),
   so an audience-only concert shows no book link at all; the event page offers
