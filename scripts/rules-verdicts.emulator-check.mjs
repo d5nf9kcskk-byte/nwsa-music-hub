@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Did a rules change move anything it was not meant to? (#google-binding)
+ * Did a rules change move anything it was not meant to? (#google-binding, #password-sign-in)
  *
  * This repo keeps no rules test suite: each one so far was written for one
  * change and thrown away. This is the general-purpose one. It signs in with

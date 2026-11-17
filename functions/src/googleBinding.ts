@@ -19,8 +19,9 @@
  * account the caller arrived on is deleted and a new one is made that only
  * this Google identity opens. The caller's same Google sign-in then opens it.
  *
- * What it never does: put anyone on the list, or move a record to a
- * different Google account. A person whose Google account really did change
+ * What it never does: put anyone on the list, move a record to a different
+ * Google account, or put a Google account on a record its owner made with a
+ * password alone. A person whose Google account really did change
  * asks the Owner to reset the record on the Directors screen. If a Google
  * identity the entry does not name turns up ON the recorded account, the
  * account is made afresh for the identity the entry does name, which signs
@@ -59,6 +60,8 @@ export type BindOutcome =
 export interface BindEntry {
   googleSub?: string;
   boundUid?: string;
+  /** The server set a password on the recorded account, through the person's own inbox (#password-sign-in). */
+  passwordSet?: boolean;
 }
 
 export interface BindDeps {
@@ -124,6 +127,12 @@ export async function bindGoogle(deps: BindDeps, claims: BindClaims, googleToken
     if (user.disabled) return 'mismatch';
     const entry = await deps.getEntry(email);
     if (!entry) return 'not-listed';
+
+    // (#password-sign-in) A person who has only ever used a password: their
+    // record was made with their own inbox, and names no Google identity. A
+    // Google sign-in does not get to replace that by itself, whoever's it
+    // is. The Owner's Reset is how such a person adds Google.
+    if (!entry.googleSub && entry.passwordSet === true) return 'other-account';
 
     if (entry.googleSub && entry.googleSub !== google.sub) {
       // A Google identity the entry does not name, ON the account the entry

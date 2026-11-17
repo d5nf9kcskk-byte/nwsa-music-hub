@@ -8,7 +8,9 @@
  *   OK             every sign-in account has exactly one Google identity,
  *                  Google's own address for it is the account's address, and
  *                  where the Directors entry for that address records which
- *                  account is the person's, this is that account.
+ *                  account is the person's, this is that account. A password
+ *                  is fine on that account, and only there, when the entry
+ *                  says the server set one (#password-sign-in).
  *   REVIEW NEEDED  at least one account is something else.
  *
  * An account that needs review cannot be tied to a Directors entry
@@ -35,14 +37,32 @@
  * Is this account anything other than what the Hub expects? `entry` is the
  * Directors entry for the account's address, when there is one.
  */
+/** How much later than the record an account's last reset may be and still count as part of making it. */
+export const CLOCK_ROOM_MS = 10_000;
+
 export function needsReview(user, entry) {
   const email = (user.email ?? '').toLowerCase();
   const providers = user.providerData ?? [];
   const google = providers.filter(p => p.providerId === 'google.com');
-  if (!email || providers.length !== 1 || google.length !== 1) return true;
-  if ((google[0].email ?? '').toLowerCase() !== email) return true;
-  // The entry records which account is this person's: it must be this one.
-  if (entry?.googleSub && google[0].uid !== entry.googleSub) return true;
+  const password = providers.filter(p => p.providerId === 'password');
+  if (!email || !providers.length || google.length > 1 || password.length > 1) return true;
+  if (google.length + password.length !== providers.length) return true;
+  if (google.length && (google[0].email ?? '').toLowerCase() !== email) return true;
+  // A password belongs only on the account its entry names, and only when
+  // the entry says the server set one.
+  if (password.length && !(entry?.passwordSet === true && entry.boundUid === user.uid)) return true;
+  // The entry records which account is this person's: it must be this one,
+  // with the Google identity the entry names and no other.
+  if (entry?.googleSub && (!google.length || google[0].uid !== entry.googleSub)) return true;
+  // The account on record is as the server left it. The sign-in service
+  // notes when an account's sign-ins were last reset, which it also does
+  // when the password on it is changed. Later than the record (with a
+  // little room for two clocks) means something changed it since.
+  const resetAt = Date.parse(user.tokensValidAfterTime ?? '');
+  if (entry?.boundUid === user.uid && typeof entry.boundAt === 'number' && Number.isFinite(resetAt) && resetAt > entry.boundAt + CLOCK_ROOM_MS) return true;
+  // A record made with a password alone names no Google identity, so its
+  // account should carry none.
+  if (entry?.passwordSet === true && !entry.googleSub && entry.boundUid === user.uid && google.length) return true;
   if (entry?.boundUid && user.uid !== entry.boundUid) return true;
   return false;
 }
@@ -58,7 +78,20 @@ if (process.argv.includes('--selfcheck')) {
     [{ email: 'pat@school.test', providerData: [{ providerId: 'password', email: 'pat@school.test' }] }, undefined, true, 'not a Google account'],
     [{ email: 'pat@school.test', providerData: [] }, undefined, true, 'no sign-in identity at all'],
     [{ providerData: [] }, undefined, true, 'an account with no address'],
-    [{ email: 'pat@school.test', providerData: [{ providerId: 'google.com', email: 'pat@school.test' }, { providerId: 'password', email: 'pat@school.test' }] }, undefined, true, 'a Google account with something else on it'],
+    [{ email: 'pat@school.test', providerData: [{ providerId: 'google.com', email: 'pat@school.test' }, { providerId: 'password', email: 'pat@school.test' }] }, undefined, true, 'a Google account with a password on it that no entry accounts for'],
+    [{ email: 'pat@school.test', providerData: [{ providerId: 'google.com', email: 'pat@school.test' }, { providerId: 'phone' }] }, undefined, true, 'a Google account with something else on it'],
+    [{ uid: 'u1', email: 'pat@school.test', providerData: [{ providerId: 'google.com', uid: 'g1', email: 'pat@school.test' }, { providerId: 'password', email: 'pat@school.test' }] }, { ...tied, passwordSet: true }, false, 'the account on record, with the password the server set and the entry\'s Google identity'],
+    [{ uid: 'u1', email: 'pat@school.test', providerData: [{ providerId: 'password', email: 'pat@school.test' }] }, { boundUid: 'u1', passwordSet: true }, false, 'the account on record of a person who has only ever used a password'],
+    [{ uid: 'u1', email: 'pat@school.test', tokensValidAfterTime: new Date(1_800_000_000_000).toUTCString(), providerData: [{ providerId: 'password', email: 'pat@school.test' }] }, { boundUid: 'u1', boundAt: 1_800_000_002_000, passwordSet: true }, false, 'that account, last reset when the server made it'],
+    [{ uid: 'u1', email: 'pat@school.test', tokensValidAfterTime: new Date(1_800_000_600_000).toUTCString(), providerData: [{ providerId: 'password', email: 'pat@school.test' }] }, { boundUid: 'u1', boundAt: 1_800_000_002_000, passwordSet: true }, true, 'that account, changed since the server recorded it'],
+    [{ ...g('pat@school.test', 'pat@school.test'), tokensValidAfterTime: new Date(1_800_000_600_000).toUTCString() }, { ...tied, boundAt: 1_800_000_002_000 }, true, 'a Google account on record, changed since the server recorded it'],
+    [{ ...g('pat@school.test', 'pat@school.test'), tokensValidAfterTime: new Date(1_800_000_600_000).toUTCString() }, undefined, false, 'an account no entry records is not judged by this'],
+    [{ ...g('pat@school.test', 'pat@school.test'), tokensValidAfterTime: 'not a date' }, { ...tied, boundAt: 1_800_000_002_000 }, false, 'an unreadable time is not a finding'],
+    [{ uid: 'u1', email: 'pat@school.test', providerData: [{ providerId: 'google.com', uid: 'g1', email: 'pat@school.test' }, { providerId: 'password', email: 'pat@school.test' }] }, { boundUid: 'u1', passwordSet: true }, true, 'that same account with a Google identity on it, when its entry names none'],
+    [{ uid: 'u1', email: 'pat@school.test', providerData: [{ providerId: 'google.com', uid: 'g1', email: 'pat@school.test' }, { providerId: 'password', email: 'pat@school.test' }] }, tied, true, 'a password on the account on record that the server did not set'],
+    [{ uid: 'u2', email: 'pat@school.test', providerData: [{ providerId: 'password', email: 'pat@school.test' }] }, { boundUid: 'u1', passwordSet: true }, true, 'a password account that is not the one on record'],
+    [{ uid: 'u1', email: 'pat@school.test', providerData: [{ providerId: 'google.com', uid: 'g-other', email: 'pat@school.test' }, { providerId: 'password', email: 'pat@school.test' }] }, { ...tied, passwordSet: true }, true, 'the account on record, but with a Google identity that is not the entry\'s'],
+    [{ uid: 'u1', email: 'pat@school.test', providerData: [{ providerId: 'password', email: 'pat@school.test' }] }, { ...tied, passwordSet: true }, true, 'the account on record of a tied person, with no Google identity on it any more'],
     [g('pat@school.test', 'pat@school.test'), tied, false, 'the account its entry records'],
     [g('pat@school.test', 'pat@school.test'), { googleSub: 'g-other', boundUid: 'u1' }, true, 'its Google id is not the one its entry records'],
     [g('pat@school.test', 'pat@school.test'), { googleSub: 'g1', boundUid: 'u-other' }, true, 'it is not the account its entry records'],
@@ -75,6 +108,8 @@ if (process.argv.includes('--selfcheck')) {
   const prints = [...live.matchAll(/console\.log\(([^)]*)\)/g)].map(m => m[1]);
   const ok = prints.every(p => p === "'OK'" || p === "'REVIEW NEEDED'" || p === 'line');
   if (!ok || !/process\.env\.GITHUB_ACTIONS/.test(live)) { failed++; console.error('  ✗ the real run prints only OK or REVIEW NEEDED, and refuses details inside Actions'); }
+  // The real run hands the rule everything it judges by, the time the record was made included.
+  if (!/entries\.set\(d\.id\.toLowerCase\(\), \{ googleSub: text\(d\.get\('googleSub'\)\), boundUid: text\(d\.get\('boundUid'\)\), passwordSet: d\.get\('passwordSet'\) === true, boundAt: d\.get\('boundAt'\) \}\);/.test(live)) { failed++; console.error('  ✗ the real run reads each entry\'s Google id, account, password mark and the time it was recorded'); }
   console.log(failed ? `sign-in accounts audit self-check: ${failed} failure(s)` : 'sign-in accounts audit self-check: ok');
   process.exit(failed ? 1 : 0);
 }
@@ -100,7 +135,7 @@ const auth = getAuth();
 const entries = new Map();
 for (const d of (await getFirestore().collection('directors').get()).docs) {
   const text = v => (typeof v === 'string' && v ? v : undefined);
-  entries.set(d.id.toLowerCase(), { googleSub: text(d.get('googleSub')), boundUid: text(d.get('boundUid')) });
+  entries.set(d.id.toLowerCase(), { googleSub: text(d.get('googleSub')), boundUid: text(d.get('boundUid')), passwordSet: d.get('passwordSet') === true, boundAt: d.get('boundAt') });
 }
 
 const flagged = [];
