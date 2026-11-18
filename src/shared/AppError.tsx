@@ -16,7 +16,7 @@ export function AppError() {
       padding: 24, textAlign: 'center', background: '#f6f7f9', color: '#18212f',
       fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     }}>
-      <div style={{ fontSize: 44 }}>🎻</div>
+      <img src={`${import.meta.env.BASE_URL}${ORG.logoFile}`} alt={ORG.orgShortName} style={{ width: 96, height: 'auto' }} />
       <h1 style={{ fontSize: 20, margin: 0 }}>Something went wrong</h1>
       <p style={{ margin: 0, fontSize: 14, color: '#6b7686', maxWidth: 420 }}>
         The page hit an unexpected error. Reloading usually fixes it — if it

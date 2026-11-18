@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getLang } from './i18n';
 import { LOGO_CHEERS, say } from './whimsy';
+import { playViceSplash } from './viceSplash';
 
 /**
  * Tap-the-logo easter egg (#easter-eggs): five quick taps on the brand mark
@@ -29,6 +30,7 @@ export function useLogoEgg() {
   const fire = useCallback(() => {
     const pick = LOGO_CHEERS[Date.now() % LOGO_CHEERS.length];
     setCheer(say(pick, getLang()));
+    playViceSplash(true);
     clearTimeout(timer.current);
     timer.current = setTimeout(() => setCheer(null), 2400);
   }, []);
