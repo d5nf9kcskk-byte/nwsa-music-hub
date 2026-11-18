@@ -633,6 +633,15 @@ runs:
       run: npx tsx src/director/masterclassSections.selfcheck.ts
       shell: bash
 
+    # The "your part" match on a piece card, against labels copied from live
+    # cards: a Bass player is never handed a Bassoon or Bass Trombone book,
+    # nor a bassoonist the Bass book ("bass" ends "contrabass" but never
+    # starts "bassoon"); Cello still finds "Violoncello 1". utils.ts reaches
+    # src/org, so it needs the defines shim.
+    - name: Check part-for-instrument matching
+      run: npx tsx --import ./scripts/vite-defines-shim.mjs src/director/partForInstrument.selfcheck.ts
+      shell: bash
+
     - name: Check class schedule and AP Theory enrollment
       run: npx tsx src/director/classSchedule.selfcheck.ts
       shell: bash

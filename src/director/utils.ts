@@ -280,11 +280,33 @@ export function rollTarget(e: Pick<CalendarEvent, 'id' | 'date' | 'type' | 'ense
 
 // ── Repertoire helpers ─────────────────────────────────────────────────
 
+/** A word that NAMES an instrument when it follows another word: in "bass
+ *  trombone", "bass clarinet" or "bass drum" the first word only modifies it. */
+const HEAD_NOUN = /^[\s-]+(trombone|clarinet|drums?|guitar|flute|sax(ophone)?|oboe|trumpet|tuba|horn|voice|recorder)\b/;
+
+/**
+ * Does `hay` name the instrument `needle`? It may END a longer word ("cello" in
+ * "violoncello", "bass" in "contrabass") or be plural ("basses"), but never
+ * START one ("bass" is not "bassoon") and never merely modify another
+ * instrument ("bass" is not "bass trombone"). Both already normalized.
+ */
+function namesInstrument(hay: string, needle: string): boolean {
+  if (!needle) return false;
+  const re = new RegExp(needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(e?s)?(?![a-z])', 'g');
+  for (const m of hay.matchAll(re)) {
+    if (!HEAD_NOUN.test(hay.slice((m.index ?? 0) + m[0].length))) return true;
+  }
+  return false;
+}
+
 /**
  * Find the part link matching a student's instrument. An exact name match wins;
- * otherwise names may contain each other ("Trumpet in B♭" ↔ "Trumpet") — but
- * never across DIFFERENT part numbers, so a Violin II student is never handed
- * the Violin I part just because the names overlap.
+ * otherwise names may contain each other as whole instruments ("Trumpet in B♭"
+ * ↔ "Trumpet", "Cello" ↔ "Violoncello 1"; see `namesInstrument`, which is why a
+ * Bass player is never handed a Bassoon or Bass Trombone book, nor a bassoonist
+ * the Bass book) — but never across DIFFERENT part numbers, so a Violin II
+ * student is never handed the Violin I part just because the names overlap.
+ * `partForInstrument.selfcheck.ts` pins this against real card labels.
  */
 export function findPartForInstrument(
   piece: Pick<RepertoirePiece, 'partsLinks'>,
@@ -313,7 +335,7 @@ export function findPartForInstrument(
   return links.find(l => {
     const li = norm(l.instrument);
     const lBase = baseOf(li);
-    if (!(lBase.includes(iBase) || iBase.includes(lBase))) return false;
+    if (!(namesInstrument(lBase, iBase) || namesInstrument(iBase, lBase))) return false;
     const lNo = partNo(li);
     return lNo === null || iNo === null || lNo === iNo;
   });
