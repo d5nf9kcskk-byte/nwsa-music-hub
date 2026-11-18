@@ -70,7 +70,7 @@ const QR_PRINT_CSS = `
     content: ""; position: absolute; inset: 0.32in;
     border: 1px solid rgba(200,165,42,0.55); border-radius: 12px; pointer-events: none;
   }
-  .dir-qr-launch-logo { width: 1in; height: auto; margin-top: 0.08in; position: relative; z-index: 1; }
+  .dir-qr-launch-logo { width: 0.88in; height: auto; margin-top: 0.08in; position: relative; z-index: 1; }
   .dir-qr-launch-school {
     margin: 0.12in 0 0; font-size: 11pt; font-weight: 700; letter-spacing: 0.18em;
     text-transform: uppercase; color: rgba(255,255,255,0.88); position: relative; z-index: 1;

@@ -14,6 +14,7 @@ import { initLook } from './public/look';
 import { initHub2 } from './shared/hub2Preview';
 import { dissolve } from './shared/hub2Dissolve';
 import { changesPage } from './shared/hub2Motion';
+import { initViceSplash, playViceSplash } from './shared/viceSplash';
 
 import { PublicLayout } from './public/PublicLayout';
 import { PublicHome } from './public/PublicHome';
@@ -145,7 +146,7 @@ const router = createBrowserRouter(
       path: '/director/*',
       errorElement: <AppError />,
       element: (
-        <Suspense fallback={<div style={{ padding: 32, textAlign: 'center', color: '#6b7686' }}>Loading director tools…</div>}>
+        <Suspense fallback={<div style={{ padding: 32, textAlign: 'center', color: '#6b7686' }}><img src={`${import.meta.env.BASE_URL}${ORG.logoFile}`} alt="" className="vice-stamp vice-stamp-sm" />Loading director tools…</div>}>
           <DirectorApp />
         </Suspense>
       ),
@@ -158,7 +159,7 @@ const router = createBrowserRouter(
       path: '/assistant/*',
       errorElement: <AppError />,
       element: (
-        <Suspense fallback={<div style={{ padding: 32, textAlign: 'center', color: '#6b7686' }}>Loading…</div>}>
+        <Suspense fallback={<div style={{ padding: 32, textAlign: 'center', color: '#6b7686' }}><img src={`${import.meta.env.BASE_URL}${ORG.logoFile}`} alt="" className="vice-stamp vice-stamp-sm" />Loading…</div>}>
           <DirectorApp />
         </Suspense>
       ),
@@ -167,7 +168,7 @@ const router = createBrowserRouter(
       path: '/teacher/*',
       errorElement: <AppError />,
       element: (
-        <Suspense fallback={<div style={{ padding: 32, textAlign: 'center', color: '#6b7686' }}>Loading…</div>}>
+        <Suspense fallback={<div style={{ padding: 32, textAlign: 'center', color: '#6b7686' }}><img src={`${import.meta.env.BASE_URL}${ORG.logoFile}`} alt="" className="vice-stamp vice-stamp-sm" />Loading…</div>}>
           <DirectorApp />
         </Suspense>
       ),
@@ -176,7 +177,7 @@ const router = createBrowserRouter(
       path: '/classroom/*',
       errorElement: <AppError />,
       element: (
-        <Suspense fallback={<div style={{ padding: 32, textAlign: 'center', color: '#6b7686' }}>Loading…</div>}>
+        <Suspense fallback={<div style={{ padding: 32, textAlign: 'center', color: '#6b7686' }}><img src={`${import.meta.env.BASE_URL}${ORG.logoFile}`} alt="" className="vice-stamp vice-stamp-sm" />Loading…</div>}>
           <DirectorApp />
         </Suspense>
       ),
@@ -197,7 +198,7 @@ router.subscribe(state => {
   if (next === here) return;
   const moved = changesPage(next, here);
   here = next;
-  if (moved) dissolve();
+  if (moved) { dissolve(); playViceSplash(); }
 });
 
 // Org brand palette (no-op for NWSA — empty maps inject nothing).
@@ -209,6 +210,8 @@ initLook(ORG.personalize);
 // The owner's on-device Hub 2.0 preview (#hub2-look). Off everywhere else,
 // where it does nothing at all.
 initHub2();
+// The logo splash and corner badge (features.logoSplash), first load included.
+initViceSplash();
 
 // Offline app shell (#43) — registered after load so it never delays startup.
 // When a NEW version installs under an open tab, src/pwa.ts shows a one-tap

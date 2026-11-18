@@ -1,28 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 185">
-  <!-- Teal background section -->
-  <rect width="140" height="140" fill="#0d7e8e"/>
-  <!-- White section (text area) -->
-  <rect y="140" width="140" height="45" fill="#ffffff"/>
-
-  <!-- White outer triangle (sail) -->
-  <polygon points="70,10 128,130 12,130" fill="#ffffff"/>
-  <!-- Subtle right-face shadow for depth -->
-  <polygon points="70,10 128,130 99,130" fill="#d8eef0" opacity="0.45"/>
-
-  <!-- Gold inner triangle -->
-  <polygon points="70,72 96,130 44,130" fill="#c8a52a"/>
-
-  <!-- Purple wavy lines (3) -->
-  <path d="M4,133 C22,128 44,138 70,133 C96,128 118,138 136,133"
-        stroke="#7b3578" stroke-width="3.5" fill="none" stroke-linecap="round"/>
-  <path d="M4,139 C22,134 44,144 70,139 C96,134 118,144 136,139"
-        stroke="#7b3578" stroke-width="3.5" fill="none" stroke-linecap="round"/>
-  <path d="M4,145 C22,140 44,150 70,145 C96,140 118,150 136,145"
-        stroke="#7b3578" stroke-width="3.5" fill="none" stroke-linecap="round"/>
-
-  <!-- NWSA text -->
-  <text x="65" y="170" text-anchor="middle"
-        font-family="Arial, Helvetica, sans-serif"
-        font-weight="700" font-size="19" letter-spacing="9"
-        fill="#1a3d50">NWSA</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-55 0 990 990">
+  <rect x="20" y="15" width="846" height="860" fill="#0191b2"/>
+  <polygon points="30,17 856,17 443,855" fill="#ffffff"/>
+  <polygon points="293,33 593,33 443,380" fill="#fdd202" stroke="#a8862f" stroke-width="10" stroke-linejoin="round"/>
+  <rect x="20" y="875" width="846" height="25" fill="#ffffff"/>
+  <path d="M20,900 H866 V968 C810,985 730,960 650,945 C570,935 510,980 443,980 C370,980 310,935 240,942 C160,950 90,985 20,968 Z" fill="#fd0489"/>
+  <rect x="10" y="5" width="866" height="14" fill="#a8862f"/>
+  <rect x="10" y="5" width="12" height="965" fill="#a8862f"/>
+  <rect x="864" y="5" width="12" height="965" fill="#a8862f"/>
 </svg>
