@@ -10,6 +10,8 @@ import { useAssignments } from '../director/hooks/useAssignments';
 import { todayStr, formatTimeRange, ensembleColor, ensembleDisplayName, addDays, assignmentEmoji, highSchoolEnsembles, collegeEnsembles, isAssignmentOpen, byDueDateOpenFirst, CONCERT_COLOR, ASSIGN_COLOR } from '../director/utils';
 import { PubEventCard } from './components/PubEventCard';
 import { PubAnnouncements } from './components/PubAnnouncements';
+import { ViceHero } from './ViceHero';
+import { ORG } from '../org';
 import { SkeletonCards, EmptyState } from './components/PageHeader';
 import { getIdentity, onIdentityChange } from '../shared/identity';
 import { isSharedBlock, sharedBlockLabel } from '../shared/sharedBlock';
@@ -129,6 +131,8 @@ export function PublicHome() {
       {/* Announcements are the first thing on the page — two, the rest one
           tap away, long ones folded to a few lines. */}
       <PubAnnouncements items={homeAnnouncements} ensembleMap={ensembleMap} collapseAfter={2} />
+      {/* The giant moving logo, a whole screen of it before everything else. */}
+      {ORG.features.logoSplash === true && <ViceHero />}
 
       <WelcomeHubBanner />
       {/* Open sign-ups this device hasn't answered yet (#signups) — stays at
