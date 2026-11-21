@@ -9,6 +9,7 @@ import type { CalendarEvent, Ensemble, Lesson, RosterOverride } from '../types';
 import { formatTime, formatTimeRange, parseDate } from '../utils';
 import { lessonsFor } from '../rosterResolver';
 import { campusForEvent, CAMPUS_LABEL, LESSON_CAMPUS } from '../campusCalendar';
+import { MDCPS_NO_SCHOOL } from '../../shared/academicCalendars.ts';
 import type { Campus } from '../campusCalendar';
 
 type ChangeFrom = NonNullable<CalendarEvent['changeFrom']>;
@@ -217,6 +218,9 @@ export type PlanWrite =
    * skip these rather than guess at them.
    */
   | { op: 'cancelLesson'; id: string }
+  /** A lesson on an MDCPS no-school day. There was never going to be a lesson
+   *  that day, so it is removed, not marked Cancelled (#no-school-lessons). */
+  | { op: 'deleteLesson'; id: string }
   | { op: 'revertLesson'; id: string };
 
 /** Event-collection ops — the ones `applyPlan` can preview on the day board. */
@@ -390,15 +394,21 @@ export function planDayChange(
       // treats the week as already covered. An MDC-scoped cancel takes none
       // of them: a lesson is taught in an NWSA room (LESSON_CAMPUS).
       if (!action.campus || action.campus === LESSON_CAMPUS) {
+        // On an MDCPS no-school day (a holiday, a break, a planning day)
+        // there were never going to be lessons, so they are DELETED rather
+        // than cancelled: a "Cancelled" lesson on Thanksgiving reads as if a
+        // teacher called it off. Safe because slotDates() never generates on
+        // these dates, so the standing weekly time cannot bring one back.
         for (const l of dayLessons) {
-          if (l.status === 'Cancelled') continue;
+          const noSchool = MDCPS_NO_SCHOOL.has(l.date);
+          if (l.status === 'Cancelled' && !noSchool) continue;
           // A graded lesson is a record of one that happened — say so, never
           // rewrite it. Same rule as slotChangePlan's keptGraded.
           if ((l.grade ?? '').trim()) {
             guards.push({ kind: 'gradedLesson', lessonId: l.id, studentId: l.studentId });
             continue;
           }
-          writes.push({ op: 'cancelLesson', id: l.id });
+          writes.push(noSchool ? { op: 'deleteLesson', id: l.id } : { op: 'cancelLesson', id: l.id });
         }
       }
       // Blocks only. The banner is the PUBLIC "schedule change" notice, and a

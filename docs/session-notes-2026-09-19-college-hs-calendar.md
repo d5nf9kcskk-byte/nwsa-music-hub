@@ -152,7 +152,7 @@ dates — Thanksgiving, Christmas Eve, New Year's Eve, MLK Day, Presidents' Day,
 spring break, Memorial Day. All generated before `slotDates()` learned to skip
 closures in Sept 2026.
 
-`scripts/cancel-no-school-lessons.mjs` + the *Cancel No-School Lessons*
+`scripts/cancel-no-school-lessons.mjs` (since Nov 2026: `remove-no-school-lessons.mjs`, which deletes) + the *Cancel No-School Lessons*
 workflow handle them. Notes on its shape:
 
 - **`set-doc-field.mjs` refuses `lessons` on purpose** — the collection has a

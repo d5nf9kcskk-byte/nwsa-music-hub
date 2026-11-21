@@ -427,6 +427,20 @@ MDCPS teacher-planning day even though MDC was in full session that day.
   dual-enrollment students on MDC's calendar, `LESSON_CAMPUS` and
   `slotDates()` change together or they drift.
 
+- **A no-school day has NO lessons — deleted, never "Cancelled"**
+  (#no-school-lessons, director, 2026-11-21: "these were never going to be
+  lessons this holiday week. During days off and holidays there are no
+  lessons."). A Cancelled lesson on Thanksgiving reads as a teacher calling it
+  off. So on any `MDCPS_NO_SCHOOL` date: `planDayChange` cancelDay emits
+  `deleteLesson` (already-cancelled ones included) instead of `cancelLesson`,
+  and *Remove No-School Lessons* (`scripts/remove-no-school-lessons.mjs`,
+  which replaced the old Cancel No-School Lessons tool) deletes any that
+  exist, lesson plus `lessonsPublic` mirror in one batch. Deleting is safe
+  ONLY because `slotDates()` never generates on those dates; keep both or
+  neither. A graded lesson or one with files is reported, never deleted. An
+  ad-hoc closure on a normal school day (a storm) still CANCELS, so "Back to
+  normal" can restore it. Pinned in `schedule-day-plan.selfcheck.mjs`.
+
 Session record: `docs/session-notes-2026-09-19-college-hs-calendar.md` — the
 director's correction verbatim, why reasoning from "where the room is" gave
 the wrong answer, and the read-only audit that has to precede re-running a

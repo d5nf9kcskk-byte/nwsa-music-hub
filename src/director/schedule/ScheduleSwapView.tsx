@@ -76,7 +76,7 @@ export function ScheduleSwapView({ initialDate, closing = false, onNavigate }: {
    * listener itself, so stepping through days costs one small query each
    * rather than a school year of lesson docs up front.
    */
-  const { lessons: dayLessons, cancelLessonForDay, revertLessonForDay } = useLessons({ date });
+  const { lessons: dayLessons, cancelLessonForDay, revertLessonForDay, deleteLesson } = useLessons({ date });
   // Pick-mode: tapping blocks to swap (exactly two) or combine (host first,
   // then any number of blocks to absorb). One grammar for both (#2.3).
   const [pick, setPick] = useState<{ mode: 'swap' | 'combine'; ids: string[] } | null>(null);
@@ -344,6 +344,7 @@ export function ScheduleSwapView({ initialDate, closing = false, onNavigate }: {
         // go through useLessons rather than the event machinery. Skipped if
         // the lesson vanished between planning and pressing.
         else if (w.op === 'cancelLesson') { const l = lessonById[w.id]; if (l) await cancelLessonForDay(l); }
+        else if (w.op === 'deleteLesson') { if (lessonById[w.id]) await deleteLesson(w.id); }
         else if (w.op === 'revertLesson') { const l = lessonById[w.id]; if (l) await revertLessonForDay(l.id, l.changeFrom); }
         else if (byId[w.id]) await revertOne(byId[w.id]);
       }
@@ -1084,7 +1085,7 @@ function PlanReviewSheet({ action, planned, dayEvents, labelOf, combineLabelOf, 
   // Private lessons in this plan. They are in another collection and have no
   // card on the day board, so the "after" boards cannot show them — this line
   // is the only place the director sees them before pressing.
-  const lessonsCancelled = planned.writes.filter(w => w.op === 'cancelLesson').length;
+  const lessonsCancelled = planned.writes.filter(w => w.op === 'cancelLesson' || w.op === 'deleteLesson').length;
   const lessonsRestored = planned.writes.filter(w => w.op === 'revertLesson').length;
   // Live blocks this plan does NOT touch — read off the plan itself, so the
   // sheet cannot claim one thing while the writes do another.

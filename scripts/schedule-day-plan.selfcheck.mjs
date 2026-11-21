@@ -239,7 +239,7 @@ const labels = { 'evt-we': 'Wind Ensemble', 'evt-so': 'Symphony Orchestra' };
 
 // ── the day's private lessons go with it ──────────────────────────────
 {
-  const M = '2026-09-21';
+  const M = '2026-09-28'; // an ordinary school day: an ad-hoc closure CANCELS
   const hsReh = { id: 'evt-hs', type: 'Rehearsal', ensembleIds: ['we'], date: M, startTime: '13:10', endTime: '14:25', status: 'Scheduled' };
   const collegeCls = { id: 'evt-mdc', type: 'Class', ensembleIds: ['class-college-piano-1'], date: M, startTime: '08:00', endTime: '08:50', status: 'Scheduled' };
   const groups = { we: { kind: 'ensemble' }, 'class-college-piano-1': { kind: 'class', collegeLevel: true } };
@@ -254,7 +254,7 @@ const labels = { 'evt-we': 'Wind Ensemble', 'evt-so': 'Symphony Orchestra' };
     'a cancelled day cancels the day\'s live lessons — the violin lesson left behind is the reported bug');
   eqDeep(p.guards, [{ kind: 'gradedLesson', lessonId: 'les-3', studentId: 's-3' }],
     'a GRADED lesson is left alone and reported, never silently rewritten');
-  assert(p.bannerText === '🚫 Wind Ensemble, Class Piano 1: CANCELLED Mon, Sep 21',
+  assert(p.bannerText === '🚫 Wind Ensemble, Class Piano 1: CANCELLED Mon, Sep 28',
     `the public banner names blocks only, never lessons (got "${p.bannerText}")`);
 
   const collegeOnly = planDayChange([hsReh, collegeCls], { kind: 'cancelDay', campus: 'mdc' }, { groups, lessons });
@@ -268,6 +268,19 @@ const labels = { 'evt-we': 'Wind Ensemble', 'evt-so': 'Symphony Orchestra' };
   eqDeep(planDayChange([hsReh, collegeCls], { kind: 'cancelDay', campus: 'mdcps', closed: true }, { groups, lessons })
     .writes.filter(w => w.op === 'cancelLesson'), [{ op: 'cancelLesson', id: 'les-1' }],
     'closing the high school takes its private lessons with it');
+
+  // #no-school-lessons: on an MDCPS no-school day there were never going to be
+  // lessons, so they are DELETED (already-cancelled ones too), never left
+  // reading "Cancelled". Graded ones are still only reported.
+  {
+    const H = '2026-11-26';
+    const hol = [{ ...violin, date: H }, { ...alreadyOff, date: H }, { ...graded, date: H }];
+    const hp = planDayChange([], { kind: 'cancelDay', campus: 'mdcps', closed: true }, { groups, lessons: hol });
+    eqDeep(hp.writes, [{ op: 'deleteLesson', id: 'les-1' }, { op: 'deleteLesson', id: 'les-2' }],
+      'a no-school day deletes its lessons, even with no blocks on the calendar');
+    eqDeep(hp.guards, [{ kind: 'gradedLesson', lessonId: 'les-3', studentId: 's-3' }],
+      'a graded lesson on a no-school day is still left alone');
+  }
 
   // The day board previews BLOCKS. A lesson write must never reach it.
   eqDeep(applyPlan([hsReh, collegeCls], p.writes).map(e => e.id).sort(), ['evt-hs', 'evt-mdc'],
