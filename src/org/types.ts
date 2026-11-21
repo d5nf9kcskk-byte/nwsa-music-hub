@@ -294,12 +294,6 @@ export interface OrgConfig {
      * this false their Hub never offers "Confirm now": it could only fail.
      */
     googleConfirm: boolean;
-    /**
-     * The logo splash (viceSplash.ts): the org logo flies together from
-     * pieces over the screen on first load and on every page change, plus a
-     * small corner badge. Optional, off when absent.
-     */
-    logoSplash?: boolean;
   };
   /** Printed concert program (src/public/PublicProgram.tsx). */
   program: {

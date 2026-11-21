@@ -3,7 +3,6 @@ import { CalendarDays, Home } from 'lucide-react';
 import { PageHeader } from './components/PageHeader';
 import { getLang, t, useLang } from '../shared/i18n';
 import { notFoundLine } from '../shared/whimsy';
-import { ORG } from '../org';
 
 /**
  * Unknown URL under the public site. Before this existed a mistyped or stale
@@ -17,7 +16,6 @@ export function NotFound() {
     <div className="pub-page">
       <PageHeader title={t('nf.title')} />
       <div className="pub-card pub-notfound">
-        <img src={`${import.meta.env.BASE_URL}${ORG.logoFile}`} alt={ORG.orgShortName} className="vice-stamp" />
         <div className="pub-notfound-rest" aria-hidden="true">𝄽</div>
         <p className="pub-notfound-line">{notFoundLine(getLang())}</p>
         <div className="pub-quick">

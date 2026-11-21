@@ -10,8 +10,8 @@
   "timezone": "America/New_York",
   "termEnd": "2027-06-03",
   "contactEmail": "nwsaorchestras@gmail.com",
-  "logoFile": "vice-logo.png",
-  "markFile": "vice-mark.png",
+  "logoFile": "nwsa-logo.png",
+  "markFile": "nwsa-mark.png",
   "faviconFile": "favicon.svg",
   "icons": {
     "icon192": "icon-192.png",
@@ -22,8 +22,8 @@
     "appleTouchIcon": "apple-touch-icon.png"
   },
   "assets": [
-    "vice-logo.png",
-    "vice-mark.png",
+    "nwsa-logo.png",
+    "nwsa-mark.png",
     "favicon.svg",
     "icon-192.png",
     "icon-512.png",
@@ -48,8 +48,7 @@
     "absenceReport": true,
     "personnel": false,
     "bannerDrafter": false,
-    "googleConfirm": true,
-    "logoSplash": true
+    "googleConfirm": true
   },
   "program": {
     "missionStatement": "New World School of the Arts was created by the Florida Legislature as a center of excellence in the performing and visual arts as an educational partnership of Miami-Dade County Public Schools, Miami Dade College and the University of Florida.",
