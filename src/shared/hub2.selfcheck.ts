@@ -51,10 +51,39 @@ for (const at of uses) {
   assert.ok(app.slice(at - 16, at).includes('isOwner &&'), 'the Hub 2.0 toggle must be gated on isOwner');
 }
 
+/**
+ * THE CSS COLOR 4/5 FUNCTIONS, WHICH THE `#`/`rgb(`/`hsl(` GATES CANNOT SEE.
+ *
+ * Those four regexes are the whole of "every colour comes from a token", and
+ * they know three spellings. The field's lobes are written in a fourth,
+ * `oklch(from var(--hub2-accent) 0.945 0.048 h)`, so they passed every gate
+ * in this file unexamined — and a fully hardcoded `oklch(0.95 0.05 200)`,
+ * with no token in it at all, would have passed just as quietly.
+ *
+ * The relative form is ALLOWED, which is why this is a separate check rather
+ * than four more alternatives bolted onto those regexes: a lobe takes its HUE
+ * from the org's accent and sets its own lightness and chroma, and those two
+ * numbers are a measured contrast ceiling rather than a brand colour (the
+ * long note in section 1 of hub2Glass.css). A BARE one is a hardcoded colour
+ * like any other.
+ *
+ * `@supports` preludes come out first: `@supports (color: oklch(from white
+ * l c h))` is a feature query, not a colour, and it is how the lobes are
+ * guarded for engines without relative colour syntax.
+ */
+function noLooseColorFns(src: string, where: string): void {
+  const scannable = src.replace(/@supports[^{]*/g, '');
+  for (const m of scannable.matchAll(/\b(oklch|oklab|lch|lab|color)\(([^)]*)/g)) {
+    assert.match(m[2], /^\s*from var\(--/,
+      `${where}: ${m[1]}(${m[2].trim().slice(0, 40)}…) hardcodes a colour — take it from a token, or write ${m[1]}(from var(--token) …)`);
+  }
+}
+
 // 3. Every rule in hub2.css is scoped under data-hub2, and the file names no
 //    color of its own (colors live in the org config).
 const css = strip(read('./hub2.css'));
-assert.ok(!/#[0-9a-f]{3,8}\b|rgba?\(/i.test(css), 'hub2.css must take every color from the --hub2-* tokens');
+assert.ok(!/#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i.test(css), 'hub2.css must take every color from the --hub2-* tokens');
+noLooseColorFns(css, 'hub2.css');
 const selectors = [...css.matchAll(/([^{}]+)\{/g)].map(m => m[1].trim()).filter(s => !s.startsWith('@'));
 assert.ok(selectors.length >= 4);
 for (const group of selectors) {
@@ -100,6 +129,7 @@ const screenOnly = (name: string, src: string) => {
 const pubCss = strip(read('../public/hub2Public.css'));
 screenOnly('hub2Public.css', pubCss);
 assert.ok(!/#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i.test(pubCss), 'hub2Public.css must take every color from the tokens');
+noLooseColorFns(pubCss, 'hub2Public.css');
 const pubSelectors = [...pubCss.matchAll(/([^{}]+)\{/g)].map(m => m[1].trim()).filter(s => !s.startsWith('@'));
 assert.ok(pubSelectors.length >= 20);
 // Split on top-level commas only: :is(a, b) is one selector.
@@ -214,7 +244,8 @@ assert.ok(checked > 0, 'no org has a Hub 2.0 look — nothing was checked');
 //    components carry for it are read by no other stylesheet, which is what
 //    makes adding them to markup safe with the preview off.
 const staffCss = strip(read('../director/hub2Staff.css'));
-assert.ok(!/#[0-9a-f]{3,8}\b|rgba?\(/i.test(staffCss), 'hub2Staff.css must take every color from tokens');
+assert.ok(!/#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i.test(staffCss), 'hub2Staff.css must take every color from tokens');
+noLooseColorFns(staffCss, 'hub2Staff.css');
 {
   let depth = 0;
   let staffRules = 0;
@@ -490,6 +521,7 @@ let glassRules = 0;
   const glassCss = strip(read('./hub2Glass.css'));
   screenOnly('hub2Glass.css', glassCss);
   assert.ok(!/#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i.test(glassCss), 'hub2Glass.css must take every colour from the tokens');
+  noLooseColorFns(glassCss, 'hub2Glass.css');
   // Every tint is mixed from the org's own palette, so another org re-tints
   // its glass by changing its accent and never by editing a stylesheet.
   // `white` and `black` are allowed: a specular highlight and a shadow are
@@ -540,13 +572,65 @@ let glassRules = 0;
   // THREE WAYS OFF, all landing on a solid panel. A CSS omission here fails
   // the way a missing CSP directive fails: nothing throws, the glass is
   // simply unreadable for somebody who asked for less of it.
+  // EVERY TRANSLUCENT SURFACE GOES BACK, not just the panels. This used to
+  // assert one token per block, and that is exactly how two of them got out:
+  // --glass-floatbar (added with the floating bars) and --glass-fade (the
+  // edge feather) were named in NEITHER way off, so somebody who turned on
+  // Reduce Transparency kept a 70%-white tab bar with live text scrolling
+  // under it, and opaque panels whose last 22px still faded to nothing. Both
+  // shipped and passed every build for four days, because the gate only ever
+  // looked for --glass-panel. So the list is derived from section 1 rather
+  // than typed out here, and a NEW translucent token fails the build until
+  // somebody decides which side of the line it is on.
+  /** Brace-matched body of the rule or at-rule whose `{` follows `from`.
+   *  Not a blank-line slice: that depends on how the file happens to be laid
+   *  out, and silently stops short the moment a block gains a gap. */
+  const blockFrom = (src: string, from: number): string => {
+    let depth = 0;
+    for (let i = src.indexOf('{', from); i < src.length && i > 0; i++) {
+      if (src[i] === '{') depth++;
+      else if (src[i] === '}' && --depth === 0) return src.slice(from, i + 1);
+    }
+    return src.slice(from);
+  };
+  /** Translucent, and what shows through is the PAGE. These go solid. */
+  const SOLID_BACK = ['--glass-panel', '--glass-chrome', '--glass-hero', '--glass-bar', '--glass-floatbar'];
+  /** Geometry rather than colour, so making a panel opaque does not touch
+   *  them. An opaque panel whose edges still fade to nothing, corners twice,
+   *  is not a solid panel. */
+  const FLAT_BACK = ['--glass-fade', '--glass-fade-bar'];
+  /** Translucent on purpose and NOT a surface: the field's own floor, plus
+   *  the shadow, bloom and highlight layers, which paint ON a surface rather
+   *  than instead of one and so reveal nothing once it is solid. */
+  const NOT_A_SURFACE = ['--glass-field-base', '--glass-under', '--glass-shine', '--glass-bloom'];
+  const panelAt = glassCss.indexOf('--glass-panel: color-mix');
+  assert.ok(panelAt > 0, 'hub2Glass.css section 1 must declare --glass-panel as a mix');
+  const lightBlock = blockFrom(glassCss, glassCss.lastIndexOf('{', panelAt));
+  const translucent = [...new Set([...lightBlock.matchAll(/(--glass-[a-z-]+):[^;]*\btransparent\b/g)].map(m => m[1]))];
+  assert.ok(translucent.length > 6,
+    `expected section 1 to declare several translucent tokens, found ${translucent.length} — this scan is broken`);
+  const undecided = translucent.filter(t => !SOLID_BACK.includes(t) && !NOT_A_SURFACE.includes(t));
+  assert.deepEqual(undecided, [],
+    `hub2Glass.css declares translucent ${undecided.join(', ')}: add each to SOLID_BACK and to BOTH ways off, or to NOT_A_SURFACE with the reason`);
   for (const off of ['@media (prefers-reduced-transparency: reduce)', '@supports not (backdrop-filter: blur(1px))']) {
     const at = glassCss.indexOf(off);
     assert.ok(at > 0, `hub2Glass.css must answer ${off}`);
-    // The block's own body: from the marker to the first blank line after
-    // its closing brace, which is how the file is laid out.
-    assert.match(glassCss.slice(at, glassCss.indexOf('\n\n', at)), /--glass-panel: var\(--hub2-surface\)/,
-      `${off} must put the panels back to a solid surface`);
+    const body = blockFrom(glassCss, at);
+    for (const t of SOLID_BACK) {
+      assert.match(body, new RegExp(`${t}: var\\(--(?:hub2-surface|pub-accent)\\)`),
+        `${off} must put ${t} back to a solid colour`);
+    }
+    for (const t of FLAT_BACK) {
+      assert.match(body, new RegExp(`${t}: 0px`),
+        `${off} must flatten ${t}: a feathered edge on an opaque panel still shows the page through`);
+    }
+    // AND THE TWO FLOATING BARS NEED A RULE OF THEIR OWN. Their --glass-pane
+    // is declared ON the element, and a custom property declared on the
+    // element beats one inherited from an ancestor however specific that
+    // ancestor is — so none of the tokens above can reach them, and this is
+    // the one place where answering at :root looks right and does nothing.
+    assert.match(body, /\.pub-tabbar, \.pub-event-actionbar\)[^{]*\{[^}]*--glass-pane:/,
+      `${off} must answer --glass-pane on .pub-tabbar / .pub-event-actionbar directly; a :root declaration cannot reach an element-level one`);
   }
   // And the config's own word: a blur of 0px is the third way, so every
   // blur must read its radius from the token rather than naming one.
@@ -727,7 +811,16 @@ let glassRules = 0;
       for (const e of readdirSync(dir, { withFileTypes: true })) {
         const at = new URL(e.name + (e.isDirectory() ? '/' : ''), dir);
         if (e.isDirectory()) walk(at);
-        else if (/\.(tsx?|css)$/.test(e.name) && e.name !== 'hub2Glass.css') out.push(readFileSync(at, 'utf8'));
+        // COMMENTS COME OUT, and this file comes out altogether. The corpus
+        // is "what the app actually renders", and a class name written in
+        // prose renders nothing — so a note in a comment here, or anywhere,
+        // was enough to make a dead class look alive. This check and the
+        // selector-constant one below both rest on that, and the second one
+        // is written about `.dir-page`, which would otherwise have made
+        // `.dir-page` exist.
+        else if (/\.(tsx?|css)$/.test(e.name) && !/^hub2(Glass\.css|\.selfcheck\.ts)$/.test(e.name)) {
+          out.push(strip(readFileSync(at, 'utf8')));
+        }
       }
     };
     walk(new URL('../', import.meta.url));
@@ -742,6 +835,34 @@ let glassRules = 0;
   assert.deepEqual(ghosts, [],
     `hub2Glass.css names ${ghosts.length} class(es) nothing else in src/ mentions: ${ghosts.join(', ')}`);
   glassClasses = listed.size;
+
+  // AND THE CLASSES A SELECTOR CONSTANT NAMES, which the scan above cannot
+  // see: it reads hub2Glass.css's `:is()` groups, and the dissolve's targets
+  // are string constants in TypeScript. That is exactly how `.dir-page` lived
+  // in the old morph's PANEL_SEL for days — no element in this app has ever
+  // carried that class (the real ones are `.dir-page-body` and
+  // `.dir-tab-page`), so the morph ran on NO staff screen at all, and
+  // because `panels()` simply found nothing there was no error, no log and no
+  // visible difference from a page that had chosen not to animate. The
+  // replacement names `.dir-content`, which is right; this is what keeps it
+  // right, and what would have caught the original within a build.
+  // The file's own text comes out of the corpus first, or it would prove
+  // nothing but that the constant mentions its own class names.
+  // Stripped on both sides, because the corpus above is stripped: splitting
+  // on the raw text would find nothing and quietly leave this file in it.
+  const dissolveSrc = strip(read('./hub2Dissolve.ts'));
+  const elsewhere = everywhere.split(dissolveSrc).join('\n');
+  assert.ok(!elsewhere.includes('const SCROLLER'),
+    'the selector-constant scan must take hub2Dissolve.ts out of the corpus, or it only proves the file quotes itself');
+  const targets = new Set<string>();
+  for (const m of dissolveSrc.matchAll(/^const [A-Z_]+ = '([^']*\.[^']*)';/gm)) {
+    for (const c of m[1].matchAll(/\.((?:pub|dir|whats)-[a-z0-9-]+)/g)) targets.add(c[1]);
+  }
+  assert.ok(targets.size >= 3,
+    `expected hub2Dissolve.ts's selector constants to name several classes, found ${targets.size} — this scan is broken`);
+  const unrendered = [...targets].filter(c => !new RegExp(`[.'"\`\\s]${c}(?![-\\w])`).test(elsewhere));
+  assert.deepEqual(unrendered, [],
+    `hub2Dissolve.ts selects ${unrendered.length} class(es) nothing else in src/ renders: ${unrendered.join(', ')}`);
 
   // 7. A DISSOLVED STRIPE IS TWO RULES AND THEY MUST NAME THE SAME CLASSES.
   //    One sets --glass-stripe, the colour the glow keeps; the other turns
