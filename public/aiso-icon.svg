@@ -1,4 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" fill="#0B1830"/><g transform="translate(51.2 51.2) scale(0.8)" fill="none" color="#F4EFE4" style="--accent:#E2B257">
-  <circle cx="256" cy="256" r="150" stroke="currentColor" stroke-width="28"/>
-  <circle cx="256" cy="106" r="26" fill="var(--accent, #C8922E)"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" fill="#0B1830"/><g transform="translate(51.2 51.2) scale(0.8)" fill="none" color="#F2EEE4" style="--accent:#E7BE5A">
+  <path d="M96 468L206 46L306 90Z" fill="currentColor"/>
+  <path d="M416 468L306 46L206 90Z" fill="currentColor"/>
+  <path d="M206 46H306L306 100H206Z" fill="currentColor"/>
+  <circle cx="256" cy="360" r="40" fill="var(--accent, #C8922E)"/>
 </g></svg>
