@@ -1,9 +1,9 @@
 name: Seed AISO
 
-# Starts the aiso-hub Firebase project — the browser-clickable version of
-# `node scripts/seed-aiso-org.mjs`, so the Hub can be started without a local
-# checkout, Node, or a service account key sitting on someone's laptop.
-# Mirrors seed-as.yml.
+# Writes the first docs into the aiso-hub Firebase project — the
+# browser-clickable version of `node scripts/seed-aiso-org.mjs`, so the Hub
+# can be started without a local checkout, Node, or a service account key
+# sitting on someone's laptop. Mirrors seed-as.yml.
 #
 # AISO is a real orchestra, so this is NOT a demo reset. The seeder writes the
 # owner's sign-in entry, one ensemble and one concert, and no people.
