@@ -203,15 +203,23 @@ export function DirectorsManager({ currentEmail, currentRole, currentRoles }: Pr
   return (
     <div className="dir-tab-page">
       <div className="dir-page-body">
-        <p className="dir-loc-hint" style={{ marginTop: 0 }}>
-          Only you (the Owner) can see or change this list. Each person can
-          hold one or more access levels — and assign the ensembles they
-          conduct or the class sections they teach. Applied Teachers get
-          assigned students; Student Assistants and Classroom Teachers get
-          their groups here too. What is ticked here is also what lands on
-          that person&rsquo;s own calendar, so a director who teaches a class
-          should have the class ticked as well as the ensembles.
-        </p>
+        {__ORG_PERSONNEL__ ? (
+          <p className="dir-loc-hint" style={{ marginTop: 0 }}>
+            Only you (the Owner) can see or change this list. Tick the
+            ensembles each person conducts; that is also what lands on that
+            person&rsquo;s own calendar.
+          </p>
+        ) : (
+          <p className="dir-loc-hint" style={{ marginTop: 0 }}>
+            Only you (the Owner) can see or change this list. Each person can
+            hold one or more access levels — and assign the ensembles they
+            conduct or the class sections they teach. Applied Teachers get
+            assigned students; Student Assistants and Classroom Teachers get
+            their groups here too. What is ticked here is also what lands on
+            that person&rsquo;s own calendar, so a director who teaches a class
+            should have the class ticked as well as the ensembles.
+          </p>
+        )}
 
         {/* (#google-binding) The Owner's view of who is tied to their own
             Google account. The server does the tying, by itself, the next
@@ -593,20 +601,24 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
           <input className="dir-input" value={name} placeholder="First captured automatically when they sign in" onChange={e => setName(e.target.value)} />
         </div>
         <div className="dir-field">
-          <label className="dir-label">MDC work email</label>
-          <input className="dir-input" type="email" value={mdcEmail} placeholder="name@mdc.edu" onChange={e => setMdcEmail(e.target.value)} />
-          <div className="dir-field-hint">Shown on ensemble and class pages — not the Gmail used to sign in.</div>
+          <label className="dir-label">{__ORG_PERSONNEL__ ? 'Work email' : 'MDC work email'}</label>
+          <input className="dir-input" type="email" value={mdcEmail} placeholder={__ORG_PERSONNEL__ ? 'name@example.org' : 'name@mdc.edu'} onChange={e => setMdcEmail(e.target.value)} />
+          <div className="dir-field-hint">{__ORG_PERSONNEL__ ? 'Shown on ensemble pages — not the Gmail used to sign in.' : 'Shown on ensemble and class pages — not the Gmail used to sign in.'}</div>
         </div>
         <div className="dir-field">
           <label className="dir-label">Office phone <span className="dir-label-hint">(optional)</span></label>
-          <input className="dir-input" type="tel" value={phone} placeholder="305-237-…" onChange={e => setPhone(e.target.value)} />
+          <input className="dir-input" type="tel" value={phone} placeholder={__ORG_PERSONNEL__ ? undefined : '305-237-…'} onChange={e => setPhone(e.target.value)} />
         </div>
-        {isOwnerRow && (
+        {isOwnerRow && (__ORG_PERSONNEL__ ? (
+          <div className="dir-field-hint" style={{ marginBottom: 8 }}>
+            <ShieldCheck size={14} style={{ verticalAlign: '-2px' }} /> You are the Owner — that never changes.
+          </div>
+        ) : (
           <div className="dir-field-hint" style={{ marginBottom: 8 }}>
             <ShieldCheck size={14} style={{ verticalAlign: '-2px' }} /> You are the Owner — that never changes.
             Pick any <em>additional</em> levels below (e.g. Applied Teacher if you also teach private lessons).
           </div>
-        )}
+        ))}
         <div className="dir-field">
           <label className="dir-label">{isOwnerRow ? 'Additional access levels' : 'Access levels'}</label>
           <div className="dir-checkbox-group">
@@ -632,7 +644,9 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
             </label>}
           </div>
           <div className="dir-field-hint">
-            {isOwnerRow
+            {__ORG_PERSONNEL__
+              ? (isOwnerRow ? 'Owner already has full Hub access.' : 'At least one level is required.')
+              : isOwnerRow
               ? 'Owner already has full Hub access. Extra levels unlock their scoped tools — My Lessons for applied teaching, class roll/docs for classroom sections, etc.'
               : 'Pick every level that applies — e.g. a director who also teaches private lessons gets Director and Applied Teacher. At least one is required.'}
             {hasDirector && ' Director: full edit access everywhere except this screen.'}
