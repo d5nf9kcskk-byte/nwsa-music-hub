@@ -9,9 +9,10 @@ name: Deploy AISO
 #
 # AISO (the Atlanta International Symphony Orchestra) is a real orchestra,
 # not a demo. One-time setup lives in docs/aiso-setup.md (Firebase project,
-# the AISO_* secrets, the deploy key on the target repo). Until those secrets
-# exist every run goes red at the publish step, which has no deploy key —
-# that is expected, not a bug.
+# the AISO_* secrets, the deploy key on the target repo). Until
+# AISO_DEPLOY_KEY exists the SCHEDULED run skips itself with a warning, so the
+# school's Actions tab is not red every hour; a run started by hand still
+# fails loudly at the publish step.
 
 on:
   workflow_dispatch:
@@ -32,19 +33,35 @@ concurrency:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    # Don't run the cron in forks or before secrets exist.
+    # Don't run the cron in forks.
     if: ${{ github.repository_owner == 'd5nf9kcskk-byte' }}
     steps:
-      - uses: actions/checkout@v7
+      - name: Is AISO provisioned?
+        id: ready
+        env:
+          KEY: ${{ secrets.AISO_DEPLOY_KEY }}
+        run: |
+          if [ -z "$KEY" ] && [ "$GITHUB_EVENT_NAME" = schedule ]; then
+            echo "::warning::AISO is not provisioned yet (docs/aiso-setup.md); nothing deployed."
+            echo go=false >> "$GITHUB_OUTPUT"
+          else
+            echo go=true >> "$GITHUB_OUTPUT"
+          fi
 
-      - uses: actions/setup-node@v7
+      - if: steps.ready.outputs.go == 'true'
+        uses: actions/checkout@v7
+
+      - if: steps.ready.outputs.go == 'true'
+        uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
 
-      - run: npm ci
+      - if: steps.ready.outputs.go == 'true'
+        run: npm ci
 
       - name: Build (AISO org)
+        if: steps.ready.outputs.go == 'true'
         run: npm run build
         env:
           VITE_ORG: aiso
@@ -55,16 +72,25 @@ jobs:
           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.AISO_FIREBASE_MESSAGING_SENDER_ID }}
           VITE_FIREBASE_APP_ID: ${{ secrets.AISO_FIREBASE_APP_ID }}
 
+      # AISO's boot script differs from the school's (hub2Everyone), the case
+      # the CSP check's inline-script hash test exists for.
+      - name: Check the CSP
+        if: steps.ready.outputs.go == 'true'
+        run: node scripts/csp.selfcheck.mjs
+
       - name: Generate ICS calendar feeds
+        if: steps.ready.outputs.go == 'true'
         run: node scripts/generate-feeds.mjs
         env:
           ORG: aiso
           VITE_FIREBASE_PROJECT_ID: ${{ secrets.AISO_FIREBASE_PROJECT_ID }}
 
       - name: Verify ICS feeds
+        if: steps.ready.outputs.go == 'true'
         run: grep -q BEGIN:VEVENT dist/feeds/all.ics || echo "::error::ICS feed generation produced no events"
 
       - name: Publish to aiso-music-hub gh-pages
+        if: steps.ready.outputs.go == 'true'
         uses: peaceiris/actions-gh-pages@v4
         with:
           external_repository: d5nf9kcskk-byte/aiso-music-hub

@@ -13,8 +13,9 @@ the ones in `docs/new-org-setup.md` (the script) and `docs/demo-as-setup.md`
   sign-in entry, one ensemble ("Orchestra") and the New Year's Concert on
   2027-01-03. The concert has no time or venue yet: it is an all-day event
   whose note says they are to be announced, to be filled in from the Hub.
-  The seeder never overwrites: run again, it leaves an existing owner alone
-  and adds the ensemble and the concert only to a Hub that has neither.
+  Re-running is safe: an existing owner is left alone, an address listed
+  with another role is promoted to owner in place (its name and roles kept),
+  and the ensemble and the concert go only into a Hub that has neither.
 - **The project id is `aiso-hub`**, not `aiso-hub-demo`. People see it, as
   `aiso-hub.firebaseapp.com` in Google's sign-in window and in account
   emails, and a project id can never be changed. It is pinned in
@@ -44,8 +45,9 @@ then seeds and deploys. Afterwards run **Deploy Firestore & Storage rules**
 once from the Actions tab: until its rules arrive the new database denies
 everything, and `/director` says "Couldn't verify your access".
 
-Until the `AISO_*` secrets exist, **Deploy AISO** fails every hour (it has
-no deploy key to publish with). Merge this close to running the script.
+Until `AISO_DEPLOY_KEY` exists, the hourly **Deploy AISO** run skips itself
+with a warning ("AISO is not provisioned yet"). A run started by hand (the
+setup script's) still goes red at the publish step, on purpose.
 
 ## Before launch
 
