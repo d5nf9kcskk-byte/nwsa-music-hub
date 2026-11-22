@@ -6,9 +6,10 @@
  * Automates the per-org console clickwork that docs/demo-asyo-setup.md and
  * docs/demo-as-setup.md walk through by hand (~45 minutes each):
  *
- *   1. Firebase project  `<org>-hub-demo`  (Spark, no Analytics)
+ *   1. Firebase project  `<org>-hub-demo`  (Spark, no Analytics) — or the
+ *      id pinned in REAL_PROJECT_IDS below for a real org (`aiso-hub`)
  *   2. Firestore database (nam5, production mode)
- *   3. Web app `<org>-hub-demo-web` + its six SDK config values
+ *   3. Web app `<project>-web` + its six SDK config values
  *   4. Service-account key (the Admin SDK account the console button uses)
  *   5. GitHub Pages repo `<org>-music-hub` with a write-enabled deploy key
  *   6. The <ORG>_* Actions secrets on the source repo
@@ -54,6 +55,13 @@ const FORBIDDEN_ORGS = new Set(['nwsa']);
 const FORBIDDEN_PROJECTS = new Set(['nwsa-hub']);
 const FORBIDDEN_REPOS = new Set(['nwsa-music-hub']);
 
+// A demo's project is `<org>-hub-demo`. A REAL org's is not: people see the
+// project id, as <project>.firebaseapp.com in Google's sign-in window and in
+// its account emails, and a project id can never be changed afterwards. The
+// id is pinned HERE, in the file, so there is still no flag that could point
+// this script anywhere else. Every org not listed keeps the derived id.
+const REAL_PROJECT_IDS = new Map([['aiso', 'aiso-hub']]);
+
 // The first two orgs predate the <org>-suffixed naming convention.
 const WORKFLOW_NAMES = {
   asyo: { deploy: 'deploy-demo.yml', seed: 'seed-demo.yml', seedScript: 'seed-demo-org.mjs' },
@@ -96,7 +104,8 @@ if (!org || flags.has('--help')) {
   console.log('  <org>            short lowercase org id, e.g. "as" (see config/orgs/)');
   console.log('  --dry-run        print the full plan; change nothing anywhere');
   console.log('  --owner-email E  Google account to seed as demo owner (must be able');
-  console.log('                   to complete a GOOGLE sign-in — see the setup docs)');
+  console.log('                   to complete a GOOGLE sign-in — see the setup docs).');
+  console.log('                   Required for a real org (aiso): it has no default');
   console.log('  --location L     Firestore location (default nam5)');
   console.log('  --rotate-key     mint a new service-account key even if the secret exists');
   console.log('  --finish-auth    only run the post-manual-step part: add the Pages');
@@ -112,7 +121,7 @@ if (FORBIDDEN_ORGS.has(org)) {
   fail(`REFUSING to run for org "${org}" — this script provisions DEMO orgs only and never touches the NWSA production stack.`);
 }
 
-const PROJECT_ID = `${org}-hub-demo`;
+const PROJECT_ID = REAL_PROJECT_IDS.get(org) ?? `${org}-hub-demo`;
 const WEB_APP_NAME = `${PROJECT_ID}-web`;
 const PAGES_REPO = `${PAGES_OWNER}/${org}-music-hub`;
 const SECRET_PREFIX = org.toUpperCase();
@@ -122,6 +131,11 @@ const WF = workflowsFor(org);
 
 if (FORBIDDEN_PROJECTS.has(PROJECT_ID) || FORBIDDEN_REPOS.has(`${org}-music-hub`)) {
   fail('Derived a forbidden production identifier — aborting.');
+}
+// A real org's seed workflow has no default owner (a wrong one locks everyone
+// out), so ask for it here instead of failing at the very last step.
+if (REAL_PROJECT_IDS.has(org) && !OWNER_EMAIL && !FINISH_AUTH_ONLY) {
+  fail(`"${org}" is a real org and its seed workflow has no default owner — pass --owner-email with an address that can complete a GOOGLE sign-in.`);
 }
 
 // ── Small helpers ────────────────────────────────────────────────────────
@@ -514,7 +528,8 @@ async function ensureServiceAccountKey(tmpDir, secrets) {
 // ── Step 5: Pages repo + deploy key ──────────────────────────────────────
 function ensurePagesRepo(orgDisplayName) {
   banner(`GitHub Pages repo: ${PAGES_REPO}`);
-  const description = `Built output of the ${orgDisplayName} demo — source lives in nwsa-music-hub`;
+  // Public text on the Pages repo: a real org's site is not called a demo.
+  const description = `Built output of the ${orgDisplayName} ${REAL_PROJECT_IDS.has(org) ? 'Hub' : 'demo'} — source lives in nwsa-music-hub`;
   const view = run('gh', ['repo', 'view', PAGES_REPO, '--json', 'name'], { allowFail: true, quiet: true });
   if (view.status === 0) {
     console.log(`  ✓ ${PAGES_REPO} already exists — reusing it`);
@@ -706,7 +721,7 @@ async function main() {
     console.log('  Smoke test per the org setup doc: branding, sign-in at /director,');
     console.log('  feeds/all.ics downloads with the org PRODID.');
     console.log('  Rules note: deploy-rules.yml only ships rules to this project if it has');
-    console.log(`  a per-org step keyed on ${SECRET_PREFIX}_SERVICE_ACCOUNT_JSON — the asyo/as steps`);
+    console.log(`  a per-org step keyed on ${SECRET_PREFIX}_SERVICE_ACCOUNT_JSON — the asyo/as/aiso steps`);
     console.log('  exist; a NEW org needs its step added there (see docs/new-org-setup.md),');
     console.log('  then dispatch that workflow once so the rules ship now, not on the next');
     console.log('  rules edit.');
