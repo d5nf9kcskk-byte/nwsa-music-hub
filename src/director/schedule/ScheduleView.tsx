@@ -460,7 +460,8 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
               </button>
             );
           })()}
-          {e.ensembleIds.length > 0 && (
+          {/* The student roster (EventRoster): a personnel org's roll is on Personnel. */}
+          {!__ORG_PERSONNEL__ && e.ensembleIds.length > 0 && (
             <button className="dir-event-roster-btn" onClick={() => setRosterEvent(e)}>
               Roster
               {(summary.added > 0 || summary.removed > 0) && (

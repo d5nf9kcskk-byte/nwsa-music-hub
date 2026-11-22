@@ -28,6 +28,10 @@ import '../signups/signups.css';
 import { GroupPicker } from '../components/GroupPicker';
 import { splitAssigned, withClasses, withPerforming } from './assignedSlices';
 
+// Build-time literal (vite.config.ts `define`): an adult orchestra has no
+// teachers, classes or student assistants, so it is offered Director alone.
+declare const __ORG_PERSONNEL__: boolean;
+
 /** Human-readable label for each logged action slug. Falls back to the raw
  *  slug so a newly-added action still shows something before this map is
  *  updated. */
@@ -610,22 +614,22 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
               <input type="checkbox" checked={hasDirector} onChange={() => toggleRole('director')} />
               <UserCog size={14} /> Director
             </label>
-            <label className={`dir-checkbox-tag ${hasTeacher ? 'checked' : ''}`}>
+            {!__ORG_PERSONNEL__ && <label className={`dir-checkbox-tag ${hasTeacher ? 'checked' : ''}`}>
               <input type="checkbox" checked={hasTeacher} onChange={() => toggleRole('teacher')} />
               <GraduationCap size={14} /> Applied Teacher
-            </label>
-            <label className={`dir-checkbox-tag ${hasClassroom ? 'checked' : ''}`}>
+            </label>}
+            {!__ORG_PERSONNEL__ && <label className={`dir-checkbox-tag ${hasClassroom ? 'checked' : ''}`}>
               <input type="checkbox" checked={hasClassroom} onChange={() => toggleRole('classroom')} />
               <BookOpen size={14} /> Classroom Teacher
-            </label>
-            <label className={`dir-checkbox-tag ${hasAssistant ? 'checked' : ''}`}>
+            </label>}
+            {!__ORG_PERSONNEL__ && <label className={`dir-checkbox-tag ${hasAssistant ? 'checked' : ''}`}>
               <input type="checkbox" checked={hasAssistant} onChange={() => toggleRole('assistant')} />
               <ClipboardList size={14} /> Student Asst.
-            </label>
-            <label className={`dir-checkbox-tag ${roles.includes('chaperone') ? 'checked' : ''}`}>
+            </label>}
+            {!__ORG_PERSONNEL__ && <label className={`dir-checkbox-tag ${roles.includes('chaperone') ? 'checked' : ''}`}>
               <input type="checkbox" checked={roles.includes('chaperone')} onChange={() => toggleRole('chaperone')} />
               <Eye size={14} /> Chaperone
-            </label>
+            </label>}
           </div>
           <div className="dir-field-hint">
             {isOwnerRow
