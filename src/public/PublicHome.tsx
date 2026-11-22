@@ -31,6 +31,12 @@ import { showPinnedHubGuide } from './welcomeHubSchedule';
 import { hasServerFunctions } from '../org';
 import type { CalendarEvent } from '../director/types';
 
+// Build-time literal (vite.config.ts `define`), as in DirectorApp.tsx. An
+// adult orchestra's Home has no "find your name" step, start guide,
+// assignments or school-year lines (#adult-cleanup); the calendar, the
+// announcements and the music read the same.
+declare const __ORG_PERSONNEL__: boolean;
+
 const LOOKAHEAD_DAYS = 14;
 
 export function PublicHome() {
@@ -147,7 +153,7 @@ export function PublicHome() {
       {musicHolidayOn(new Date(), getLang()) && (
         <div className="pub-birthday-line">{musicHolidayOn(new Date(), getLang())}</div>
       )}
-      {schoolMomentLine(new Date(), getLang()) && (
+      {!__ORG_PERSONNEL__ && schoolMomentLine(new Date(), getLang()) && (
         <div className="pub-birthday-line">{schoolMomentLine(new Date(), getLang())}</div>
       )}
       {weekdayMomentLine(new Date(), getLang()) && (
@@ -191,7 +197,7 @@ export function PublicHome() {
 
       {/* Find my schedule — the #1 student action, front and center.
           Returning visitors get a direct link to their own schedule instead. */}
-      {savedStudents.length > 0 ? (
+      {__ORG_PERSONNEL__ ? null : savedStudents.length > 0 ? (
         <>
         <div className="pub-quick">
           {savedStudents.map(s => (
@@ -218,7 +224,7 @@ export function PublicHome() {
         <Link to="/announcements" className="pub-quick-btn"><Megaphone size={22} /><span>{t('nav.announcements')}</span></Link>
         <Link to="/repertoire" className="pub-quick-btn"><Music size={22} /><span>{t('nav.repertoire')}</span></Link>
         <Link to="/concerts" className="pub-quick-btn"><Ticket size={22} /><span>{t('nav.concerts')}</span></Link>
-        <Link to="/start" className="pub-quick-btn"><HelpCircle size={22} /><span>{t('nav.startHere')}</span></Link>
+        {!__ORG_PERSONNEL__ && <Link to="/start" className="pub-quick-btn"><HelpCircle size={22} /><span>{t('nav.startHere')}</span></Link>}
       </div>
 
       {upcomingRehearsals.length > 0 && (
@@ -249,12 +255,12 @@ export function PublicHome() {
 
       {upcomingEvents.length > 0 && (
         <>
-          <h2 className="pub-section-title">{t('home.comingUpEvents')}</h2>
+          <h2 className="pub-section-title">{t(__ORG_PERSONNEL__ ? 'home.comingUpEventsOnly' : 'home.comingUpEvents')}</h2>
           {upcomingEvents.map(e => <UpcomingRow key={e.id} e={e} label={label(e)} color={color(e)} />)}
         </>
       )}
 
-      {upcomingAssignments.length > 0 && (
+      {!__ORG_PERSONNEL__ && upcomingAssignments.length > 0 && (
         <>
           <h2 className="pub-section-title">{t('home.comingUpAssignments')}</h2>
           {upcomingAssignments.map(a => (

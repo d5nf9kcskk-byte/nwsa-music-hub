@@ -59,7 +59,8 @@ const ORG = JSON.parse(readFileSync(
 
 // Keep in sync with src/public/publicStudentInfo.ts — when false, skip
 // per-student ICS so personal schedules stay dark until the roster is final.
-const PUBLIC_STUDENT_INFO = true;
+// Off for a personnel org there, so off here: it has no students to feed.
+const PUBLIC_STUDENT_INFO = !ORG.features.personnel;
 
 const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
 

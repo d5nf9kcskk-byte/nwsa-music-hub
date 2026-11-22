@@ -19,6 +19,9 @@ import { publicAlertGroupTitle, publicMoreLabels } from '../alertGroupTitle';
 import { allClearExtraLine } from '../../shared/whimsy';
 import { CheckinStrip } from './CheckinStrip';
 
+// Build-time literal (vite.config.ts `define`), as in DirectorApp.tsx.
+declare const __ORG_PERSONNEL__: boolean;
+
 /**
  * Alert strip for the pages where schedule noise belongs: Home and Calendar.
  * Ensemble hubs use EnsembleAlerts instead. Event/class/rehearsal detail pages
@@ -86,8 +89,9 @@ function AlertStrip({ onHome }: { onHome: boolean }) {
 
   // The check-in strip (#concert-checkin). Rendered in BOTH exits below: an
   // otherwise quiet night must not swallow the one banner a student standing
-  // in a concert lobby actually needs.
-  const checkinStrip = <CheckinStrip events={events} ensembles={ensembles} />;
+  // in a concert lobby actually needs. The station checks STUDENTS in, so a
+  // personnel org has no door to point at.
+  const checkinStrip = __ORG_PERSONNEL__ ? null : <CheckinStrip events={events} ensembles={ensembles} />;
 
   // Built every render, not memoized: the headings are translated as the
   // groups are built, so they have to follow the EN|ES toggle.

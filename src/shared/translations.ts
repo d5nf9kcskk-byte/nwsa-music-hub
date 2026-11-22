@@ -109,6 +109,8 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'home.comingUpClasses':       { en: 'Coming up — classes',                es: 'Próximas clases' },
   'home.comingUpConcerts':      { en: 'Coming up — concerts',               es: 'Próximos conciertos' },
   'home.comingUpEvents':        { en: 'Coming up — events & school dates',  es: 'Próximos eventos y fechas escolares' },
+  // The same heading where there is no school calendar (a personnel org).
+  'home.comingUpEventsOnly':    { en: 'Coming up — events',                 es: 'Próximos eventos' },
   'home.comingUpAssignments':   { en: 'Coming up — assignments & exams',    es: 'Próximas tareas y exámenes' },
   'home.ourEnsembles':          { en: 'Our ensembles',                      es: 'Nuestros ensambles' },
   'home.repertoireByEnsemble':  { en: 'Repertoire by ensemble',             es: 'Repertorio por ensamble' },
