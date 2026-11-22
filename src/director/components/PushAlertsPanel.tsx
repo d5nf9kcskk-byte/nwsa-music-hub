@@ -10,6 +10,7 @@ import { useCurrentDirector } from '../currentDirector';
 import { isStaffMember } from '../directorRoles';
 import { useModalA11y } from '../../shared/useModalA11y';
 import { backdropClose } from '../../shared/backdropClose';
+import { hasServerFunctions } from '../../org';
 import type { PushScope } from '../../shared/pushAlerts';
 import type * as PushClient from '../../shared/pushClient';
 
@@ -24,6 +25,10 @@ const loadClient = () => import('../../shared/pushClient') as Promise<typeof Pus
 export function PushAlertsButton({ rail = false, onOpen }: { rail?: boolean; onOpen?: () => void } = {}) {
   const [open, setOpen] = useState(false);
   const cls = rail ? 'dir-rail-item' : 'dir-menu-item';
+  // Only the Cloud Functions send an alert, so a Hub without them would let a
+  // director turn alerts on and then never deliver one. Decided here, in the
+  // one component both surfaces render, so neither can offer it alone.
+  if (!hasServerFunctions()) return null;
   return (
     <>
       {/* The phone drawer passes onOpen: the panel's state must live OUTSIDE

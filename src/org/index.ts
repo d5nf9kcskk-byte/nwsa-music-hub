@@ -10,6 +10,21 @@ declare const __ORG_CONFIG__: OrgConfig;
 export const ORG: OrgConfig = __ORG_CONFIG__;
 
 /**
+ * Does this deployment have Cloud Functions behind it? Today only the
+ * school's project does. The demo and adult projects have none, so a feature
+ * a function has to finish (a phone alert is SENT by one) would be offered,
+ * switched on, and then never arrive. Entry points to those features ask
+ * here, and do not render where the answer is no.
+ *
+ * `googleConfirm` currently stands for "this project has Cloud Functions":
+ * it is the one feature flag that is true exactly where they are deployed.
+ */
+// ponytail: one flag stands for server functions until a second server feature needs its own
+export function hasServerFunctions(): boolean {
+  return ORG.features.googleConfirm;
+}
+
+/**
  * Apply the org's CSS custom-property overrides and self-hosted @font-face
  * files. A <style> tag (not inline styles on <html>) so the dark-theme
  * token block in uiUpdates.css — `:root[data-pub-theme='dark']` — keeps its

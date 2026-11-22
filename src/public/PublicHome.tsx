@@ -28,6 +28,7 @@ import { FamilyAlertsButton } from './components/FamilyAlertsButton';
 import { WelcomeHubBanner } from './components/WelcomeHubBanner';
 import { PinnedHubGuide } from './components/PinnedHubGuide';
 import { showPinnedHubGuide } from './welcomeHubSchedule';
+import { hasServerFunctions } from '../org';
 import type { CalendarEvent } from '../director/types';
 
 const LOOKAHEAD_DAYS = 14;
@@ -202,8 +203,9 @@ export function PublicHome() {
             <UserSearch size={22} /><span>{t('home.findSomeoneElse')}</span>
           </Link>
         </div>
-        {/* Invisible until a director opens alerts to families (#push). */}
-        <FamilyAlertsButton students={savedStudents} />
+        {/* Invisible until a director opens alerts to families (#push), and
+            never there in a Hub with no Cloud Functions to send one. */}
+        {hasServerFunctions() && <FamilyAlertsButton students={savedStudents} />}
         </>
       ) : (
         <Link to="/lookup" className="pub-cta-btn">
