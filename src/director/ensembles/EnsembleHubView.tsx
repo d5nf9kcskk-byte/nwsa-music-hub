@@ -16,6 +16,13 @@ import { groupScheduleAlerts, groupUrgentAnnouncements } from '../../shared/grou
 import { AlertGroupSections } from '../../shared/AlertGroupSections';
 import type { DirNavigate } from '../types-nav';
 
+// Build-time literal (vite.config.ts `define`), as in DirectorApp.tsx. An
+// adult orchestra's hub keeps the calendar, the music and the paperwork; the
+// rows built on a student roster (roll, roster, assignments, moving a student,
+// seating by student) are not offered there (#adult-cleanup). Its people are
+// on the Personnel tab.
+declare const __ORG_PERSONNEL__: boolean;
+
 /** Per-ensemble dashboard: next rehearsal, upcoming concerts, quick links. */
 export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string; onNavigate: DirNavigate }) {
   const { ensembles } = useEnsembles();
@@ -92,7 +99,7 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
           <div className="dir-today-title">{ensemble.name}</div>
           <div className="dir-ens-sub">
             {[
-              `${rosterCount} active student${rosterCount === 1 ? '' : 's'}`,
+              __ORG_PERSONNEL__ ? '' : `${rosterCount} active student${rosterCount === 1 ? '' : 's'}`,
               groupKindLabel(ensemble),
               // Course number and semester read the same here as on the public
               // page, which is where a director goes to check them.
@@ -104,6 +111,7 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
             ].filter(Boolean).join(' · ')}
           </div>
         </div>
+        {!__ORG_PERSONNEL__ && (
         <div style={{ marginLeft: 'auto', flexShrink: 0, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {/* Contacting people lives on the roster, where the addresses are —
               this arrives there with the whole group already ticked, which is
@@ -120,9 +128,10 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
             <UserPlus size={14} style={{ verticalAlign: '-2px' }} /> Add students
           </button>
         </div>
+        )}
       </div>
 
-      {rosterCount === 0 && (
+      {!__ORG_PERSONNEL__ && rosterCount === 0 && (
         <div className="dir-field-hint" style={{ padding: '0 16px' }}>
           {isClass
             ? <>This class has no students yet — tap <strong>Add students</strong> above to build its roster.</>
@@ -209,7 +218,7 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
               </div>
               {nextMeeting.changeNote && <div className="dir-today-change">⚠ {nextMeeting.changeNote}</div>}
               <div className="dir-today-actions">
-                {nextMeeting.date === today && (
+                {!__ORG_PERSONNEL__ && nextMeeting.date === today && (
                   <button className="dir-btn dir-btn-primary dir-today-action" onClick={() => onNavigate('roll', { ensembleId })}>
                     <ClipboardList size={15} /> Take Roll
                   </button>
@@ -239,8 +248,8 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
           ))
         )}
 
-        <div className="dir-form-section-label">Assignments &amp; exams</div>
-        {groupAssignments.length === 0 ? (
+        {!__ORG_PERSONNEL__ && <div className="dir-form-section-label">Assignments &amp; exams</div>}
+        {__ORG_PERSONNEL__ ? null : groupAssignments.length === 0 ? (
           <div className="dir-empty-inline">Nothing assigned right now.</div>
         ) : (
           groupAssignments.map(a => (
@@ -271,15 +280,21 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
 
         <div className="dir-form-section-label">Everything for {ensemble.name}</div>
         <div className="dir-hub-grid">
-          <button className="dir-hub-btn" onClick={() => onNavigate('roll', { ensembleId })}>
-            <ClipboardList size={20} /> Take Roll
-          </button>
-          <button className="dir-hub-btn" onClick={() => onNavigate('roster', { ensembleId })}>
-            <Users size={20} /> Roster
-          </button>
-          <button className="dir-hub-btn" onClick={() => setAddingStudents(true)}>
-            <UserPlus size={20} /> Add / Remove Students
-          </button>
+          {!__ORG_PERSONNEL__ && (
+            <button className="dir-hub-btn" onClick={() => onNavigate('roll', { ensembleId })}>
+              <ClipboardList size={20} /> Take Roll
+            </button>
+          )}
+          {!__ORG_PERSONNEL__ && (
+            <button className="dir-hub-btn" onClick={() => onNavigate('roster', { ensembleId })}>
+              <Users size={20} /> Roster
+            </button>
+          )}
+          {!__ORG_PERSONNEL__ && (
+            <button className="dir-hub-btn" onClick={() => setAddingStudents(true)}>
+              <UserPlus size={20} /> Add / Remove Students
+            </button>
+          )}
           <button className="dir-hub-btn" onClick={() => onNavigate('schedule', { ensembleId })}>
             <Calendar size={20} /> Schedule
           </button>
@@ -291,19 +306,23 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
               <Music size={20} /> Repertoire
             </button>
           )}
-          <button className="dir-hub-btn" onClick={() => onNavigate('assignments', { ensembleId })}>
-            <ClipboardCheck size={20} /> Assignments
-          </button>
+          {!__ORG_PERSONNEL__ && (
+            <button className="dir-hub-btn" onClick={() => onNavigate('assignments', { ensembleId })}>
+              <ClipboardCheck size={20} /> Assignments
+            </button>
+          )}
           <button className="dir-hub-btn" onClick={() => onNavigate('documents', { ensembleId })}>
             <FolderOpen size={20} /> Documents
           </button>
           <button className="dir-hub-btn" onClick={() => onNavigate('announcements', { ensembleId })}>
             <Megaphone size={20} /> Announcements{myAnnouncements > 0 ? ` (${myAnnouncements})` : ''}
           </button>
-          <button className="dir-hub-btn" onClick={() => onNavigate('scheduleChanges', { ensembleId })}>
-            <UserCog size={20} /> Move a Student
-          </button>
-          {!isClass && (
+          {!__ORG_PERSONNEL__ && (
+            <button className="dir-hub-btn" onClick={() => onNavigate('scheduleChanges', { ensembleId })}>
+              <UserCog size={20} /> Move a Student
+            </button>
+          )}
+          {!__ORG_PERSONNEL__ && !isClass && (
             <button className="dir-hub-btn" onClick={() => setShowSeating(true)}>
               <Armchair size={20} /> Seating
             </button>

@@ -22,6 +22,11 @@ import type { CalendarEvent, Ensemble, RosterOverride } from '../types';
 import type { DirNavigate } from '../types-nav';
 import { backdropClose } from '../../shared/backdropClose';
 
+// Build-time literal (vite.config.ts `define`), as in DirectorApp.tsx. An
+// adult orchestra has no Move a Student screen for this one to hand off to,
+// and the people its banners reach are members, not families (#adult-cleanup).
+declare const __ORG_PERSONNEL__: boolean;
+
 /**
  * The day board's two rehearsal periods (TIME_BLOCKS[0] and [1]). An event
  * belongs to the period its start time falls in; the 14:25 boundary also
@@ -494,7 +499,7 @@ export function ScheduleSwapView({ initialDate, closing = false, onNavigate }: {
             {pick.mode === 'swap' ? <><ArrowLeftRight size={14} /> Swap</> : <><Merge size={14} /> Combine</>}
           </button>
         ) : (
-          <button className="dir-tool-btn" onClick={() => setMenuFor(e)} title="Swap, shift, move rooms, cancel, or move a student">
+          <button className="dir-tool-btn" onClick={() => setMenuFor(e)} title={__ORG_PERSONNEL__ ? 'Swap, shift, move rooms, or cancel' : 'Swap, shift, move rooms, cancel, or move a student'}>
             <Pencil size={14} /> Change ▾
           </button>
         )}
@@ -541,6 +546,13 @@ export function ScheduleSwapView({ initialDate, closing = false, onNavigate }: {
             closed below. Closing the high school cancels that day’s private lessons too.
             You see everything before it saves, and Back to normal undoes it.
           </div>
+        ) : __ORG_PERSONNEL__ ? (
+        <div className="dir-field-hint">
+          Whole-ensemble changes for this day — pick a ready-made option below,
+          or tap <strong>Change</strong> on a block
+          to swap, combine, move time or room, or cancel.
+          Members see a red “Schedule change” banner automatically.
+        </div>
         ) : (
         <div className="dir-field-hint">
           Whole-ensemble changes for this day — pick a ready-made option below,
@@ -897,9 +909,12 @@ function ChangeMenu({ event, name, onClose, onTimeRoom, onCancel, onSwap, onComb
     { icon: <Merge size={16} />, title: 'Combine with another block…', sub: 'Meet together — one room, one downbeat, roll still per ensemble', run: onCombine },
     cancelled
       ? { icon: <RotateCcw size={16} />, title: 'Un-cancel…', sub: 'Put it back on as originally scheduled', run: onCancel }
-      : { icon: <XCircle size={16} />, title: `Cancel this ${event.type.toLowerCase()}…`, sub: 'Families can be told automatically', run: onCancel, danger: true },
+      : { icon: <XCircle size={16} />, title: `Cancel this ${event.type.toLowerCase()}…`, sub: __ORG_PERSONNEL__ ? 'Members can be told automatically' : 'Families can be told automatically', run: onCancel, danger: true },
     // The PEOPLE door — deep-links to Move a Student on this block's roster.
-    { icon: <UserCog size={16} />, title: 'Move a student…', sub: 'Opens Move a Student with this block’s roster', run: onStudent },
+    // A school's door: a personnel org has no such screen.
+    ...(__ORG_PERSONNEL__ ? [] : [
+      { icon: <UserCog size={16} />, title: 'Move a student…', sub: 'Opens Move a Student with this block’s roster', run: onStudent },
+    ]),
   ];
   return (
     <div className="dir-drawer-overlay" {...backdropClose(onClose)}>
