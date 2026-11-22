@@ -21,6 +21,11 @@ import { formatDate, todayStr, groupKindLabel, isClassGroup, checkinCandidateEve
 import { enableCheckinPatch } from '../../shared/concertCheckin';
 import type { CalendarEvent, Ensemble } from '../types';
 
+// Build-time literal (vite.config.ts `define`). A personnel org has no
+// assignments, classes, college, Start Guide or door check-in (#adult-cleanup),
+// so the picker does not offer links to them.
+declare const __ORG_PERSONNEL__: boolean;
+
 interface Props {
   /** Called with the label and URL to insert. Closing is the caller's job. */
   onPick: (label: string, url: string) => void;
@@ -53,7 +58,7 @@ const PAGES: { label: string; url: string; sub: string }[] = [
   // One index per group (#one-nav) — /ensembles is high-school performing
   // groups only, so a link meant for a class or a college course has to name
   // its own page or it lands somewhere that does not list the group.
-  { label: 'Ensembles', url: '/ensembles', sub: 'High school performing groups' },
+  { label: 'Ensembles', url: '/ensembles', sub: __ORG_PERSONNEL__ ? 'Every ensemble' : 'High school performing groups' },
   { label: 'Classes', url: '/classes', sub: 'Theory, history and other classes' },
   { label: 'College', url: '/college', sub: 'Dual-enrollment groups and courses' },
   { label: 'Repertoire', url: '/repertoire', sub: 'What everyone is playing' },
@@ -140,7 +145,7 @@ export function LinkPicker({ onPick, onClose }: Props) {
     // entry here competed with everything else for the top-6-upcoming slots
     // shown on an empty query and was routinely crowded out — see the `view`
     // state above. Picking this opens the dedicated concert list instead.
-    out.push({
+    if (!__ORG_PERSONNEL__) out.push({
       key: 'checkin-picker', group: 'Concert check-in', label: 'Concert check-in',
       sub: 'Pick a concert to link its check-in', url: CHECKIN_PICKER,
     });
@@ -165,7 +170,7 @@ export function LinkPicker({ onPick, onClose }: Props) {
     for (const f of forms) {
       out.push({ key: `su-${f.id}`, group: 'Forms', label: f.title, url: formPath(f.id) });
     }
-    for (const a of assignments) {
+    if (!__ORG_PERSONNEL__) for (const a of assignments) {
       out.push({
         key: `asg-${a.id}`,
         group: 'Assignments',
@@ -188,6 +193,7 @@ export function LinkPicker({ onPick, onClose }: Props) {
       });
     }
     for (const p of PAGES) {
+      if (__ORG_PERSONNEL__ && ['/assignments', '/classes', '/college', '/start'].includes(p.url)) continue;
       out.push({ key: `pg-${p.url}`, group: 'Pages', label: p.label, sub: p.sub, url: p.url });
     }
     return out;
