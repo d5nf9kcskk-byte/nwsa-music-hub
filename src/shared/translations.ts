@@ -24,6 +24,8 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'nav.assignments':      { en: 'Assignments & Exams', es: 'Tareas y exámenes' },
   'nav.assignmentsShort': { en: 'Assignments',         es: 'Tareas' },
   'nav.contact':          { en: 'Contact Us',          es: 'Contáctanos' },
+  // That page's own title in a personnel org, where adults write for themselves.
+  'contact.officeTitle':  { en: 'Message the office',  es: 'Escribe a la oficina' },
   'nav.absence':          { en: 'Report an Absence',   es: 'Reportar una ausencia' },
   'nav.copies':           { en: 'Request Music Copies', es: 'Pedir copias de música' },
   'nav.mySchedule':       { en: 'My Schedule',         es: 'Mi horario' },
