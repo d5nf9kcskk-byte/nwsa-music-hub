@@ -6,6 +6,8 @@ import { trackWrite } from '../writeStatus';
 import { currentDirectorName, currentDirectorRole } from '../currentDirector';
 import type { ServiceAttendance, ServiceAttendanceStatus } from '../types';
 import { usePersonnelGate } from './personnelGate';
+import { FIXTURES_ON } from './fixtures';
+import { FIXTURE_SERVICE_ATTENDANCE } from './fixturesAdult';
 
 /** The rules-enforced doc id: one record per person per service, ever. */
 export function serviceAttendanceDocId(eventId: string, personnelId: string) {
@@ -36,7 +38,11 @@ export function useServiceAttendance(eventId: string | null) {
   const [snap, setSnap] = useState<{ eventId: string; records: ServiceAttendance[] } | null>(null);
   const [settledFor, setSettledFor] = useState<string | null>(null);
   const gate = usePersonnelGate();
-  const records = snap?.eventId === eventId ? snap.records : [];
+  // Local fixtures, behind the same gate — see usePersonnel.
+  const fixtures = !db && FIXTURES_ON && gate === 'open';
+  const records = fixtures
+    ? FIXTURE_SERVICE_ATTENDANCE.filter(r => r.eventId === eventId)
+    : snap?.eventId === eventId ? snap.records : [];
   const loading = Boolean(db) && Boolean(eventId) && gate !== 'blocked' && settledFor !== eventId;
 
   useEffect(() => {

@@ -5,6 +5,8 @@ import { watchCollection } from '../../shared/watchCollection';
 import { reportWriteError } from '../writeStatus';
 import type { PersonnelContact } from '../types';
 import { usePersonnelGate } from './personnelGate';
+import { FIXTURES_ON } from './fixtures';
+import { FIXTURE_PERSONNEL_CONTACTS } from './fixturesAdult';
 
 /**
  * Private contact + payroll-adjacent details, keyed by personnel id (doc id
@@ -55,5 +57,7 @@ export function usePersonnelContacts() {
     }
   }
 
-  return { contacts, loading, savePersonnelContact };
+  // Local fixtures, behind the same gate — see usePersonnel.
+  const fixtures = !db && FIXTURES_ON && gate === 'open';
+  return { contacts: fixtures ? FIXTURE_PERSONNEL_CONTACTS : contacts, loading, savePersonnelContact };
 }

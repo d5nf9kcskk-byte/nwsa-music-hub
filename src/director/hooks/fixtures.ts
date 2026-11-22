@@ -1,16 +1,32 @@
 import { slotDefsToOptions } from '../../shared/signupSlotTimes';
 import type { CalendarEvent, ConcertExcusal, Ensemble, LibraryDocument, RepertoirePiece, RosterOverride, SeatingChart, SignupForm, SignupSlotDef, Student } from '../types';
+import { ADULT_DOCUMENTS, ADULT_ENSEMBLES, ADULT_EVENTS, ADULT_PIECES, ADULT_SIGNUPS } from './fixturesAdult';
 
 /**
  * Local development fixtures (redesign test cycle). Served ONLY when Firebase
  * is unconfigured (db === null — true for any local build without env
  * secrets) AND the build was made with VITE_FIXTURES=1. Deploy builds set
- * neither, so this file is dead weight there and tree-shakes away; it can
- * never shadow real data because the db check comes first.
+ * neither, so nothing here is ever served there, and it can never shadow real
+ * data because the db check comes first. (Served is not shipped: the lists
+ * that another chunk reads still ride along, unused, in a deploy bundle.
+ * fixturesAdult.ts says why, and gates its own lists so that they do not.)
  *
  * Usage:  VITE_FIXTURES=1 npm run build && npx vite preview
+ *         VITE_ORG=as VITE_FIXTURES=1 npm run dev     (the adult set)
+ *
+ * TWO sets, picked at build time by the org kind. This file is the school:
+ * students, classes, a field-trip form. An adult orchestra (features.personnel,
+ * e.g. VITE_ORG=as) gets fixturesAdult.ts instead — one paid orchestra in
+ * concert week, with the personnel, contracts and service roll the Personnel
+ * screens read — and every school-only list below is empty there, so no
+ * student is ever served to a paid roster. Both are in .claude/launch.json:
+ * "hub-fixtures" and "hub-fixtures-adult".
  */
 export const FIXTURES_ON: boolean = Boolean(import.meta.env.VITE_FIXTURES);
+
+// The bare build-time literal, as in DirectorApp.tsx: it folds, so a school
+// build carries none of the adult set and an adult build none of this one.
+declare const __ORG_PERSONNEL__: boolean;
 
 /** Dates pinned relative to "today" so Now/Next and Today views light up. */
 function iso(offsetDays: number): string {
@@ -19,13 +35,13 @@ function iso(offsetDays: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-export const FIXTURE_ENSEMBLES: Ensemble[] = [
+export const FIXTURE_ENSEMBLES: Ensemble[] = __ORG_PERSONNEL__ ? ADULT_ENSEMBLES : [
   { id: 'symphony-orchestra', name: 'Symphony Orchestra', order: 1, color: '#0ea5e9', defaultLocation: 'Room 210' },
   { id: 'wind-ensemble', name: 'Wind Ensemble', order: 2, color: '#16a34a', defaultLocation: 'Band Hall' },
   { id: 'jazz-ensemble', name: 'Jazz Ensemble', order: 4, color: '#9333ea', defaultLocation: 'Room 108' },
 ];
 
-export const FIXTURE_PIECES: RepertoirePiece[] = [
+export const FIXTURE_PIECES: RepertoirePiece[] = __ORG_PERSONNEL__ ? ADULT_PIECES : [
   {
     id: 'fx-beethoven5', ensembleId: 'symphony-orchestra', order: 1, title: 'Symphony No. 5',
     fullTitle: 'Symphony No. 5 in C minor, Op. 67', composer: 'Ludwig van Beethoven',
@@ -48,7 +64,7 @@ export const FIXTURE_PIECES: RepertoirePiece[] = [
   { id: 'fx-basie', ensembleId: 'jazz-ensemble', order: 1, title: 'April in Paris', composer: 'Vernon Duke, arr. Basie', duration: 4 },
 ];
 
-export const FIXTURE_EVENTS: CalendarEvent[] = [
+export const FIXTURE_EVENTS: CalendarEvent[] = __ORG_PERSONNEL__ ? ADULT_EVENTS : [
   {
     id: 'fx-winter-concert', type: 'Concert', ensembleIds: ['symphony-orchestra', 'wind-ensemble'],
     date: iso(0), startTime: '19:00', endTime: '21:00', title: 'Winter Concert',
@@ -90,7 +106,7 @@ export const FIXTURE_EVENTS: CalendarEvent[] = [
   },
 ];
 
-export const FIXTURE_DOCUMENTS: LibraryDocument[] = [
+export const FIXTURE_DOCUMENTS: LibraryDocument[] = __ORG_PERSONNEL__ ? ADULT_DOCUMENTS : [
   {
     id: 'fx-doc-hs-handbook', title: 'Student Handbook — High School', category: 'Handbook',
     ensembleIds: [], audience: 'High School', url: 'https://example.org/hs-handbook',
@@ -116,7 +132,7 @@ export const FIXTURE_DOCUMENTS: LibraryDocument[] = [
   },
 ];
 
-export const FIXTURE_STUDENTS: Student[] = [
+export const FIXTURE_STUDENTS: Student[] = __ORG_PERSONNEL__ ? [] : [
   { id: 'fx-s1', name: 'Alvarez, Maria', instrument: 'Violin', grade: '11th', status: 'Active', ensembleIds: ['symphony-orchestra'] },
   { id: 'fx-s2', name: 'Brown, DeShawn', instrument: 'Trumpet', grade: '12th', status: 'Active', ensembleIds: ['wind-ensemble', 'jazz-ensemble'] },
   { id: 'fx-s3', name: 'Chen, Wei', instrument: 'Cello', grade: '9th', status: 'Active', ensembleIds: ['symphony-orchestra'] },
@@ -138,7 +154,7 @@ export const FIXTURE_STUDENTS: Student[] = [
  * the orchestra's own roster, one work's smaller personnel, and one chart
  * shared by two works.
  */
-export const FIXTURE_SEATING_CHARTS: SeatingChart[] = [
+export const FIXTURE_SEATING_CHARTS: SeatingChart[] = __ORG_PERSONNEL__ ? [] : [
   {
     id: 'fx-chart-orch', ensembleId: 'symphony-orchestra', title: 'Winter Concert seating',
     date: iso(-7), createdAt: 1_700_000_100_000,
@@ -179,14 +195,14 @@ export const FIXTURE_SEATING_CHARTS: SeatingChart[] = [
  * program's missing bass can all be seen locally. The bassist is on the
  * orchestra chart above — the program must drop him, the chart must not.
  */
-export const FIXTURE_ROSTER_OVERRIDES: RosterOverride[] = [
+export const FIXTURE_ROSTER_OVERRIDES: RosterOverride[] = __ORG_PERSONNEL__ ? [] : [
   {
     id: 'fx-ov-excused', studentId: 'fx-s7', ensembleId: 'symphony-orchestra',
     action: 'remove', scope: 'event', eventId: 'fx-winter-concert',
   },
 ];
 
-export const FIXTURE_CONCERT_EXCUSALS: ConcertExcusal[] = [
+export const FIXTURE_CONCERT_EXCUSALS: ConcertExcusal[] = __ORG_PERSONNEL__ ? [] : [
   {
     id: 'fx-excusal', studentId: 'fx-s7', eventIds: ['fx-winter-concert'], category: 'religious',
     record: 'From: student (school email), sent the morning of the request.\n\n"That evening is a religious holiday and I will be at services with my family. The same restrictions apply all day."\n\nSpoke with the student after rehearsal; parent confirmed by phone.',
@@ -198,13 +214,13 @@ export const FIXTURE_CONCERT_EXCUSALS: ConcertExcusal[] = [
 /** One open sign-up, aimed at the string players in Symphony Orchestra —
  *  the shape #signups was built for. `deadline` is relative to today so the
  *  "closes today / by <date>" states are reachable while developing. */
-const FIXTURE_SLOT_DEFS: SignupSlotDef[] = [
+const FIXTURE_SLOT_DEFS: SignupSlotDef[] = __ORG_PERSONNEL__ ? [] : [
   { date: iso(6), startMin: 15 * 60, endMin: 15 * 60 + 20 },
   { date: iso(6), startMin: 15 * 60 + 20, endMin: 15 * 60 + 40 },
   { date: iso(7), startMin: 15 * 60, endMin: 15 * 60 + 20 },
 ];
 
-export const FIXTURE_SIGNUPS: SignupForm[] = [
+export const FIXTURE_SIGNUPS: SignupForm[] = __ORG_PERSONNEL__ ? ADULT_SIGNUPS : [
   // #sign-pdf: the official PDF, filled in and signed on the page. The real
   // blank form ships as a site asset, so local runs open the same page.
   {

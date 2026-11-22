@@ -19,7 +19,8 @@ import { setCurrentDirector, clearCurrentDirector } from '../currentDirector';
 import { ORG } from '../../org';
 import { HomeScreenHint } from './HomeScreenHint';
 
-// Build-time literal (vite.config.ts `define`), as in DirectorApp.tsx.
+// Build-time literal (vite.config.ts `define`), as in DirectorApp.tsx: it
+// folds, an ORG read does not.
 declare const __ORG_PERSONNEL__: boolean;
 
 /**
@@ -131,7 +132,9 @@ export function AuthGate({ children }: Props) {
       // the owner-only rows (Directors, the Hub 2.0 preview). Fixtures only.
       const asked = new URLSearchParams(window.location.search).get('role');
       const role = asked === 'teacher' || asked === 'classroom' || asked === 'assistant' || asked === 'owner' ? asked : 'director';
-      setCurrentDirector({ email: 'fixtures@local', role, assignedEnsembleIds: ['symphony-orchestra'] }, 'Fixture Director');
+      // Assigned the orchestra of whichever fixture set this build serves:
+      // the school's (fixtures.ts) or the adult one's (fixturesAdult.ts).
+      setCurrentDirector({ email: 'fixtures@local', role, assignedEnsembleIds: [__ORG_PERSONNEL__ ? 'orchestra' : 'symphony-orchestra'] }, 'Fixture Director');
     }
   }, []);
 

@@ -8,6 +8,14 @@
       "runtimeExecutable": "sh",
       "runtimeArgs": ["-c", "VITE_FIXTURES=1 npm run dev -- --port \"${PORT:-5173}\" --strictPort"],
       "autoPort": true
+    },
+    {
+      "// hub-fixtures-adult": "The same, built as an adult orchestra (VITE_ORG=as, features.personnel): the sample data is one paid orchestra in concert week, and the Personnel screens have a roster, contracts and a service roll to show — see src/director/hooks/fixturesAdult.ts. Opens under /as-music-hub/; Personnel is /as-music-hub/director/personnel. Read-only: writes are no-ops.",
+      "// port": "Its own default port, so both fixture servers can run side by side.",
+      "name": "hub-fixtures-adult",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "VITE_ORG=as VITE_FIXTURES=1 npm run dev -- --port \"${PORT:-5174}\" --strictPort"],
+      "autoPort": true
     }
   ]
 }
