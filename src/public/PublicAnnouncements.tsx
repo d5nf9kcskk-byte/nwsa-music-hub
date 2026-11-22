@@ -5,9 +5,11 @@ import { useAnnouncements, visibleAnnouncements, useMinuteTick } from '../direct
 import { todayStr, musicEnsembles } from '../director/utils';
 import { PubEnsembleSelect } from './components/PubEnsembleSelect';
 import { PubAnnouncements } from './components/PubAnnouncements';
-import { useLang } from '../shared/i18n';
+import { useLang, t } from '../shared/i18n';
 import { dailyPun, DYNAMICS } from '../shared/whimsy';
 import { useTapN } from '../shared/useEggCheer';
+
+declare const __ORG_PERSONNEL__: boolean;
 
 /** Every current announcement, school-wide and per-ensemble, in one place. */
 export function PublicAnnouncementsPage() {
@@ -39,7 +41,7 @@ export function PublicAnnouncementsPage() {
         Announcements
         {dyn !== null && <span className="pub-announce-dyn" aria-hidden="true"> · {DYNAMICS[dyn]}</span>}
       </h1>
-      <PubEnsembleSelect ensembles={orderedEns} value={filter} onChange={setFilter} extraOptions={[{ value: 'school', label: 'School-wide' }]} />
+      <PubEnsembleSelect ensembles={orderedEns} value={filter} onChange={setFilter} extraOptions={[{ value: 'school', label: __ORG_PERSONNEL__ ? t('search.schoolWide') : 'School-wide' }]} />
       {loading ? (
         <div className="pub-muted">Loading…</div>
       ) : items.length === 0 ? (

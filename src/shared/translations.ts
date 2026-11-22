@@ -927,5 +927,8 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
     'contact.officeTitle':      { en: 'Message the office', es: 'Escribe a la oficina' },
     'search.hintNoAssignments': { en: 'Find events, repertoire, announcements, and ensembles.', es: 'Encuentra eventos, repertorio, anuncios y ensambles.' },
     'home.comingUpEventsOnly':  { en: 'Coming up — events', es: 'Próximos eventos' },
+    // A personnel org is not a school: posts for no one group are for everyone.
+    'search.schoolWide':        { en: 'Everyone', es: 'Todos' },
+    'alert.school':             { en: 'Everyone', es: 'Todos' },
   } : {}),
 };

@@ -18,6 +18,8 @@ import type {
 import { backdropClose } from '../../shared/backdropClose';
 import { GroupPicker } from '../components/GroupPicker';
 
+declare const __ORG_PERSONNEL__: boolean;
+
 const CATEGORY_COLOR = DOC_CATEGORY_COLOR;
 
 // Sentinel for the "General (school-wide)" pick in the ensemble filter.
@@ -122,7 +124,7 @@ function DocumentForm({ document, ensembles, onSave, onDelete, onClose }: FormPr
 
           <div className="dir-field">
             <label className="dir-label">
-              Ensembles &amp; classes <span className="dir-label-hint">leave empty for a General (school-wide) document</span>
+              Ensembles &amp; classes <span className="dir-label-hint">{__ORG_PERSONNEL__ ? 'leave empty for a document for everyone' : 'leave empty for a General (school-wide) document'}</span>
             </label>
             <GroupPicker
               ensembles={ensembles}
@@ -266,7 +268,7 @@ export function DocumentsView({
             value={filterEns}
             onChange={setFilterEns}
             allLabel="All ensembles"
-            extraOptions={[{ value: GENERAL, label: 'General (school-wide)' }]}
+            extraOptions={[{ value: GENERAL, label: __ORG_PERSONNEL__ ? 'Everyone' : 'General (school-wide)' }]}
           />
           <div className="dir-ens-filter">
             <label className="dir-ens-filter-label">Type</label>

@@ -197,7 +197,7 @@ export function TodayView({ onNavigate, requestCount = 0 }: { onNavigate: DirNav
                 <div className="dir-ens-name">{a.pinned ? '📌 ' : ''}{a.title}</div>
                 {a.body && <ClampedText className="dir-announce-body"><NotesText text={a.body} /></ClampedText>}
                 <div className="dir-ens-sub">
-                  {a.ensembleId ? ensembleMap[a.ensembleId]?.name : 'School-wide'}
+                  {a.ensembleId ? ensembleMap[a.ensembleId]?.name : __ORG_PERSONNEL__ ? 'Everyone' : 'School-wide'}
                 </div>
               </div>
               <button

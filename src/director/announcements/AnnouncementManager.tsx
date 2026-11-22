@@ -21,6 +21,8 @@ import { useCurrentDirector } from '../currentDirector';
 import { announcementPictures, announcementDownloads } from '../../shared/announcementMedia';
 import { backdropClose } from '../../shared/backdropClose';
 
+declare const __ORG_PERSONNEL__: boolean;
+
 interface Props {
   onClose: () => void;
   /** Render as a full page (menu tab) instead of a bottom-sheet overlay. */
@@ -512,7 +514,7 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onArchive
           <div className="dir-field">
             <label className="dir-label">Show to</label>
             <select className="dir-input" value={ensembleId ?? ''} onChange={e => setEnsembleId(e.target.value || null)}>
-              <option value="">All ensembles (school-wide)</option>
+              <option value="">{__ORG_PERSONNEL__ ? 'Everyone' : 'All ensembles (school-wide)'}</option>
               {ensembles.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
             </select>
           </div>

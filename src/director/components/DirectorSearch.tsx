@@ -309,7 +309,7 @@ function DirectorSearchInner({ onClose, onOpenStudent, onNavigate }: Omit<Direct
         items: anns.map(a => ({
           key: `ann-${a.id}`,
           label: a.title,
-          sub: a.ensembleId ? ensembleMap[a.ensembleId]?.name : 'School-wide',
+          sub: a.ensembleId ? ensembleMap[a.ensembleId]?.name : __ORG_PERSONNEL__ ? 'Everyone' : 'School-wide',
           onSelect: () => onNavigate ? goTab('announcements') : go('/announcements'),
         })),
       });
