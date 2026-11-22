@@ -286,6 +286,13 @@ export default defineConfig(({ mode }) => {
     // keeps the chunk out of an NWSA/ASYO dist. Mirrored in
     // scripts/vite-defines-shim.mjs like every other define here.
     __ORG_PERSONNEL__: JSON.stringify(ORG.features.personnel),
+    // Does this deployment have Cloud Functions behind it? Today
+    // features.googleConfirm is true exactly where they are deployed (NWSA).
+    // A bare literal for the same reason as above: entry points to features a
+    // function has to finish (a phone alert is SENT by one) fold out where it
+    // is false, and the school's bundle stays byte-identical.
+    // ponytail: one flag stands for server functions until a second server feature needs its own
+    __ORG_SERVER_FUNCTIONS__: JSON.stringify(ORG.features.googleConfirm),
     // Build stamp shown in the director menu (#stale-client). MUST stay
     // deterministic: the deploy cron rebuilds the SAME commit every 4 hours
     // to refresh ICS feeds, and anything that varies between those rebuilds

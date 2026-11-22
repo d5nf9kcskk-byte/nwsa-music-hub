@@ -10,9 +10,11 @@ import { useCurrentDirector } from '../currentDirector';
 import { isStaffMember } from '../directorRoles';
 import { useModalA11y } from '../../shared/useModalA11y';
 import { backdropClose } from '../../shared/backdropClose';
-import { hasServerFunctions } from '../../org';
 import type { PushScope } from '../../shared/pushAlerts';
 import type * as PushClient from '../../shared/pushClient';
+
+// Build-time literal (vite.config.ts `define`).
+declare const __ORG_SERVER_FUNCTIONS__: boolean;
 
 /** The client module is loaded on first open, so the messaging SDK it pulls in
  *  never reaches anyone who does not open this panel (#push). */
@@ -28,7 +30,7 @@ export function PushAlertsButton({ rail = false, onOpen }: { rail?: boolean; onO
   // Only the Cloud Functions send an alert, so a Hub without them would let a
   // director turn alerts on and then never deliver one. Decided here, in the
   // one component both surfaces render, so neither can offer it alone.
-  if (!hasServerFunctions()) return null;
+  if (!__ORG_SERVER_FUNCTIONS__) return null;
   return (
     <>
       {/* The phone drawer passes onOpen: the panel's state must live OUTSIDE

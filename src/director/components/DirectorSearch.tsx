@@ -1,5 +1,5 @@
 import './directorSearch.css';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, use, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
   Search, X, CalendarDays, Music, Megaphone, Users, ClipboardCheck,
@@ -139,19 +139,43 @@ export function DirectorSearch({ open, onClose, onOpenStudent, onNavigate }: Dir
 
 /**
  * The same overlay for a personnel org, with the paid roster standing where
- * students do. Its own component so a school build never loads the hook; the
- * hook itself subscribes only for an Owner or Director (personnelGate.ts),
- * and this overlay is only mounted in their shell.
+ * students do. The roster reaches the inner overlay through a context read
+ * with `use()` (which may be conditional), so a school build folds every
+ * trace of it away and its bundle stays byte-identical. The hook subscribes
+ * only for an Owner or Director (personnelGate.ts).
  */
+const PeopleContext = __ORG_PERSONNEL__ ? createContext<Personnel[] | undefined>(undefined) : null;
 function PersonnelSearch(props: Omit<DirectorSearchProps, 'open'>) {
   const { personnel } = usePersonnel();
-  return <DirectorSearchInner {...props} people={personnel} />;
+  const Provider = PeopleContext!.Provider;
+  return <Provider value={personnel}><DirectorSearchInner {...props} /></Provider>;
 }
 
-function DirectorSearchInner({ onClose, onOpenStudent, onNavigate, people }: Omit<DirectorSearchProps, 'open'> & {
-  /** Personnel orgs only: the paid roster, found by name, instrument or section. */
-  people?: Personnel[];
-}) {
+/** The paid roster's results, ahead of everything else. */
+function withPeople(groups: ResultGroup[], people: Personnel[] | undefined, q: string, onOpen: (id: string) => void, onClose: () => void): ResultGroup[] {
+  if (!people || q.length < 2) return groups;
+  const persons = rankMatches(
+    people, q, p => [p.name, p.preferredName, p.instrument, p.section], 8,
+    (a, b) =>
+      (a.status === 'Inactive' ? 1 : 0) - (b.status === 'Inactive' ? 1 : 0)
+      || a.name.localeCompare(b.name),
+  );
+  if (!persons.length) return groups;
+  return [{
+    label: 'Personnel', Icon: Users,
+    items: persons.map(p => ({
+      key: `per-${p.id}`,
+      label: p.preferredName ? `${p.name} “${p.preferredName}”` : p.name,
+      sub: [p.instrument, p.section, p.status === 'SubList' ? 'Sub list' : p.status === 'Inactive' ? 'Archived' : undefined]
+        .filter(Boolean).join(' · '),
+      onSelect: () => { onOpen(p.id); onClose(); },
+    })),
+  }, ...groups];
+}
+
+function DirectorSearchInner({ onClose, onOpenStudent, onNavigate }: Omit<DirectorSearchProps, 'open'>) {
+  // Personnel orgs only (see PersonnelSearch); folds away in a school build.
+  const people = __ORG_PERSONNEL__ ? use(PeopleContext!) : undefined;
   const navigate = useNavigate();
   const { students } = useStudents();
   const { contacts } = useContacts();
@@ -205,7 +229,7 @@ function DirectorSearchInner({ onClose, onOpenStudent, onNavigate, people }: Omi
 
   const q = query.trim();
 
-  const groups = useMemo<ResultGroup[]>(() => {
+  const schoolGroups = useMemo<ResultGroup[]>(() => {
     if (q.length < 2) return [];
     const now = new Date();
     const nowHM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -217,30 +241,6 @@ function DirectorSearchInner({ onClose, onOpenStudent, onNavigate, people }: Omi
       onClose();
     };
     const out: ResultGroup[] = [];
-
-    // People first. In a personnel org that is the paid roster (working
-    // roster ahead of archived on ties), and a name opens that person on the
-    // Personnel tab; contact details stay there, behind the tap.
-    if (__ORG_PERSONNEL__ && people) {
-      const persons = rankMatches(
-        people, q, p => [p.name, p.preferredName, p.instrument, p.section], 8,
-        (a, b) =>
-          (a.status === 'Inactive' ? 1 : 0) - (b.status === 'Inactive' ? 1 : 0)
-          || a.name.localeCompare(b.name),
-      );
-      if (persons.length) {
-        out.push({
-          label: 'Personnel', Icon: Users,
-          items: persons.map(p => ({
-            key: `per-${p.id}`,
-            label: p.preferredName ? `${p.name} “${p.preferredName}”` : p.name,
-            sub: [p.instrument, p.section, p.status === 'SubList' ? 'Sub list' : p.status === 'Inactive' ? 'Archived' : undefined]
-              .filter(Boolean).join(' · '),
-            onSelect: () => { onOpenStudent(p.id); onClose(); },
-          })),
-        });
-      }
-    }
 
     // Students first — Active students ahead of Inactive/Graduated on ties.
     const studs = __ORG_PERSONNEL__ ? [] : rankMatches(
@@ -344,8 +344,9 @@ function DirectorSearchInner({ onClose, onOpenStudent, onNavigate, people }: Omi
     return out;
   }, [
     q, students, contacts, events, pieces, announcements, ensembles, assignments,
-    todaysEvents, todaysLessons, ensembleMap, today, navigate, onClose, onOpenStudent, onNavigate, people,
+    todaysEvents, todaysLessons, ensembleMap, today, navigate, onClose, onOpenStudent, onNavigate,
   ]);
+  const groups = __ORG_PERSONNEL__ ? withPeople(schoolGroups, people, q, onOpenStudent, onClose) : schoolGroups;
 
   const flat = useMemo(() => groups.flatMap(g => g.items), [groups]);
 
@@ -413,6 +414,10 @@ function DirectorSearchInner({ onClose, onOpenStudent, onNavigate, people }: Omi
                 <g.Icon size={13} /> {g.label}
               </div>
               {g.items.map(item => {
+                // A per-render counter, reset above on every render. The
+                // compiler lint flags it once `groups` is not a memo result
+                // (a personnel build adds its roster rows after the memo).
+                // eslint-disable-next-line react-hooks/immutability
                 idx += 1;
                 const isActive = idx === active;
                 return (

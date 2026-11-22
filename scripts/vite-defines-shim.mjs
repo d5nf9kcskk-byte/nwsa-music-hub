@@ -48,3 +48,4 @@ globalThis.__ORG_CONFIG__ = JSON.parse(
 );
 globalThis.__BUILD_ID__ = (process.env.GITHUB_SHA ?? '').slice(0, 7) || 'dev';
 globalThis.__ORG_PERSONNEL__ = globalThis.__ORG_CONFIG__.features.personnel;
+globalThis.__ORG_SERVER_FUNCTIONS__ = globalThis.__ORG_CONFIG__.features.googleConfirm;

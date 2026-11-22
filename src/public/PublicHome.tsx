@@ -28,7 +28,6 @@ import { FamilyAlertsButton } from './components/FamilyAlertsButton';
 import { WelcomeHubBanner } from './components/WelcomeHubBanner';
 import { PinnedHubGuide } from './components/PinnedHubGuide';
 import { showPinnedHubGuide } from './welcomeHubSchedule';
-import { hasServerFunctions } from '../org';
 import type { CalendarEvent } from '../director/types';
 
 // Build-time literal (vite.config.ts `define`), as in DirectorApp.tsx. An
@@ -36,6 +35,7 @@ import type { CalendarEvent } from '../director/types';
 // assignments or school-year lines (#adult-cleanup); the calendar, the
 // announcements and the music read the same.
 declare const __ORG_PERSONNEL__: boolean;
+declare const __ORG_SERVER_FUNCTIONS__: boolean;
 
 const LOOKAHEAD_DAYS = 14;
 
@@ -211,7 +211,7 @@ export function PublicHome() {
         </div>
         {/* Invisible until a director opens alerts to families (#push), and
             never there in a Hub with no Cloud Functions to send one. */}
-        {hasServerFunctions() && <FamilyAlertsButton students={savedStudents} />}
+        {__ORG_SERVER_FUNCTIONS__ && <FamilyAlertsButton students={savedStudents} />}
         </>
       ) : (
         <Link to="/lookup" className="pub-cta-btn">

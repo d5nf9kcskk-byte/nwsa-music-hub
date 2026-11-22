@@ -13,6 +13,9 @@
  */
 import { ORG } from '../org';
 
+// Build-time literal (vite.config.ts `define`); see the guarded use below.
+declare const __ORG_PERSONNEL__: boolean | undefined;
+
 export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   // Shared/combined block (#shared-block): several ensembles in one room.
   'event.combined':       { en: 'Meeting together',      es: 'Ensayo conjunto' },
@@ -24,8 +27,6 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'nav.assignments':      { en: 'Assignments & Exams', es: 'Tareas y exámenes' },
   'nav.assignmentsShort': { en: 'Assignments',         es: 'Tareas' },
   'nav.contact':          { en: 'Contact Us',          es: 'Contáctanos' },
-  // That page's own title in a personnel org, where adults write for themselves.
-  'contact.officeTitle':  { en: 'Message the office',  es: 'Escribe a la oficina' },
   'nav.absence':          { en: 'Report an Absence',   es: 'Reportar una ausencia' },
   'nav.copies':           { en: 'Request Music Copies', es: 'Pedir copias de música' },
   'nav.mySchedule':       { en: 'My Schedule',         es: 'Mi horario' },
@@ -42,10 +43,6 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'nav.assistantLogin':   { en: 'Student Assistant login', es: 'Acceso para asistentes estudiantiles' },
   'nav.teacherLogin':     { en: 'Applied Teacher login', es: 'Acceso para maestros aplicados' },
   'nav.classroomLogin':   { en: 'Classroom Teacher login', es: 'Acceso para maestros de clase' },
-  // An adult orchestra has one staff door, not four (#adult-cleanup). Like
-  // the other rows only a personnel org asks for, it is a plain row and not
-  // gated on the build: scripts outside Vite load this table too.
-  'nav.staffLogin':       { en: 'Staff sign-in',       es: 'Acceso para el personal' },
   'nav.more':             { en: 'More',                es: 'Más' },
   'nav.menu':             { en: 'Menu',                es: 'Menú' },
   'nav.closeMenu':        { en: 'Close menu',          es: 'Cerrar menú' },
@@ -64,8 +61,6 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'search.placeholder':   { en: 'Search events, music, announcements…', es: 'Buscar eventos, música, anuncios…' },
   'search.close':         { en: 'Close search', es: 'Cerrar búsqueda' },
   'search.hint':          { en: 'Find events, repertoire, announcements, ensembles, and assignments.', es: 'Encuentra eventos, repertorio, anuncios, ensambles y tareas.' },
-  // The same line where there are no assignments to find (a personnel org).
-  'search.hintNoAssignments': { en: 'Find events, repertoire, announcements, and ensembles.', es: 'Encuentra eventos, repertorio, anuncios y ensambles.' },
   'search.noMatches':     { en: 'No matches for “{q}”.', es: 'No hay resultados para “{q}”.' },
   'search.schoolWide':    { en: 'School-wide', es: 'Toda la escuela' },
 
@@ -111,8 +106,6 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'home.comingUpClasses':       { en: 'Coming up — classes',                es: 'Próximas clases' },
   'home.comingUpConcerts':      { en: 'Coming up — concerts',               es: 'Próximos conciertos' },
   'home.comingUpEvents':        { en: 'Coming up — events & school dates',  es: 'Próximos eventos y fechas escolares' },
-  // The same heading where there is no school calendar (a personnel org).
-  'home.comingUpEventsOnly':    { en: 'Coming up — events',                 es: 'Próximos eventos' },
   'home.comingUpAssignments':   { en: 'Coming up — assignments & exams',    es: 'Próximas tareas y exámenes' },
   'home.ourEnsembles':          { en: 'Our ensembles',                      es: 'Nuestros ensambles' },
   'home.repertoireByEnsemble':  { en: 'Repertoire by ensemble',             es: 'Repertorio por ensamble' },
@@ -924,4 +917,15 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'play.title':           { en: 'Playing today', es: 'Tocan hoy' },
   'play.guest':           { en: 'guest', es: 'invitado' },
   'play.foot':            { en: 'Booked a time on a sign-up form? Your name appears here, and on this event in your subscribed calendar.', es: '¿Reservaste un horario en un formulario de inscripción? Tu nombre aparece aquí y en este evento en el calendario al que estás suscrito.' },
+  // Rows only a personnel org asks for (#adult-cleanup): its one staff door,
+  // its contact page, and the search hint and Home heading where there are no
+  // assignments or school dates. Folded out of every other build so the
+  // school's bundle stays byte-identical; `typeof` because self-checks load
+  // this table outside Vite, where the define does not exist.
+  ...(typeof __ORG_PERSONNEL__ !== 'undefined' && __ORG_PERSONNEL__ ? {
+    'nav.staffLogin':           { en: 'Staff sign-in',      es: 'Acceso para el personal' },
+    'contact.officeTitle':      { en: 'Message the office', es: 'Escribe a la oficina' },
+    'search.hintNoAssignments': { en: 'Find events, repertoire, announcements, and ensembles.', es: 'Encuentra eventos, repertorio, anuncios y ensambles.' },
+    'home.comingUpEventsOnly':  { en: 'Coming up — events', es: 'Próximos eventos' },
+  } : {}),
 };
