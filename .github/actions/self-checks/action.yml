@@ -757,6 +757,10 @@ runs:
       run: node --experimental-strip-types functions/src/memberMail.selfcheck.ts
       shell: bash
 
+    - name: Check the messages screens' small rules
+      run: node --experimental-strip-types src/director/office/officeCore.selfcheck.ts
+      shell: bash
+
     # The parts reader's device store (#parts-reader): a part is kept under
     # account + members path only, "Updated" means the hash moved, and
     # sign-out leaves no part on the device.
