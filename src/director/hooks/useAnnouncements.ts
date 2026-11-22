@@ -7,6 +7,12 @@ import { currentDirectorEmail, currentDirectorName } from '../currentDirector';
 import { deleteStoredFile } from '../storageCleanup';
 import type { Announcement, Attachment } from '../types';
 import { proposeWrite } from './usePendingActions';
+import { FIXTURES_ON } from './fixtures';
+import { ADULT_ANNOUNCEMENTS } from './fixturesAdult';
+
+// The bare build-time literal, as in DirectorApp.tsx. Only the adult fixture
+// set has announcements, so the fixture line below folds out of a school build.
+declare const __ORG_PERSONNEL__: boolean;
 
 /** Every uploaded file a post points at (pictures + attachments). */
 function uploadedUrls(a: Partial<Announcement> | undefined): string[] {
@@ -110,7 +116,8 @@ export function useAnnouncements() {
   }
 
   return {
-    announcements, loading,
+    // Local fixtures, derived rather than set in the effect (see useSeatingCharts).
+    announcements: __ORG_PERSONNEL__ && !db && FIXTURES_ON ? ADULT_ANNOUNCEMENTS : announcements, loading,
     addAnnouncement, updateAnnouncement, deleteAnnouncement,
     archiveAnnouncement, restoreAnnouncement,
   };
