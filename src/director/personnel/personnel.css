@@ -217,7 +217,8 @@
 .dir-att-btn.svc-excused:not(.active):hover { border-color: var(--dir-lesson);  color: var(--dir-lesson); }
 
 /* Money (#personnel payments). */
-.dir-pay-pill { font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px; flex-shrink: 0; margin-right: 6px; }
+.dir-pay-pill { font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px; flex-shrink: 0; }
+.pers-pills { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; flex-shrink: 0; }
 .dir-pay-pill.paid   { background: var(--dir-excused-bg); color: #15803d; }
 .dir-pay-pill.part   { background: var(--dir-late-bg);    color: var(--dir-late); }
 .dir-pay-pill.unpaid { background: var(--dir-absent-bg);  color: var(--dir-absent); }
@@ -234,7 +235,7 @@
 /* The bar over ticked rows. Sticky so it stays in reach while the list scrolls. */
 .pers-bar {
   position: sticky; bottom: 0; z-index: 5; display: flex; flex-direction: column; gap: 8px;
-  padding: 10px 16px; background: var(--dir-surface); border-top: 1px solid var(--dir-border);
+  padding: 10px 16px; background: var(--dir-bg); backdrop-filter: blur(16px); border-top: 1px solid var(--dir-border);
   box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.08);
 }
 .pers-bar-head { display: flex; align-items: center; gap: 4px; }

@@ -320,9 +320,11 @@ export default function PersonnelManager({ initialPersonId, initialEventId }: {
         />
       )}
 
-      <button className="dir-fab" onClick={() => setEditing('new')} aria-label="Add person">
-        <UserPlus size={22} />
-      </button>
+      {selected.size === 0 && (
+        <button className="dir-fab" onClick={() => setEditing('new')} aria-label="Add person">
+          <UserPlus size={22} />
+        </button>
+      )}
 
       {viewing !== null && (
         <PersonnelDetail
@@ -480,12 +482,14 @@ function PersonnelRow({ person, contracts, paymentsByContract, selected, onToggl
           ].filter(Boolean).join(' · ')}
         </div>
       </div>
-      {pay && <span className={`dir-pay-pill ${pay}`}>{pay === 'part' ? 'Part paid' : pay === 'paid' ? 'Paid' : 'Unpaid'}</span>}
-      {newest ? (
-        <span className={`dir-contract-pill ${newest.status}`}>{newest.status}</span>
-      ) : person.status === 'Contracted' ? (
-        <span className="dir-contract-pill none">No contract</span>
-      ) : null}
+      <div className="pers-pills">
+        {pay && <span className={`dir-pay-pill ${pay}`}>{pay === 'part' ? 'Part paid' : pay === 'paid' ? 'Paid' : 'Unpaid'}</span>}
+        {newest ? (
+          <span className={`dir-contract-pill ${newest.status}`}>{newest.status}</span>
+        ) : person.status === 'Contracted' ? (
+          <span className="dir-contract-pill none">No contract</span>
+        ) : null}
+      </div>
     </div>
   );
 }

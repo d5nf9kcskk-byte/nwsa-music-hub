@@ -21,7 +21,7 @@ export function byScoreSectionSeat(a: Personnel, b: Personnel): number {
     || lastName(a.name).localeCompare(lastName(b.name));
 }
 
-const STRING_SECTION = /^(violin|viola|cello|violoncello|bass|double bass)/i;
+const STRING_SECTION = /^(violin|viola|cello|violoncello|(double )?bass)\b/i;
 
 /** Where a player sits, in words. Strings share stands, two to a stand: seat
  *  1 and 2 are stand 1 (odd = outside, nearest the audience, even = inside).

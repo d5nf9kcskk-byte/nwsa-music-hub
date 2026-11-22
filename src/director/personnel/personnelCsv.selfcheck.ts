@@ -36,6 +36,8 @@ assert(lines[2].includes('542.00,0.00,542.00'), 'unpaid contract owes the full t
 assert(seatLabel({ section: 'Violin I', seat: 3 }) === 'Stand 2, outside', 'seat 3 is stand 2 outside');
 assert(seatLabel({ section: 'Violin II', seat: 4 }) === 'Stand 2, inside', 'seat 4 is stand 2 inside');
 assert(seatLabel({ section: 'Oboe', seat: 2 }) === 'Part 2', 'winds have parts, not stands');
+assert(seatLabel({ section: 'Bassoon', seat: 1 }) === 'Part 1', 'a bassoon is not a bass');
+assert(seatLabel({ section: 'Bass', seat: 1 }) === 'Stand 1, outside', 'a bass is');
 assert(seatLabel({ section: 'Harp' }) === '', 'no seat, no label');
 assert(rosterCsv([{ id: 'x', name: 'A, B', status: 'SubList', section: 'Cello', seat: 1 }], {}).includes('"Stand 1, outside",,Sub list'), 'roster row');
 const svc = { id: 'e2', date: '2027-01-02', ensembleIds: ['orch'] };
