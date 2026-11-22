@@ -324,7 +324,7 @@ export default function PersonnelManager({ initialPersonId, initialEventId }: {
                   // doc of payroll-adjacent PII behind.
                   await savePersonnelContact(editing.id, {
                     email: '', phone: '', address: '', emergencyName: '',
-                    emergencyPhone: '', unionLocal: '', w9Status: 'not-requested',
+                    emergencyPhone: '', unionLocal: '', payMethod: '', payHandle: '', w9Status: 'not-requested',
                   });
                   await deletePersonnel(editing.id);
                 }

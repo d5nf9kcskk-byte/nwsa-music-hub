@@ -228,6 +228,15 @@ const CONTACT_DIFFERS: Record<string, Partial<PersonnelContact>> = {
   'fx-p23': { w9Status: 'not-requested', phone: '' },
 };
 
+/** How each person is paid, in rotation. Handles are made up: the reserved
+ *  example.org domain, 555-01xx numbers, and invented names. */
+const PAY: ((p: Personnel) => Pick<PersonnelContact, 'payMethod' | 'payHandle'>)[] = [
+  p => ({ payMethod: 'zelle', payHandle: `${firstLast(p.name).toLowerCase().replace(/[^a-z ]/g, '').replace(' ', '.')}@example.org` }),
+  p => ({ payMethod: 'venmo', payHandle: `@${firstLast(p.name).toLowerCase().replace(/[^a-z]/g, '')}` }),
+  () => ({ payMethod: 'check' }),
+  p => ({ payMethod: 'paypal', payHandle: `${firstLast(p.name).toLowerCase().replace(/[^a-z ]/g, '').replace(' ', '.')}@example.org` }),
+];
+
 /** Keyed by personnel id, the shape usePersonnelContacts returns. */
 export const FIXTURE_PERSONNEL_CONTACTS: Record<string, PersonnelContact> = __ORG_PERSONNEL__ && import.meta.env.VITE_FIXTURES
   ? Object.fromEntries(FIXTURE_PERSONNEL.map((p, i): [string, PersonnelContact] => [p.id, {
@@ -235,6 +244,7 @@ export const FIXTURE_PERSONNEL_CONTACTS: Record<string, PersonnelContact> = __OR
       email: `${firstLast(p.name).toLowerCase().replace(/[^a-z ]/g, '').replace(' ', '.')}@example.org`,
       phone: `555-01${String(i + 1).padStart(2, '0')}`,
       w9Status: 'on-file',
+      ...PAY[i % PAY.length](p),
       ...CONTACT_DIFFERS[p.id],
     }]))
   : {};

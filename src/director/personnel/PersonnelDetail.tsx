@@ -1,6 +1,7 @@
-import { Pencil, Phone, Mail, Users, MapPin, FileText, ExternalLink, Archive, RotateCcw, ClipboardSignature, Landmark } from 'lucide-react';
+import { Pencil, Phone, Mail, Users, MapPin, FileText, ExternalLink, Archive, RotateCcw, ClipboardSignature, Landmark, Wallet } from 'lucide-react';
 import { NotesText } from '../../public/components/NotesText';
 import type { Personnel, PersonnelContact, Contract, Ensemble } from '../types';
+import { PAY_METHOD_LABEL } from '../types';
 import { ensembleColor, formatDate } from '../utils';
 import { formatCents, basisSuffix, contractTotalCents } from './contractMoney';
 import { Linkify } from '../components/Linkify';
@@ -52,7 +53,7 @@ export function PersonnelDetail({ person, contact, contracts, ensembles, onEdit,
   const sorted = [...contracts].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
   const extras = contact?.extra ? Object.entries(contact.extra).filter(([, v]) => v) : [];
   const hasContact = Boolean(contact?.email || contact?.phone || contact?.address
-    || contact?.emergencyName || contact?.emergencyPhone || contact?.unionLocal || extras.length);
+    || contact?.emergencyName || contact?.emergencyPhone || contact?.unionLocal || contact?.payMethod || contact?.payHandle || extras.length);
 
   const subtitle = [
     person.instrument,
@@ -159,6 +160,12 @@ export function PersonnelDetail({ person, contact, contracts, ensembles, onEdit,
                   <div className="dir-detail-contact-row">
                     <Landmark size={13} />
                     <span>{contact.unionLocal}</span>
+                  </div>
+                )}
+                {(contact?.payMethod || contact?.payHandle) && (
+                  <div className="dir-detail-contact-row">
+                    <Wallet size={13} />
+                    <span>Paid by {[contact.payMethod ? PAY_METHOD_LABEL[contact.payMethod] : null, contact.payHandle].filter(Boolean).join(' · ')}</span>
                   </div>
                 )}
                 {extras.length > 0 && (

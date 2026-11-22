@@ -44,7 +44,7 @@ export function usePersonnelContacts() {
     // To clear a field, pass '' explicitly. The key list is the rules
     // allowlist; anything else would be rejected server-side by hasOnly().
     const clean: Record<string, unknown> = {};
-    for (const k of ['email', 'phone', 'address', 'emergencyName', 'emergencyPhone', 'unionLocal', 'w9Status'] as const) {
+    for (const k of ['email', 'phone', 'address', 'emergencyName', 'emergencyPhone', 'unionLocal', 'w9Status', 'payMethod', 'payHandle'] as const) {
       if (data[k] !== undefined) clean[k] = data[k];
     }
     if (data.extra !== undefined) clean.extra = data.extra;

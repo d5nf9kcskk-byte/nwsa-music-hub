@@ -1769,9 +1769,24 @@ export interface PersonnelContact {
    * someone still has to chase it.
    */
   w9Status?: 'not-requested' | 'requested' | 'on-file';
+  /**
+   * How this person is paid, and the HANDLE to pay them at: a Zelle email or
+   * phone, a Venmo or PayPal name, or (for a check) a note like "mail to
+   * address above". A handle only. NEVER a bank account, routing or card
+   * number: the same ban as the taxpayer id above, for the same reason.
+   */
+  payMethod?: PayMethod | '';
+  payHandle?: string;
   /** Unrecognized import columns, preserved verbatim so nothing is lost. */
   extra?: Record<string, string>;
 }
+
+/** Stored values; the rules list in firestore.rules says the same four. */
+export const PAY_METHODS = ['zelle', 'venmo', 'paypal', 'check'] as const;
+export type PayMethod = (typeof PAY_METHODS)[number];
+export const PAY_METHOD_LABEL: Record<PayMethod, string> = {
+  zelle: 'Zelle', venmo: 'Venmo', paypal: 'PayPal', check: 'Check',
+};
 
 /**
  * How a rate multiplies out. `flat` is one agreed sum for the whole contract

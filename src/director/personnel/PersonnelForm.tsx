@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { RichTextArea } from '../components/RichTextArea';
-import type { Personnel, PersonnelContact, Ensemble } from '../types';
+import type { Personnel, PersonnelContact, Ensemble, PayMethod } from '../types';
+import { PAY_METHODS, PAY_METHOD_LABEL } from '../types';
 import { useModalA11y } from '../../shared/useModalA11y';
 import { musicEnsembles } from '../utils';
 import { whenQueued } from '../writeStatus';
@@ -27,6 +28,8 @@ export interface PersonnelContactDraft {
   emergencyName: string;
   emergencyPhone: string;
   unionLocal: string;
+  payMethod: PayMethod | '';
+  payHandle: string;
   w9Status: NonNullable<PersonnelContact['w9Status']>;
 }
 
@@ -92,6 +95,8 @@ function draftFromContact(contact: PersonnelContact | null): PersonnelContactDra
     emergencyName: contact?.emergencyName ?? '',
     emergencyPhone: contact?.emergencyPhone ?? '',
     unionLocal: contact?.unionLocal ?? '',
+    payMethod: contact?.payMethod ?? '',
+    payHandle: contact?.payHandle ?? '',
     w9Status: contact?.w9Status ?? 'not-requested',
   };
 }
@@ -149,6 +154,7 @@ export function PersonnelForm({ person, contact, ensembles, hasContracts, onSave
         emergencyName: contactForm.emergencyName.trim(),
         emergencyPhone: contactForm.emergencyPhone.trim(),
         unionLocal: contactForm.unionLocal.trim(),
+        payHandle: contactForm.payHandle.trim(),
       }));
       onClose();
     } catch (e) {
@@ -293,6 +299,21 @@ export function PersonnelForm({ person, contact, ensembles, hasContracts, onSave
                 <option value="requested">Requested</option>
                 <option value="on-file">On file</option>
               </select>
+            </div>
+          </div>
+
+          <div className="dir-field-row">
+            <div className="dir-field">
+              <label className="dir-label">Paid by</label>
+              <select className="dir-select" value={contactForm.payMethod} onChange={e => setContact('payMethod', e.target.value as PersonnelContactDraft['payMethod'])}>
+                <option value="">Not set</option>
+                {PAY_METHODS.map(m => <option key={m} value={m}>{PAY_METHOD_LABEL[m]}</option>)}
+              </select>
+            </div>
+            <div className="dir-field">
+              {/* A handle only. Never a bank, routing or card number: see PersonnelContact. */}
+              <label className="dir-label">Pay handle <span className="dir-label-hint">email, phone or @name</span></label>
+              <input className="dir-input" autoComplete="off" value={contactForm.payHandle} onChange={e => setContact('payHandle', e.target.value)} placeholder="never a bank or card number" />
             </div>
           </div>
 

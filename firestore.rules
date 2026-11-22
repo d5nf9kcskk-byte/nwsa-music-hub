@@ -1523,10 +1523,15 @@ service cloud.firestore {
       allow create, update: if isStaff()
         && request.resource.data.keys().hasOnly([
              'email', 'phone', 'address', 'emergencyName', 'emergencyPhone',
-             'unionLocal', 'w9Status', 'extra',
+             'unionLocal', 'w9Status', 'payMethod', 'payHandle', 'extra',
            ])
         && (!('w9Status' in request.resource.data)
-            || request.resource.data.w9Status in ['not-requested', 'requested', 'on-file']);
+            || request.resource.data.w9Status in ['not-requested', 'requested', 'on-file'])
+        && (!('payMethod' in request.resource.data)
+            || request.resource.data.payMethod in ['', 'zelle', 'venmo', 'paypal', 'check'])
+        && (!('payHandle' in request.resource.data)
+            || (request.resource.data.payHandle is string
+                && request.resource.data.payHandle.size() <= 120));
       allow delete: if isStaff();
     }
 
