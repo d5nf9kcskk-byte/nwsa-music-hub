@@ -41,7 +41,12 @@ const STATUS_ROW_LABEL: Record<Personnel['status'], string | null> = {
   Inactive: 'Archived',
 };
 
-export default function PersonnelManager() {
+export default function PersonnelManager({ initialPersonId, initialEventId }: {
+  /** Open this person's detail on arrival — a name picked in the staff search. */
+  initialPersonId?: string;
+  /** Open the roll on this service on arrival — "Attendance" on a Today card. */
+  initialEventId?: string;
+}) {
   const { ensembles } = useEnsembles();
   const { personnel, loading, addPersonnel, updatePersonnel, deletePersonnel, archivePersonnel, restorePersonnel } = usePersonnel();
   const { contacts, savePersonnelContact } = usePersonnelContacts();
@@ -55,12 +60,21 @@ export default function PersonnelManager() {
 
   const [viewing, setViewing] = useState<Personnel | null>(null);
   const [editing, setEditing] = useState<Personnel | null | 'new'>(null);
+  // Deep-link from search: open the person's detail once the roster loads
+  // (the RosterView pattern: adjust state during render, guarded by the
+  // consumed id).
+  const [consumedPersonId, setConsumedPersonId] = useState<string | null>(null);
+  if (initialPersonId && consumedPersonId !== initialPersonId && personnel.length > 0) {
+    setConsumedPersonId(initialPersonId);
+    const target = personnel.find(x => x.id === initialPersonId);
+    if (target) setViewing(target);
+  }
   // Contract surfaces (build-plan step 4). The open sheet tracks an ID and
   // derives the live doc, so a sign or countersign refreshes it in place.
   const [openContractId, setOpenContractId] = useState<string | null>(null);
   const [contractEdit, setContractEdit] = useState<{ person: Personnel; contract: Contract | null } | null>(null);
   const [templatesOpen, setTemplatesOpen] = useState(false);
-  const [attendanceOpen, setAttendanceOpen] = useState(false);
+  const [attendanceOpen, setAttendanceOpen] = useState(Boolean(initialEventId));
   const openContract = openContractId != null
     ? contracts.find(c => c.id === openContractId) ?? null
     : null;
@@ -263,6 +277,7 @@ export default function PersonnelManager() {
         <ServiceAttendanceSheet
           personnel={personnel}
           ensembles={ensembles}
+          initialEventId={initialEventId}
           onClose={() => setAttendanceOpen(false)}
         />
       )}

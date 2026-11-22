@@ -19,6 +19,9 @@ import { setCurrentDirector, clearCurrentDirector } from '../currentDirector';
 import { ORG } from '../../org';
 import { HomeScreenHint } from './HomeScreenHint';
 
+// Build-time literal (vite.config.ts `define`), as in DirectorApp.tsx.
+declare const __ORG_PERSONNEL__: boolean;
+
 /**
  * Break-glass allowlist. Access is normally decided by the `directors`
  * collection in Firestore (see useDirectors + firestore.rules), so this list is
@@ -438,7 +441,13 @@ export function AuthGate({ children }: Props) {
       <div className="dir-auth">
         <img src={`${import.meta.env.BASE_URL}${ORG.logoFile}`} className="dir-auth-logo" alt={ORG.orgShortName} />
         <h1>{ORG.appName} — Directors</h1>
-        <p>Roster, attendance, rehearsals, and notes — all in one place.</p>
+        {/* What is behind the sign-in, per org kind: an adult orchestra's
+            panel has no student roster, roll or progress notes. */}
+        <p>
+          {__ORG_PERSONNEL__
+            ? 'Personnel, schedule, library and announcements — all in one place.'
+            : 'Roster, attendance, rehearsals, and notes — all in one place.'}
+        </p>
         <button className="dir-google-btn" onClick={signIn}>
           <svg width="18" height="18" viewBox="0 0 18 18">
             <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 002.38-5.88c0-.57-.05-.66-.15-1.18z"/>

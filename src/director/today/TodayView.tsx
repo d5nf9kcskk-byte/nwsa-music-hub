@@ -31,6 +31,11 @@ import { AlertGroupSections } from '../../shared/AlertGroupSections';
 import { ORG } from '../../org';
 import { backdropClose } from '../../shared/backdropClose';
 
+// Build-time literal (vite.config.ts `define`), as in DirectorApp.tsx. An
+// adult orchestra's Today has no student roll, requests, lessons or
+// assignments on it (#adult-cleanup): those screens are not in its shell.
+declare const __ORG_PERSONNEL__: boolean;
+
 const ENS_PREF_KEY = 'dir.today.ensemble';
 
 /** Director landing page: same shape as the public home, plus editing jumps.
@@ -102,7 +107,7 @@ export function TodayView({ onNavigate, requestCount = 0 }: { onNavigate: DirNav
       (e.type === 'Rehearsal' || e.type === 'Sectional' || e.type === 'Concert') && e.ensembleIds.length > 0 &&
       e.status !== 'Cancelled' && !!e.startTime &&
       Object.keys(e.rollTaken ?? {}).length === 0;
-    const candidates = events.filter(needsRoll).filter(matchesEns);
+    const candidates = __ORG_PERSONNEL__ ? [] : events.filter(needsRoll).filter(matchesEns);
     return {
       live: candidates.filter(e => e.date === today && e.startTime! <= nowHM && nowHM <= (e.endTime ?? '23:59')),
       missed: candidates.filter(e => e.date === yesterday || (e.date === today && (e.endTime ?? '23:59') < nowHM)),
@@ -229,22 +234,25 @@ export function TodayView({ onNavigate, requestCount = 0 }: { onNavigate: DirNav
         <EnsembleFilter ensembles={ensembles} value={ensembleId} onChange={pickEnsemble} />
       )}
 
-      <a
-        className="dir-feedback-banner"
-        href={DIRECTOR_FEEDBACK_FORM_URL}
-        target="_blank"
-        rel="noreferrer"
-      >
-        <MessageSquarePlus size={18} />
-        <span>
-          <strong>See something wrong, or have an idea?</strong>
-          {' '}Use the feedback form so it stays in one place (instead of texts or email).
-        </span>
-        <ChevronRight size={16} className="dir-up-chev" />
-      </a>
+      {/* The form is the school's own, so only a school build links to it. */}
+      {!__ORG_PERSONNEL__ && (
+        <a
+          className="dir-feedback-banner"
+          href={DIRECTOR_FEEDBACK_FORM_URL}
+          target="_blank"
+          rel="noreferrer"
+        >
+          <MessageSquarePlus size={18} />
+          <span>
+            <strong>See something wrong, or have an idea?</strong>
+            {' '}Use the feedback form so it stays in one place (instead of texts or email).
+          </span>
+          <ChevronRight size={16} className="dir-up-chev" />
+        </a>
+      )}
 
       <div className="dir-page-body">
-        {requestCount > 0 && (
+        {!__ORG_PERSONNEL__ && requestCount > 0 && (
           <button className="dir-roll-nudge" onClick={() => onNavigate('requests')}>
             <Inbox size={15} style={{ verticalAlign: '-3px' }} /> {requestCount} student request{requestCount === 1 ? '' : 's'} waiting for your answer
           </button>
@@ -303,7 +311,7 @@ export function TodayView({ onNavigate, requestCount = 0 }: { onNavigate: DirNav
           ))
         )}
 
-        {lessonsToday.length > 0 && (
+        {!__ORG_PERSONNEL__ && lessonsToday.length > 0 && (
           <>
             <div className="dir-form-section-label"><GraduationCap size={13} style={{ verticalAlign: '-2px' }} /> Lessons today</div>
             {lessonsToday.map(o => (
@@ -341,9 +349,11 @@ export function TodayView({ onNavigate, requestCount = 0 }: { onNavigate: DirNav
           <button className="dir-quick-btn" onClick={() => onNavigate('scheduleSwap', { date: today })}><Clock size={18} /> Change today’s schedule</button>
           {/* #close-a-day: Change a Day asks which school is closed, takes the
               high school's private lessons with it, and Back to normal undoes
-              it. The old one-tap sweep here closed both campuses. */}
-          <button className="dir-quick-btn" onClick={() => onNavigate('scheduleSwap', { date: today, closing: true })}>🌀 Close a day</button>
-          <button className="dir-quick-btn" onClick={() => setShowChecklist(true)}>🍂 Term checklist</button>
+              it. The old one-tap sweep here closed both campuses.
+              This and the term checklist are about a SCHOOL (a campus to
+              close, seniors to graduate), so an adult orchestra gets neither. */}
+          {!__ORG_PERSONNEL__ && <button className="dir-quick-btn" onClick={() => onNavigate('scheduleSwap', { date: today, closing: true })}>🌀 Close a day</button>}
+          {!__ORG_PERSONNEL__ && <button className="dir-quick-btn" onClick={() => setShowChecklist(true)}>🍂 Term checklist</button>}
           <button className="dir-quick-btn" onClick={() => setShowQrKit(true)}>📱 QR kit</button>
         </div>
 
@@ -352,7 +362,7 @@ export function TodayView({ onNavigate, requestCount = 0 }: { onNavigate: DirNav
         {upClasses.length > 0 && (<><div className="dir-section-head"><span>Coming up — classes</span></div>{upClasses.map(upRow)}</>)}
         {upConcerts.length > 0 && (<><div className="dir-section-head"><span>Coming up — concerts</span></div>{upConcerts.map(upRow)}</>)}
         {upEvents.length > 0 && (<><div className="dir-section-head"><span>Coming up — events</span></div>{upEvents.map(upRow)}</>)}
-        {upAssignments.length > 0 && (
+        {!__ORG_PERSONNEL__ && upAssignments.length > 0 && (
           <>
             <div className="dir-section-head"><span>Coming up — assignments</span><button className="dir-link-btn" onClick={() => onNavigate('assignments')}>Manage</button></div>
             {upAssignments.map(a => (
@@ -444,7 +454,7 @@ function TodayCard({
         <div className="dir-today-meta">
           {event.startTime && <span className="dir-today-time"><Clock size={13} /> {formatTimeRange(event.startTime, event.endTime)}</span>}
           {event.location && <span><MapPin size={13} /> {event.location}</span>}
-          {expected != null && <span><Users size={13} /> {expected} expected</span>}
+          {!__ORG_PERSONNEL__ && expected != null && <span><Users size={13} /> {expected} expected</span>}
         </div>
         {/* Each ensemble on this event opens its own hub. */}
         {event.ensembleIds.length > 0 && (
@@ -472,7 +482,7 @@ function TodayCard({
               : <em>No repertoire chosen yet</em>}
         </div>
         {/* Roll receipt (#22) */}
-        {rolls && !cancelled && (
+        {!__ORG_PERSONNEL__ && rolls && !cancelled && (
           (() => {
             const receipts = event.ensembleIds.map(id => ({ id, r: event.rollTaken?.[id] }));
             const taken = receipts.filter(x => x.r);
@@ -489,12 +499,18 @@ function TodayCard({
           })()
         )}
         <div className="dir-today-actions">
-          {rolls && !cancelled && (
+          {rolls && !cancelled && (__ORG_PERSONNEL__ ? (
+            // Adult roll is per service, on the paid roster: this opens
+            // Personnel → Attendance already on this service.
+            <button className="dir-btn dir-btn-primary dir-today-action" onClick={() => onNavigate('personnel', { eventId: event.id })}>
+              <ClipboardList size={15} /> Attendance
+            </button>
+          ) : (
             <button className="dir-btn dir-btn-primary dir-today-action" onClick={() => onNavigate('roll', rollTarget(event))}>
               <ClipboardList size={15} /> Take Roll
             </button>
-          )}
-          {rolls && !cancelled && (
+          ))}
+          {!__ORG_PERSONNEL__ && rolls && !cancelled && (
             <button
               className="dir-btn dir-btn-ghost dir-today-action"
               onClick={() => onNavigate('whosOut', { date: event.date, ensembleId: event.ensembleIds[0] })}

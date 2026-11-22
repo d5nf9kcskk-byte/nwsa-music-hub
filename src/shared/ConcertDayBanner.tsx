@@ -6,6 +6,9 @@ import { formatTime, todayStr, ensembleDisplayName } from '../director/utils';
 import { concertsToday, repertoireLine, showCheckinLink } from './concertToday';
 import { tIn, useLang } from './i18n';
 
+// Build-time literal (vite.config.ts `define`), as in DirectorApp.tsx.
+declare const __ORG_PERSONNEL__: boolean;
+
 interface ConcertDayBannerProps {
   /** Public site links straight to /checkin; the director shell has no
    *  router for that tab, so it gets a callback instead (go('concertCheckin')). */
@@ -60,7 +63,9 @@ export function ConcertDayBanner({ checkinNav, localized = false }: ConcertDayBa
               {repertoire && <div>{say('cday.repertoire', { list: repertoire })}</div>}
               {event.concertAttendance === 'required' && <div>{say('cday.required')}</div>}
               {event.concertAttendance === 'optional' && <div>{say('cday.optional')}</div>}
-              {showCheckinLink(event) && (
+              {/* The door station checks STUDENTS in, so a personnel org has
+                  no such page on either side to send anyone to. */}
+              {!__ORG_PERSONNEL__ && showCheckinLink(event) && (
                 'to' in checkinNav ? (
                   <Link to={checkinNav.to} className="concert-day-banner-checkin">{say('cday.checkIn')}</Link>
                 ) : (
