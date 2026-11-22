@@ -13,6 +13,9 @@
  *   passwordSetup   a player's invitation and own password (#member-sign-in).
  *   memberHome      a player's own roster row, contracts and payments, as a
  *                   projection (src/shared/memberView.ts).
+ *   memberMailSend / memberMailStatus / officeMessageSent
+ *                   tracked broadcasts, their delivery status, and the office
+ *                   threads (memberMessages.ts, #messages).
  *
  * Mail the Hub sends (the invitation, "a password was just set") is a `mail`
  * doc; the Trigger Email extension (firebase.json "extensions") sends it.
@@ -33,6 +36,8 @@ import { memberView } from '../../src/shared/memberView.ts';
 
 // index.ts calls initializeApp() as it loads; re-exporting from it does that.
 export { bindGoogle } from './index.ts';
+// Messages to players (#messages): tracked broadcasts, office threads.
+export { memberMailSend, memberMailStatus, officeMessageSent } from './memberMessages.ts';
 
 type Req = Parameters<Parameters<typeof https.onRequest>[0]>[0];
 type Res = Parameters<Parameters<typeof https.onRequest>[0]>[1];

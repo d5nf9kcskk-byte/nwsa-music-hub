@@ -40,6 +40,9 @@ on:
       - 'scripts/personnel-rules.emulator-check.mjs'
       - 'scripts/member-sign-in.emulator-proof.mjs'
       - 'scripts/messages-rules.emulator-check.mjs'
+      - 'scripts/member-messages.emulator-proof.mjs'
+      - 'functions/src/memberMail*.ts'
+      - 'functions/src/memberMessages.ts'
       - 'functions/src/memberToken*.ts'
       - 'functions/src/passwordSetup*.ts'
       - '.github/workflows/rules-checks.yml'
@@ -126,3 +129,12 @@ jobs:
           --config firebase.emulators.json --only auth,firestore
           --project demo-messages-rules
           "node scripts/messages-rules.emulator-check.mjs"
+
+      # The real trigger code (#messages): one mail per player, per-player
+      # status, the daily cap, the office nudge.
+      - name: Prove the message triggers
+        run: >
+          npx --yes firebase-tools@15.28.1 emulators:exec
+          --config firebase.emulators.json --only firestore
+          --project demo-member-messages
+          "node --experimental-strip-types scripts/member-messages.emulator-proof.mjs"
