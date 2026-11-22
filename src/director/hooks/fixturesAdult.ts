@@ -51,6 +51,7 @@ export const ADULT_PIECES: RepertoirePiece[] = __ORG_PERSONNEL__ && import.meta.
     composer: 'Johann Strauss II', composerDates: '1825–1899', year: '1874', duration: 9,
     instrumentation: '2 2 2 2 — 4 2 3 0 — timp, perc — str',
     eventIds: ['fx-new-years-concert'],
+    memberParts: [{ label: 'Score', role: 'score', path: 'members/parts/fx-fledermaus/Score v2.pdf', sha256: '' }, { label: 'Flute 1', role: 'part', path: 'members/parts/fx-fledermaus/Flute 1 v2.pdf', sha256: '' }, { label: 'Flute 2', role: 'part', path: 'members/parts/fx-fledermaus/Flute 2 v2.pdf', sha256: '' }, { label: 'Piccolo', role: 'part', path: 'members/parts/fx-fledermaus/Piccolo v2.pdf', sha256: '' }, { label: 'Violins I', role: 'part', path: 'members/parts/fx-fledermaus/Violins I v2.pdf', sha256: '' }, { label: 'Violins II', role: 'part', path: 'members/parts/fx-fledermaus/Violins II v2.pdf', sha256: '' }, { label: 'Violas', role: 'part', path: 'members/parts/fx-fledermaus/Violas v2.pdf', sha256: '' }, { label: 'Cellos', role: 'part', path: 'members/parts/fx-fledermaus/Cellos v2.pdf', sha256: '' }, { label: 'Basses', role: 'part', path: 'members/parts/fx-fledermaus/Basses v2.pdf', sha256: '' }],
   },
   {
     id: 'fx-blue-danube', ensembleIds: ['orchestra'], order: 2, title: 'The Blue Danube',
@@ -59,6 +60,8 @@ export const ADULT_PIECES: RepertoirePiece[] = __ORG_PERSONNEL__ && import.meta.
     instrumentation: '2 2 2 2 — 4 2 1 1 — timp, perc — hp — str',
     programNotes: 'Composed in 1866 and first sung by the Vienna Men’s Choral Association on 15 February 1867. The orchestral version followed that year, for the World’s Fair in Paris.',
     eventIds: ['fx-new-years-concert'],
+    // Members-only parts (#member-sign-in): what the Bottega ingest writes.
+    memberParts: [{ label: 'Score', role: 'score', path: 'members/parts/fx-blue-danube/Score v2.pdf', sha256: '' }, { label: 'Flute 1', role: 'part', path: 'members/parts/fx-blue-danube/Flute 1 v2.pdf', sha256: '' }, { label: 'Flute 2', role: 'part', path: 'members/parts/fx-blue-danube/Flute 2 v2.pdf', sha256: '' }, { label: 'Oboe 1', role: 'part', path: 'members/parts/fx-blue-danube/Oboe 1 v2.pdf', sha256: '' }, { label: 'Violins I', role: 'part', path: 'members/parts/fx-blue-danube/Violins I v2.pdf', sha256: '' }, { label: 'Violins II', role: 'part', path: 'members/parts/fx-blue-danube/Violins II v2.pdf', sha256: '' }, { label: 'Violas', role: 'part', path: 'members/parts/fx-blue-danube/Violas v2.pdf', sha256: '' }, { label: 'Cellos', role: 'part', path: 'members/parts/fx-blue-danube/Cellos v2.pdf', sha256: '' }, { label: 'Basses', role: 'part', path: 'members/parts/fx-blue-danube/Basses v2.pdf', sha256: '' }, { label: 'Harp', role: 'part', path: 'members/parts/fx-blue-danube/Harp v2.pdf', sha256: '' }],
   },
   {
     id: 'fx-thunder-lightning', ensembleIds: ['orchestra'], order: 3, title: 'Thunder and Lightning Polka',
@@ -357,3 +360,13 @@ export const FIXTURE_PAYMENTS: Payment[] = __ORG_PERSONNEL__ && import.meta.env.
       return [{ ...base, id: `fx-pay-${i}`, amountCents: total, paidOn: day(-1) }];
     })
   : [];
+
+/** Players invited to sign in (#member-sign-in): the second flute has set a
+ *  password, the concertmaster's invitation is still waiting. `?role=member`
+ *  shows the second flute's own home. */
+export const FIXTURE_MEMBER_ENTRIES: { email: string; personnelId: string; name?: string; invitedAt?: number; passwordSet?: boolean }[] = __ORG_PERSONNEL__ && import.meta.env.VITE_FIXTURES ? [
+  { email: 'dominik.kowalczyk@example.org', personnelId: 'fx-p02', name: 'Dominik Kowalczyk', invitedAt: ago(6), passwordSet: true },
+  { email: 'amara.okwuosa@example.org', personnelId: 'fx-p17', name: 'Amara Okwuosa', invitedAt: ago(1) },
+] : [];
+/** Whose home `?role=member` shows in fixtures. */
+export const FIXTURE_MEMBER_PERSONNEL_ID = 'fx-p02';

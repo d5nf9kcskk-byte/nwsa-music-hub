@@ -8,6 +8,7 @@ import { usePersonnelContacts } from '../hooks/usePersonnelContacts';
 import { useContracts } from '../hooks/useContracts';
 import { useContractTemplates } from '../hooks/useContractTemplates';
 import { usePayments } from '../hooks/usePayments';
+import { useMemberEntries } from '../hooks/useMemberEntries';
 import { recordActivity } from '../hooks/useActivityLog';
 import { EnsembleFilter } from '../components/EnsembleFilter';
 import { scoreOrderRank, lastName } from '../scoreOrder';
@@ -81,6 +82,7 @@ export default function PersonnelManager({ initialPersonId, initialEventId }: {
   } = useContracts();
   const { templates, addTemplate, updateTemplate, deleteTemplate } = useContractTemplates();
   const { payments, addPayment, deletePayment } = usePayments();
+  const { members, invite, remove: removeSignIn } = useMemberEntries();
 
   useEffect(() => { recordActivity('personnel.view'); }, []);
 
@@ -338,6 +340,9 @@ export default function PersonnelManager({ initialPersonId, initialEventId }: {
           onNewContract={() => setContractEdit({ person: viewing, contract: null })}
           onOpenContract={c => setOpenContractId(c.id)}
           onClose={() => setViewing(null)}
+          member={members.find(m => m.personnelId === viewing.id)}
+          onInvite={() => invite(viewing.id, viewing.preferredName || viewing.name, contacts[viewing.id]?.email ?? '')}
+          onRemoveSignIn={() => { const m = members.find(x => x.personnelId === viewing.id); if (m) void removeSignIn(m.email); }}
         />
       )}
 

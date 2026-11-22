@@ -1,4 +1,6 @@
-import { Pencil, Phone, Mail, Users, MapPin, FileText, ExternalLink, Archive, RotateCcw, ClipboardSignature, Landmark, Wallet } from 'lucide-react';
+import { useState } from 'react';
+import { Pencil, Phone, Mail, Users, MapPin, FileText, ExternalLink, Archive, RotateCcw, ClipboardSignature, Landmark, Wallet, KeyRound } from 'lucide-react';
+import type { MemberEntry } from '../hooks/useMemberEntries';
 import { NotesText } from '../../public/components/NotesText';
 import type { Personnel, PersonnelContact, Contract, Ensemble } from '../types';
 import { PAY_METHOD_LABEL } from '../types';
@@ -45,9 +47,21 @@ interface Props {
   onNewContract: () => void;
   onOpenContract: (c: Contract) => void;
   onClose: () => void;
+  /** This person's Hub sign-in, if they have been invited (#member-sign-in). */
+  member?: MemberEntry;
+  /** Invite (or invite again) at the contact email. Answers what to tell staff. */
+  onInvite: () => Promise<string>;
+  onRemoveSignIn: () => void;
 }
 
-export function PersonnelDetail({ person, contact, contracts, ensembles, onEdit, onArchive, onRestore, onNewContract, onOpenContract, onClose }: Props) {
+export function PersonnelDetail({ person, contact, contracts, ensembles, onEdit, onArchive, onRestore, onNewContract, onOpenContract, onClose, member, onInvite, onRemoveSignIn }: Props) {
+  const [inviteNote, setInviteNote] = useState('');
+  const [inviting, setInviting] = useState(false);
+  async function invite() {
+    setInviting(true);
+    setInviteNote(await onInvite());
+    setInviting(false);
+  }
   const panelRef = useModalA11y<HTMLDivElement>(onClose, true);
   const homeEnsembles = ensembles.filter(e => person.ensembleIds?.includes(e.id));
   const sorted = [...contracts].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
@@ -186,6 +200,31 @@ export function PersonnelDetail({ person, contact, contracts, ensembles, onEdit,
                 {W9_LABEL[contact?.w9Status ?? 'not-requested']}
               </span>
             </div>
+          </div>
+
+          {/* ── Hub sign-in (#member-sign-in): staff invite, the player sets a password ── */}
+          <div className="dir-detail-section">
+            <div className="dir-detail-section-title"><KeyRound size={13} /> Hub sign-in</div>
+            <div style={{ fontSize: 13, marginTop: 4 }}>
+              {!member ? 'Not invited yet. They will see their calls, their parts, their contract and whether they have been paid.'
+                : member.passwordSet ? `Signs in as ${member.email} with a password of their own.`
+                : `Invited as ${member.email}${member.invitedAt ? ` on ${formatDate(new Date(member.invitedAt).toISOString().slice(0, 10), { month: 'short', day: 'numeric' })}` : ''}. Waiting for them to choose a password.`}
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+              {contact?.email ? (
+                <button className="dir-tool-btn" onClick={() => { void invite(); }} disabled={inviting}>
+                  <Mail size={13} /> {inviting ? 'Sending…' : !member ? 'Invite to the Hub' : member.passwordSet ? 'Email a new password link' : 'Send the invitation again'}
+                </button>
+              ) : !member && (
+                <button className="dir-tool-btn" onClick={onEdit}><Pencil size={13} /> Add their email to invite them</button>
+              )}
+              {member && (
+                <button className="dir-tool-btn" onClick={() => { if (window.confirm(`Remove ${member.email}'s sign-in? Their roster row and contracts stay.`)) onRemoveSignIn(); }}>
+                  Remove sign-in
+                </button>
+              )}
+            </div>
+            {inviteNote && <div className="dir-field-hint" role="status" style={{ marginTop: 6 }}>{inviteNote}</div>}
           </div>
 
           {/* ── Contracts — tap a row for the full sheet ── */}

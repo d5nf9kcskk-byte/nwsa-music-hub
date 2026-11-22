@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { bindGoogleAccount } from '../googleBindingClient';
 import type { BindAnswer } from '../googleBindingClient';
 import {
@@ -22,6 +22,13 @@ import { HomeScreenHint } from './HomeScreenHint';
 // Build-time literal (vite.config.ts `define`), as in DirectorApp.tsx: it
 // folds, an ORG read does not.
 declare const __ORG_PERSONNEL__: boolean;
+
+/**
+ * A personnel org's signed-out screen (#member-sign-in): players sign in with
+ * their own password, staff with Google. Loaded lazily and only in a
+ * personnel build, so the school's bundle does not change.
+ */
+const MemberSignIn = __ORG_PERSONNEL__ ? lazy(() => import('./MemberSignIn')) : null;
 
 /**
  * Break-glass allowlist. Access is normally decided by the `directors`
@@ -131,6 +138,11 @@ export function AuthGate({ children }: Props) {
       // change can be checked in all four (#clear-cards); ?role=owner shows
       // the owner-only rows (Directors, the Hub 2.0 preview). Fixtures only.
       const asked = new URLSearchParams(window.location.search).get('role');
+      // ?role=member (personnel builds) is a player's own home (#member-sign-in).
+      if (__ORG_PERSONNEL__ && asked === 'member') {
+        setCurrentDirector({ email: 'fixtures@local', roles: ['member'] } as unknown as Director, 'Dominik Kowalczyk');
+        return;
+      }
       const role = asked === 'teacher' || asked === 'classroom' || asked === 'assistant' || asked === 'owner' ? asked : 'director';
       // Assigned the orchestra of whichever fixture set this build serves:
       // the school's (fixtures.ts) or the adult one's (fixturesAdult.ts).
@@ -205,7 +217,11 @@ export function AuthGate({ children }: Props) {
         // Hub with "Confirm now" and "Later". Nothing is asked of the server
         // until the person taps, and after two tries that did not finish the
         // note stays away until the Hub is next opened.
-        if (directorDoc.googleSub && directorDoc.boundUid === user.uid) {
+        // (#member-sign-in) A player who signed in with the password the
+        // server set is confirmed too: never ask them to confirm Google.
+        if (__ORG_PERSONNEL__
+          ? ((directorDoc.googleSub || directorDoc.passwordSet === true) && directorDoc.boundUid === user.uid)
+          : (directorDoc.googleSub && directorDoc.boundUid === user.uid)) {
           setAgainCount(0);
           setConfirmNote(false);
         } else {
@@ -230,7 +246,11 @@ export function AuthGate({ children }: Props) {
             setAccess('error');
           }
         };
-        if (err.code !== 'permission-denied' || !ASKS_SERVER) { fallBack(); return; }
+        // (#member-sign-in) A refused PASSWORD sign-in is not fixed by
+        // confirming Google: it gets the plain retry / sign-out screen.
+        if (__ORG_PERSONNEL__
+          ? (err.code !== 'permission-denied' || !ASKS_SERVER || user.providerData.some(p => p.providerId === 'password'))
+          : (err.code !== 'permission-denied' || !ASKS_SERVER)) { fallBack(); return; }
         // (#google-binding) The rules REFUSED the read. Once the rules honour
         // a sign-in only on the account an entry names, that is what an entry
         // with no record looks like: a newly listed person, a device that has
@@ -440,6 +460,9 @@ export function AuthGate({ children }: Props) {
   }
 
   if (!user) {
+    if (__ORG_PERSONNEL__ && MemberSignIn) {
+      return <Suspense fallback={null}><MemberSignIn onGoogle={signIn} googleError={signInError} /></Suspense>;
+    }
     return (
       <div className="dir-auth">
         <img src={`${import.meta.env.BASE_URL}${ORG.logoFile}`} className="dir-auth-logo" alt={ORG.orgShortName} />

@@ -1,4 +1,5 @@
 import { initializeApp, onLog } from 'firebase/app';
+import type { AppCheck } from 'firebase/app-check';
 import { collection, initializeFirestore, limit, memoryLocalCache, onSnapshot, persistentLocalCache, persistentMultipleTabManager, query } from 'firebase/firestore';
 import { armNoPersistFallback, isQueueLatch, STUCK_CACHE_MS, storageArea, stuckCacheVerdict, wantsPersistence } from './firestoreCache';
 
@@ -45,8 +46,9 @@ export const app = isFirebaseConfigured ? initializeApp(firebaseConfig) : null;
  *      REST and enforcement applies to it too;
  *   4. only then turn enforcement on for Firestore and Storage.
  */
+declare const __ORG_PERSONNEL__: boolean;
 const appCheckSiteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
-if (app && appCheckSiteKey) {
+if (!__ORG_PERSONNEL__ && app && appCheckSiteKey) {
   void (async () => {
     try {
       const { initializeAppCheck, ReCaptchaEnterpriseProvider } = await import('firebase/app-check');
@@ -68,6 +70,32 @@ if (app && appCheckSiteKey) {
     }
   })();
 }
+
+/**
+ * (#member-sign-in, personnel builds) The same App Check start as above, kept
+ * as a promise, for the one caller that sends a token by hand: the
+ * passwordSetup function refuses a request without one
+ * (src/director/passwordSetupClient.ts, from PR #244). Null in the school's
+ * build, which starts App Check above exactly as before.
+ */
+export const appCheckReady: Promise<AppCheck | null> | null = __ORG_PERSONNEL__ && app && appCheckSiteKey
+  ? (async () => {
+      try {
+        const { initializeAppCheck, ReCaptchaEnterpriseProvider } = await import('firebase/app-check');
+        const debugToken = import.meta.env.VITE_APPCHECK_DEBUG_TOKEN;
+        if (debugToken) {
+          (self as unknown as { FIREBASE_APPCHECK_DEBUG_TOKEN?: string })
+            .FIREBASE_APPCHECK_DEBUG_TOKEN = debugToken;
+        }
+        return initializeAppCheck(app, {
+          provider: new ReCaptchaEnterpriseProvider(appCheckSiteKey),
+          isTokenAutoRefreshEnabled: true,
+        });
+      } catch {
+        return null;
+      }
+    })()
+  : null;
 
 // ignoreUndefinedProperties: forms build save objects with optional fields set
 // to `undefined` (e.g. composer || undefined). Without this, Firestore rejects

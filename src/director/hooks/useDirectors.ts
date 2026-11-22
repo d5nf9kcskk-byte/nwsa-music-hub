@@ -175,6 +175,8 @@ export function directorEmailId(email: string): string {
   return email.trim().toLowerCase();
 }
 
+declare const __ORG_PERSONNEL__: boolean;
+
 export function useDirectors() {
   const [directors, setDirectors] = useState<Director[]>([]);
   const [loading, setLoading] = useState(true);
@@ -192,7 +194,11 @@ export function useDirectors() {
     if (!db || !isOwner) { setLoading(false); return; }
     const q = query(collection(db, 'directors'), orderBy('email'));
     return onSnapshot(q, snap => {
-      setDirectors(snap.docs.map(d => ({ email: d.id, ...d.data() } as Director)));
+      // (#member-sign-in) Players are Directors entries too; they are managed
+      // from Personnel, never on the Directors screen.
+      setDirectors(__ORG_PERSONNEL__
+        ? snap.docs.map(d => ({ email: d.id, ...d.data() } as Director)).filter(d => !(d.roles as string[] | undefined)?.includes('member'))
+        : snap.docs.map(d => ({ email: d.id, ...d.data() } as Director)));
       noteLoadOk('directors');
       setLoading(false);
     }, () => { noteLoadError('directors'); setLoading(false); });
