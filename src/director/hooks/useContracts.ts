@@ -8,6 +8,8 @@ import { offerUndo, trackWrite, reportWriteError } from '../writeStatus';
 import { currentDirectorName, currentDirectorRole } from '../currentDirector';
 import type { Contract } from '../types';
 import { usePersonnelGate } from './personnelGate';
+import { FIXTURES_ON } from './fixtures';
+import { FIXTURE_CONTRACTS } from './fixturesAdult';
 
 /**
  * Contracts (#personnel) — the most sensitive collection in the app: pay,
@@ -173,8 +175,10 @@ export function useContracts() {
     offerUndo('contracts', id, data, `Deleted draft contract — restore?`);
   }
 
+  // Local fixtures, behind the same gate — see usePersonnel.
+  const fixtures = !db && FIXTURES_ON && gate === 'open';
   return {
-    contracts, loading,
+    contracts: fixtures ? FIXTURE_CONTRACTS : contracts, loading,
     addContract, updateContract,
     signContract, countersignContract, voidContract,
     setContractNotes, deleteContract,

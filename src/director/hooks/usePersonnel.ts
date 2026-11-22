@@ -8,6 +8,8 @@ import { offerUndo, trackWrite } from '../writeStatus';
 import { currentDirectorName, currentDirectorRole } from '../currentDirector';
 import type { Personnel } from '../types';
 import { usePersonnelGate } from './personnelGate';
+import { FIXTURES_ON } from './fixtures';
+import { FIXTURE_PERSONNEL } from './fixturesAdult';
 
 /**
  * The paid adult roster (#personnel — Fair Copy adult orgs). Mirrors
@@ -28,6 +30,11 @@ export function usePersonnel(ensembleId?: string) {
   const [settled, setSettled] = useState(false);
   const gate = usePersonnelGate();
   const loading = Boolean(db) && gate !== 'blocked' && !settled;
+  // Local fixtures (no Firebase, VITE_FIXTURES=1) serve the sample roster
+  // behind the SAME gate as the listener, so ?role=teacher still sees nobody.
+  // Derived, not set in the effect (see useSeatingCharts). The sample has one
+  // ensemble and nobody archived, so `ensembleId` has nothing to filter out.
+  const fixtures = !db && FIXTURES_ON && gate === 'open';
 
   useEffect(() => {
     if (!db || gate !== 'open') return;
@@ -95,5 +102,5 @@ export function usePersonnel(ensembleId?: string) {
     await updatePersonnel(id, { status: 'Contracted' });
   }
 
-  return { personnel, loading, addPersonnel, updatePersonnel, deletePersonnel, archivePersonnel, restorePersonnel };
+  return { personnel: fixtures ? FIXTURE_PERSONNEL : personnel, loading, addPersonnel, updatePersonnel, deletePersonnel, archivePersonnel, restorePersonnel };
 }

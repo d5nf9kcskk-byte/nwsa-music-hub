@@ -8,6 +8,8 @@ import { offerUndo, trackWrite } from '../writeStatus';
 import { currentDirectorName } from '../currentDirector';
 import type { ContractTemplate } from '../types';
 import { usePersonnelGate } from './personnelGate';
+import { FIXTURES_ON } from './fixtures';
+import { FIXTURE_CONTRACT_TEMPLATES } from './fixturesAdult';
 
 /**
  * Reusable agreement prose (#personnel — `contractTemplates`). Same
@@ -79,5 +81,7 @@ export function useContractTemplates() {
     }
   }
 
-  return { templates, loading, addTemplate, updateTemplate, deleteTemplate };
+  // Local fixtures, behind the same gate — see usePersonnel.
+  const fixtures = !db && FIXTURES_ON && gate === 'open';
+  return { templates: fixtures ? FIXTURE_CONTRACT_TEMPLATES : templates, loading, addTemplate, updateTemplate, deleteTemplate };
 }
