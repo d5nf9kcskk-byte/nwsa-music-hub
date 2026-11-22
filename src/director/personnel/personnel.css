@@ -230,3 +230,20 @@
 .pers-import-refused { color: var(--dir-danger); font-size: 13px; }
 .pers-import-preview { font-size: 13px; }
 .pers-import-preview ul { margin: 4px 0 8px; padding-left: 18px; }
+
+/* The bar over ticked rows. Sticky so it stays in reach while the list scrolls. */
+.pers-bar {
+  position: sticky; bottom: 0; z-index: 5; display: flex; flex-direction: column; gap: 8px;
+  padding: 10px 16px; background: var(--dir-surface); border-top: 1px solid var(--dir-border);
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.08);
+}
+.pers-bar-head { display: flex; align-items: center; gap: 4px; }
+.pers-bar-clear { margin-left: auto; }
+.pers-bar-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.pers-bar-actions a { text-decoration: none; }
+.pers-tick { width: 20px; height: 20px; flex-shrink: 0; margin: 0 4px 0 0; accent-color: var(--dir-accent, #2563eb); }
+.pers-select-all { margin: 0 16px 4px; }
+
+/* The services picker on a contract. */
+.pers-services { max-height: 190px; overflow-y: auto; border: 1px solid var(--dir-border); border-radius: 10px; padding: 4px 10px; }
+.pers-service { display: flex; align-items: center; gap: 8px; min-height: 36px; font-size: 13px; }

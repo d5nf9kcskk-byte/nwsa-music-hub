@@ -18,6 +18,7 @@ import { ContractForm, type ContractDraftData } from './ContractForm';
 import { ContractTemplatesView } from './ContractTemplatesView';
 import { ServiceAttendanceSheet } from './ServiceAttendanceSheet';
 import { PersonnelImport } from './PersonnelImport';
+import { PersonnelEmailBar } from './PersonnelEmailBar';
 import { contractTotalCents, paidCents, payState, formatCents } from './contractMoney';
 import type { Personnel, Contract, Payment } from '../types';
 
@@ -37,6 +38,26 @@ import type { Personnel, Contract, Payment } from '../types';
  * Owner/Director in a personnel org and never write what firestore.rules
  * would reject.
  */
+
+type View = '' | 'subs' | 'missing' | 'archived' | 'unsent' | 'sent' | 'signed' | 'unpaid';
+
+/** The saved views, in the order they show. Contract-status views read the
+ *  newest live contract, the same one the row's pill shows. */
+const VIEWS: { id: Exclude<View, ''>; label: string }[] = [
+  { id: 'unsent', label: 'Not sent' },
+  { id: 'sent', label: 'Awaiting signature' },
+  { id: 'signed', label: 'Signed' },
+  { id: 'unpaid', label: 'Unpaid' },
+  { id: 'subs', label: 'Sub list' },
+  { id: 'missing', label: 'Missing paperwork' },
+  { id: 'archived', label: 'Archived' },
+];
+
+/** The contract a row stands for: newest non-void, else newest of what is left. */
+function newestContract(contracts: Contract[]): Contract | undefined {
+  const live = contracts.filter(c => c.status !== 'Void');
+  return [...(live.length ? live : contracts)].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))[0];
+}
 
 const STATUS_ROW_LABEL: Record<Personnel['status'], string | null> = {
   Contracted: null, // the default — unlabeled, like Active students
@@ -88,7 +109,9 @@ export default function PersonnelManager({ initialPersonId, initialEventId }: {
   // Saved views, the RosterView pattern: '' = working roster (Contracted +
   // Sub list), 'subs' = sub list only, 'missing' = contact or W-9 paperwork
   // to chase, 'archived' = Inactive.
-  const [view, setView] = useState<'' | 'subs' | 'missing' | 'archived'>('');
+  const [view, setView] = useState<View>('');
+  // Ticked rows (the email/text bar). Ids, so a filter change keeps them.
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const contractsByPerson = useMemo(() => {
     const m: Record<string, Contract[]> = {};
@@ -117,6 +140,9 @@ export default function PersonnelManager({ initialPersonId, initialEventId }: {
     return { owed, paid };
   }, [contracts, paymentsByContract]);
 
+  // Newest contract is a Draft, for the ticked people: what "Mark sent" acts on.
+  const selectedDrafts = [...selected].map(id => newestContract(contractsByPerson[id] ?? [])).filter((c): c is Contract => c?.status === 'Draft');
+
   const isEmpty = !loading && personnel.length === 0;
 
   const q = search.trim().toLowerCase();
@@ -133,6 +159,16 @@ export default function PersonnelManager({ initialPersonId, initialEventId }: {
     if (view === 'missing') {
       const c = contacts[p.id];
       return !c || (!c.email && !c.phone) || (c.w9Status ?? 'not-requested') !== 'on-file';
+    }
+    if (view) {
+      const n = newestContract(contractsByPerson[p.id] ?? []);
+      if (view === 'unsent') return n ? n.status === 'Draft' || n.status === 'Void' : p.status === 'Contracted';
+      if (view === 'sent') return n?.status === 'Sent';
+      if (view === 'signed') return n?.status === 'Signed' || n?.status === 'Countersigned';
+      if (view === 'unpaid') {
+        const s = n ? payState(n, paymentsByContract[n.id] ?? []) : null;
+        return s === 'unpaid' || s === 'part';
+      }
     }
     return true;
   });
@@ -206,16 +242,18 @@ export default function PersonnelManager({ initialPersonId, initialEventId }: {
       )}
       {personnel.length > 0 && (
         <div className="dir-tabs">
-          <button className={`dir-tab dir-tab-view ${view === 'subs' ? 'active' : ''}`} onClick={() => setView(v => v === 'subs' ? '' : 'subs')}>
-            Sub list
-          </button>
-          <button className={`dir-tab dir-tab-view ${view === 'missing' ? 'active' : ''}`} onClick={() => setView(v => v === 'missing' ? '' : 'missing')}>
-            Missing paperwork
-          </button>
-          <button className={`dir-tab dir-tab-view ${view === 'archived' ? 'active' : ''}`} onClick={() => setView(v => v === 'archived' ? '' : 'archived')}>
-            Archived
-          </button>
+          {VIEWS.map(v => (
+            <button key={v.id} className={`dir-tab dir-tab-view ${view === v.id ? 'active' : ''}`} onClick={() => setView(cur => cur === v.id ? '' : v.id)}>
+              {v.label}
+            </button>
+          ))}
         </div>
+      )}
+
+      {filtered.length > 0 && (
+        <button className="dir-tool-btn pers-select-all" onClick={() => setSelected(s => filtered.every(p => s.has(p.id)) ? new Set([...s].filter(id => !filtered.some(p => p.id === id))) : new Set([...s, ...filtered.map(p => p.id)]))}>
+          {filtered.every(p => selected.has(p.id)) ? 'Untick everyone shown' : `Tick everyone shown (${filtered.length})`}
+        </button>
       )}
 
       {ledger.owed > 0 && (
@@ -237,6 +275,8 @@ export default function PersonnelManager({ initialPersonId, initialEventId }: {
                 person={p}
                 contracts={contractsByPerson[p.id] ?? []}
                 paymentsByContract={paymentsByContract}
+                selected={selected.has(p.id)}
+                onToggle={() => setSelected(s => { const n = new Set(s); if (!n.delete(p.id)) n.add(p.id); return n; })}
                 onOpen={() => setViewing(p)}
               />
             ))}
@@ -258,6 +298,19 @@ export default function PersonnelManager({ initialPersonId, initialEventId }: {
           <h3>No matches</h3>
           <p>{q ? `No one matches "${search}".` : 'Nothing in this view.'}</p>
         </div>
+      )}
+
+      {selected.size > 0 && (
+        <PersonnelEmailBar
+          people={personnel.filter(p => selected.has(p.id))}
+          contacts={contacts}
+          draftCount={selectedDrafts.length}
+          onMarkSent={() => {
+            if (!window.confirm(`Mark ${selectedDrafts.length} draft contract${selectedDrafts.length === 1 ? '' : 's'} as sent? This only records it. Send them from your own email first.`)) return;
+            selectedDrafts.forEach(c => void updateContract(c.id, { status: 'Sent' }));
+          }}
+          onClear={() => setSelected(new Set())}
+        />
       )}
 
       <button className="dir-fab" onClick={() => setEditing('new')} aria-label="Add person">
@@ -381,16 +434,19 @@ export default function PersonnelManager({ initialPersonId, initialEventId }: {
   );
 }
 
-function PersonnelRow({ person, contracts, paymentsByContract, onOpen }: { person: Personnel; contracts: Contract[]; paymentsByContract: Record<string, Payment[]>; onOpen: () => void }) {
+function PersonnelRow({ person, contracts, paymentsByContract, selected, onToggle, onOpen }: { person: Personnel; contracts: Contract[]; paymentsByContract: Record<string, Payment[]>; selected: boolean; onToggle: () => void; onOpen: () => void }) {
   // The row's pill mirrors the person's paperwork state: the newest
   // non-void contract's status, Void if that's all there is, or a nudge
   // that a contracted member has no contract at all.
-  const live = contracts.filter(c => c.status !== 'Void');
-  const newest = [...(live.length ? live : contracts)].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))[0];
+  const newest = newestContract(contracts);
   const statusLabel = STATUS_ROW_LABEL[person.status];
   const pay = newest ? payState(newest, paymentsByContract[newest.id] ?? []) : null;
   return (
     <div className="dir-roster-card" onClick={onOpen}>
+      <input
+        type="checkbox" className="pers-tick" checked={selected} aria-label={`Select ${person.name}`}
+        onClick={e => e.stopPropagation()} onChange={onToggle}
+      />
       <div className={`dir-status-dot ${person.status}`} />
       <div className="dir-roster-info">
         <div className="dir-roster-name">

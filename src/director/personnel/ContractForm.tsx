@@ -9,6 +9,8 @@ import {
 import { parseCentsInput, formatCents } from './contractMoney';
 import { useModalA11y } from '../../shared/useModalA11y';
 import { whenQueued } from '../writeStatus';
+import { useEvents } from '../hooks/useEvents';
+import { addDays, todayStr, formatDate, formatTimeRange } from '../utils';
 import { backdropClose } from '../../shared/backdropClose';
 
 /**
@@ -57,6 +59,8 @@ interface FormState {
   season: string;
   startDate: string;
   endDate: string;
+  /** Named services (CalendarEvent ids). Empty = a season contract. */
+  eventIds: string[];
   baseRate: string;
   baseRateBasis: RateBasis;
   baseRateQuantity: string;
@@ -84,6 +88,7 @@ function stateFrom(contract: Contract | null, person: Personnel): FormState {
       season: '',
       startDate: '',
       endDate: '',
+      eventIds: [],
       baseRate: '',
       baseRateBasis: 'per-service',
       baseRateQuantity: '',
@@ -100,6 +105,7 @@ function stateFrom(contract: Contract | null, person: Personnel): FormState {
     season: contract.season ?? '',
     startDate: contract.startDate ?? '',
     endDate: contract.endDate ?? '',
+    eventIds: contract.eventIds ?? [],
     baseRate: centsToInput(contract.baseRateCents),
     baseRateBasis: contract.baseRateBasis,
     baseRateQuantity: contract.baseRateQuantity != null ? String(contract.baseRateQuantity) : '',
@@ -153,6 +159,7 @@ function normalize(form: FormState, person: Personnel): ContractDraftData | stri
     season: form.season.trim(),
     startDate: form.startDate,
     endDate: form.endDate,
+    eventIds: form.eventIds,
     baseRateCents,
     baseRateBasis: form.baseRateBasis,
     lineItems,
@@ -207,6 +214,21 @@ export function ContractForm({ person, contract, templates, onSave, onClose }: P
       setSaving(false);
       setSaveError(e instanceof Error ? e.message : 'Could not save — try again.');
     }
+  }
+
+  // The services this contract can name: called, not cancelled, a year ahead
+  // and a month back. Anything already named stays listed even if it has
+  // fallen out of that window, so opening an old contract never drops one.
+  const today = todayStr();
+  const { events } = useEvents({ from: addDays(today, -30), to: addDays(today, 400) });
+  const services = events.filter(e => e.status !== 'Cancelled' && e.ensembleIds.length > 0 || form.eventIds.includes(e.id));
+  function toggleService(id: string) {
+    setForm(f => {
+      const eventIds = f.eventIds.includes(id) ? f.eventIds.filter(x => x !== id) : [...f.eventIds, id];
+      // Keep "expected #" in step with the picker unless the director typed their own number.
+      const follows = f.baseRateBasis === 'per-service' && (f.baseRateQuantity === '' || f.baseRateQuantity === String(f.eventIds.length));
+      return { ...f, eventIds, baseRateQuantity: follows && eventIds.length ? String(eventIds.length) : f.baseRateQuantity };
+    });
   }
 
   const knownPositions = POSITIONS_BY_CATEGORY[form.category];
@@ -274,6 +296,23 @@ export function ContractForm({ person, contract, templates, onSave, onClose }: P
               <input className="dir-input" type="date" value={form.endDate} onChange={e => set('endDate', e.target.value)} />
             </div>
           </div>
+
+          {services.length > 0 && (
+            <div className="dir-field">
+              <label className="dir-label">Services <span className="dir-label-hint">tick the calls this contract covers; none = the whole season</span></label>
+              <div className="pers-services" role="group" aria-label="Services this contract covers">
+                {services.map(e => (
+                  <label key={e.id} className="pers-service">
+                    <input type="checkbox" checked={form.eventIds.includes(e.id)} onChange={() => toggleService(e.id)} />
+                    <span>
+                      {formatDate(e.date, { weekday: 'short', month: 'short', day: 'numeric' })}
+                      {' · '}{formatTimeRange(e.startTime, e.endTime) || e.type}{e.title ? ` · ${e.title}` : ''}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="dir-field-row">
             <div className="dir-field">

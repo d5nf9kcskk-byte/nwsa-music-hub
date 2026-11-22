@@ -1810,6 +1810,8 @@ export const LINE_ITEM_TYPES = [
   'Mileage',
   'Per Diem',
   'Overscale',
+  'Concert',
+  'Principal premium',
   'Deduction',
   'Other',
 ] as const;

@@ -303,6 +303,8 @@ export const FIXTURE_CONTRACTS: Contract[] = __ORG_PERSONNEL__ && import.meta.en
       section: p.section, seat: p.seat, ensembleIds: ['orchestra'],
       baseRateCents: 11000, baseRateBasis: 'per-service', baseRateQuantity: SERVICES,
       lineItems: line ? [line] : [],
+      // The harp is called for the dress and the concert only: a named list of services.
+      ...(p.id === 'fx-p16' ? { eventIds: ['fx-dress', 'fx-new-years-concert'], baseRateQuantity: 2 } : {}),
       templateId: 'fx-tmpl-chair', templateVersion: 1,
     };
   }),
