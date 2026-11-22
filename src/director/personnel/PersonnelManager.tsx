@@ -1,6 +1,6 @@
 import './personnel.css';
 import { useState, useEffect, useMemo } from 'react';
-import { UserPlus, Users, Star, FileText, ClipboardList } from 'lucide-react';
+import { UserPlus, Users, Star, FileText, ClipboardList, Upload } from 'lucide-react';
 import { deleteField } from 'firebase/firestore';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { usePersonnel } from '../hooks/usePersonnel';
@@ -17,6 +17,7 @@ import { ContractSheet } from './ContractSheet';
 import { ContractForm, type ContractDraftData } from './ContractForm';
 import { ContractTemplatesView } from './ContractTemplatesView';
 import { ServiceAttendanceSheet } from './ServiceAttendanceSheet';
+import { PersonnelImport } from './PersonnelImport';
 import { contractTotalCents, paidCents, payState, formatCents } from './contractMoney';
 import type { Personnel, Contract, Payment } from '../types';
 
@@ -77,6 +78,7 @@ export default function PersonnelManager({ initialPersonId, initialEventId }: {
   const [openContractId, setOpenContractId] = useState<string | null>(null);
   const [contractEdit, setContractEdit] = useState<{ person: Personnel; contract: Contract | null } | null>(null);
   const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [attendanceOpen, setAttendanceOpen] = useState(Boolean(initialEventId));
   const openContract = openContractId != null
     ? contracts.find(c => c.id === openContractId) ?? null
@@ -190,6 +192,9 @@ export default function PersonnelManager({ initialPersonId, initialEventId }: {
         )}
         <button className="dir-tool-btn" onClick={() => setAttendanceOpen(true)}>
           <ClipboardList size={15} /> Attendance
+        </button>
+        <button className="dir-tool-btn" onClick={() => setImportOpen(true)}>
+          <Upload size={15} /> Import
         </button>
         <button className="dir-tool-btn" onClick={() => setTemplatesOpen(true)}>
           <FileText size={15} /> Contract templates
@@ -315,6 +320,10 @@ export default function PersonnelManager({ initialPersonId, initialEventId }: {
           initialEventId={initialEventId}
           onClose={() => setAttendanceOpen(false)}
         />
+      )}
+
+      {importOpen && (
+        <PersonnelImport ensembles={ensembles} existingNames={personnel.map(p => p.name)} onClose={() => setImportOpen(false)} />
       )}
 
       {templatesOpen && (
