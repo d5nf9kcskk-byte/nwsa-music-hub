@@ -9,9 +9,10 @@ name: Seed AISO
 # owner's sign-in entry, one ensemble and one concert, and no people.
 #
 # Manual only, never scheduled: it WRITES data. Re-running is safe, and is how
-# you name a different owner: it never overwrites. An address that is already
-# an owner is left alone, and the ensemble and the concert go only into a Hub
-# that has no ensemble and no event yet.
+# you name a different owner. An address that is already an owner is left
+# alone, one listed with another role is promoted in place (name and roles
+# kept), and the ensemble and the concert go only into a Hub that has no
+# ensemble and no event yet.
 #
 # SAFETY: seed-aiso-org.mjs hard-aborts unless the service account's own
 # project is exactly `aiso-hub`, so this workflow is physically unable to
@@ -58,8 +59,17 @@ jobs:
             exit 1
           fi
 
+      # The owner is a real person and this log is public, so the address must
+      # not reach it. It is never passed through `env:` (the log prints a
+      # step's environment, the reason require-google-ties.yml gives): the
+      # step reads it from the run's own event file, trimmed and lowercased
+      # as the seeder will use it, and masks exactly that. The seeder prints
+      # it masked as well (own***@gmail.com).
       - name: Seed the Hub
         env:
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.AISO_SERVICE_ACCOUNT_JSON }}
-          DEMO_OWNER_EMAIL: ${{ inputs.owner_email }}
-        run: node scripts/seed-aiso-org.mjs
+        run: |
+          DEMO_OWNER_EMAIL="$(node -p 'String(require(process.env.GITHUB_EVENT_PATH).inputs?.owner_email ?? "").trim().toLowerCase()')"
+          echo "::add-mask::$DEMO_OWNER_EMAIL"
+          export DEMO_OWNER_EMAIL
+          node scripts/seed-aiso-org.mjs

@@ -20,7 +20,8 @@
  * ASYO demo: see the note in scripts/seed-as-org.mjs).
  *
  * Safe to re-run, which is how a different owner is named: it never
- * overwrites. An address that is already an owner is left as it is. The
+ * overwrites. An address that is already an owner is left as it is; one
+ * listed with another role is promoted in place (name and roles kept). The
  * ensemble and the concert go only into a Hub that has no ensemble and no
  * event yet, so nothing the director has since edited, renamed or deleted
  * comes back.
@@ -30,6 +31,9 @@
  * out: the calendar and the feeds show an all-day concert, and its note says
  * the rest is to be announced. The director fills them in from the Hub.
  *
+ * The owner's address is printed MASKED (own***@gmail.com). This repo's
+ * Actions logs are public, and it is a real person's sign-in address.
+ *
  * Run:
  *   FIREBASE_SERVICE_ACCOUNT_JSON="$(cat aiso-hub-key.json)" \
  *     DEMO_OWNER_EMAIL=owner@gmail.com node scripts/seed-aiso-org.mjs
@@ -38,6 +42,7 @@
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { fail, projectMismatch } from './lib/hubTool.mjs';
+import { maskEmail } from './lib/driveAuth.mjs';
 
 const PROJECT_ID = 'aiso-hub';
 
@@ -68,17 +73,27 @@ const CONCERT = {
 };
 
 // The owner. A doc with `roles` answers by it, and by `role` otherwise
-// (src/director/directorRoles.ts).
+// (src/director/directorRoles.ts). Every line below names them masked.
+const OWNER_SHOWN = maskEmail(OWNER_EMAIL);
 const ownerRef = db.collection('directors').doc(OWNER_EMAIL);
 const listed = (await ownerRef.get()).data();
-if ((listed?.roles?.length ? listed.roles : [listed?.role]).includes('owner')) {
-  console.log(`kept   directors/${OWNER_EMAIL} (already an owner)`);
+// Same test as firestore.rules hasRole(): once `roles` exists it alone decides.
+const ownerAlready = Array.isArray(listed?.roles) ? listed.roles.includes('owner') : listed?.role === 'owner';
+if (ownerAlready) {
+  console.log(`kept   directors/${OWNER_SHOWN} (already an owner)`);
+} else if (listed) {
+  // Promote in place: their name, other roles and lesson slots stay.
+  await ownerRef.update({
+    role: 'owner',
+    ...(Array.isArray(listed.roles) ? { roles: ['owner', ...listed.roles] } : {}),
+  });
+  console.log(`promoted directors/${OWNER_SHOWN} to owner`);
 } else {
   await ownerRef.set({
     email: OWNER_EMAIL, role: 'owner',
     addedBy: 'seed-aiso-org.mjs', addedAt: Date.now(),
   });
-  console.log(`wrote  directors/${OWNER_EMAIL} (owner)`);
+  console.log(`wrote  directors/${OWNER_SHOWN} (owner)`);
 }
 
 // The ensemble and the concert, together or not at all.
@@ -94,4 +109,4 @@ if (await isEmpty('ensembles') && await isEmpty('events')) {
   console.log('kept   ensembles and events (this Hub already has some, so none were added)');
 }
 
-console.log(`Done in ${PROJECT_ID}. Sign in at /director with ${OWNER_EMAIL}'s Google account, then add everyone else from Directors.`);
+console.log(`Done in ${PROJECT_ID}. Sign in at /director with ${OWNER_SHOWN}'s Google account, then add everyone else from Directors.`);
