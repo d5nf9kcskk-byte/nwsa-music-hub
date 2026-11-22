@@ -215,3 +215,13 @@
 .dir-att-btn.svc-present:not(.active):hover { border-color: var(--dir-excused); color: var(--dir-excused); }
 .dir-att-btn.svc-absent:not(.active):hover  { border-color: var(--dir-absent);  color: var(--dir-absent); }
 .dir-att-btn.svc-excused:not(.active):hover { border-color: var(--dir-lesson);  color: var(--dir-lesson); }
+
+/* Money (#personnel payments). */
+.dir-pay-pill { font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px; flex-shrink: 0; margin-right: 6px; }
+.dir-pay-pill.paid   { background: var(--dir-excused-bg); color: #15803d; }
+.dir-pay-pill.part   { background: var(--dir-late-bg);    color: var(--dir-late); }
+.dir-pay-pill.unpaid { background: var(--dir-absent-bg);  color: var(--dir-absent); }
+.dir-pay-summary { margin: 4px 16px 8px; font-size: 13px; color: var(--dir-text-muted); }
+.dir-pay-summary strong { color: var(--dir-text); }
+.dir-pay-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; padding: 4px 0; }
+.dir-pay-form { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }

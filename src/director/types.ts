@@ -1985,3 +1985,24 @@ export interface ServiceAttendance {
   updatedBy?: string;
   updatedByRole?: StaffRole;
 }
+
+/**
+ * Money actually paid against a contract (#personnel). A separate collection,
+ * never fields on the contract: signed terms are frozen by firestore.rules,
+ * and "paid" keeps changing after signing. Integer cents like everything
+ * here. `paidOn` is a calendar day (YYYY-MM-DD), the day the money moved.
+ * `reference` is a confirmation or check number, never an account number.
+ */
+export interface Payment {
+  id: string;
+  contractId: string;
+  personnelId: string;
+  amountCents: number;
+  paidOn: string;
+  method: PayMethod;
+  reference?: string;
+  note?: string;
+  updatedAt?: number;
+  updatedBy?: string;
+  updatedByRole?: StaffRole;
+}

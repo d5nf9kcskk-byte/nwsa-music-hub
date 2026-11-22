@@ -1664,6 +1664,34 @@ service cloud.firestore {
       allow delete: if isStaff();
     }
 
+    // Money paid against a contract (`Payment` in types.ts). Its own
+    // collection because a signed contract's terms are frozen above and
+    // "paid" keeps moving after signing. Owner/Director only, like every
+    // #personnel sibling; no public mirror. `amountCents is int` for the same
+    // reason as baseRateCents. `reference` is a confirmation or check number:
+    // there is no key an account number could ride in on besides free text,
+    // so it is capped short. Delete is plain staff delete: it is how a
+    // mistaken "Mark paid" is taken back.
+    match /payments/{doc} {
+      allow read: if isStaff();
+      allow create, update: if isStaff()
+        && request.resource.data.keys().hasOnly([
+             'contractId', 'personnelId', 'amountCents', 'paidOn', 'method',
+             'reference', 'note', 'updatedAt', 'updatedBy', 'updatedByRole',
+           ])
+        && request.resource.data.contractId is string
+        && request.resource.data.personnelId is string
+        && request.resource.data.amountCents is int
+        && request.resource.data.paidOn is string
+        && request.resource.data.paidOn.size() == 10
+        && request.resource.data.method in ['zelle', 'venmo', 'paypal', 'check']
+        && (!('reference' in request.resource.data)
+            || (request.resource.data.reference is string && request.resource.data.reference.size() <= 60))
+        && (!('note' in request.resource.data)
+            || (request.resource.data.note is string && request.resource.data.note.size() <= 500));
+      allow delete: if isStaff();
+    }
+
     // ── Director allowlist (stored as data) ─────────────
     // Owner-only management (#roles): only the Owner may add/remove a
     // director, change a role, or even list the roster — closes the gap

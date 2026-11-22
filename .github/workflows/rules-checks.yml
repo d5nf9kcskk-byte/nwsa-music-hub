@@ -37,6 +37,7 @@ on:
       - 'scripts/require-google-ties.mjs'
       - 'scripts/google-binding.emulator-proof.mjs'
       - 'scripts/rules-verdicts.emulator-check.mjs'
+      - 'scripts/personnel-rules.emulator-check.mjs'
       - '.github/workflows/rules-checks.yml'
       - '.github/workflows/deploy-rules.yml'
       - '.github/workflows/deploy-functions.yml'
@@ -91,3 +92,11 @@ jobs:
           --config firebase.emulators.json --only auth,firestore,storage
           --project demo-rules-verdicts
           "node scripts/rules-verdicts.emulator-check.mjs visitor"
+
+      # The paid-roster pay tier: pay method and handle, and /payments.
+      - name: Check the pay tier's rules (personnel)
+        run: >
+          npx --yes firebase-tools@15.28.1 emulators:exec
+          --config firebase.emulators.json --only auth,firestore
+          --project demo-personnel-rules
+          "node scripts/personnel-rules.emulator-check.mjs"

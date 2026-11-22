@@ -1,9 +1,11 @@
 import { useRef, useState } from 'react';
 import { NotesText } from '../../public/components/NotesText';
 import { RichTextArea } from '../components/RichTextArea';
-import { Pencil, Printer, Trash2, Send, ClipboardSignature, Ban, FileText } from 'lucide-react';
-import type { Contract, ContractTemplate } from '../types';
-import { formatCents, basisSuffix, lineItemTotalCents, contractTotalCents } from './contractMoney';
+import { Pencil, Printer, Trash2, Send, ClipboardSignature, Ban, FileText, Wallet } from 'lucide-react';
+import type { Contract, ContractTemplate, Payment, PayMethod } from '../types';
+import { PAY_METHODS, PAY_METHOD_LABEL } from '../types';
+import { formatCents, basisSuffix, lineItemTotalCents, contractTotalCents, parseCentsInput, paidCents } from './contractMoney';
+import { todayStr, formatDate } from '../utils';
 import { resolveContractTokens } from './contractTerms';
 import { printViaPopup } from '../../shared/printPopup';
 import { useModalA11y } from '../../shared/useModalA11y';
@@ -39,7 +41,66 @@ interface Props {
   onVoid: () => Promise<void>;
   onDeleteDraft: () => Promise<void>;
   onSaveNotes: (notes: string) => Promise<void>;
+  /** Money paid against THIS contract, and the person's usual way of being paid. */
+  payments: Payment[];
+  defaultMethod?: PayMethod | '';
+  onMarkPaid: (p: { amountCents: number; paidOn: string; method: PayMethod; reference: string }) => Promise<void>;
+  onDeletePayment: (id: string) => Promise<void>;
   onClose: () => void;
+}
+
+/** "Mark paid": one row of the ledger. Defaults to the balance still owed. */
+function PaymentsSection({ contract: c, payments, defaultMethod, onMarkPaid, onDeletePayment }: Pick<Props, 'contract' | 'payments' | 'defaultMethod' | 'onMarkPaid' | 'onDeletePayment'>) {
+  const total = contractTotalCents(c);
+  const paid = paidCents(payments);
+  const balance = total != null ? total - paid : null;
+  const [amount, setAmount] = useState('');
+  const [paidOn, setPaidOn] = useState(todayStr());
+  const [method, setMethod] = useState<PayMethod>(defaultMethod || 'check');
+  const [reference, setReference] = useState('');
+  const [busy, setBusy] = useState(false);
+  const typed = amount.trim() ? parseCentsInput(amount) : balance;
+  const bad = typed == null || typed === 0 || !/^\d{4}-\d{2}-\d{2}$/.test(paidOn);
+  async function mark() {
+    if (bad || typed == null) return;
+    setBusy(true);
+    try {
+      await onMarkPaid({ amountCents: typed, paidOn, method, reference: reference.trim() });
+      setAmount(''); setReference('');
+    } finally { setBusy(false); }
+  }
+  return (
+    <div className="dir-detail-section">
+      <div className="dir-detail-section-title"><Wallet size={13} /> Payments <span className="dir-detail-private">directors only</span></div>
+      <p className="dir-field-hint">
+        {total != null ? `Paid ${formatCents(paid)} of ${formatCents(total)}${balance != null && balance > 0 ? ` · ${formatCents(balance)} still owed` : balance != null && balance < 0 ? ' · overpaid' : ' · settled'}` : `Paid ${formatCents(paid)}`}
+      </p>
+      {payments.map(p => (
+        <div key={p.id} className="dir-pay-row">
+          <span>{formatCents(p.amountCents)} · {PAY_METHOD_LABEL[p.method]} · {formatDate(p.paidOn, { month: 'short', day: 'numeric' })}{p.reference ? ` · ${p.reference}` : ''}</span>
+          <button className="dir-tool-btn" aria-label="Delete this payment" onClick={() => void onDeletePayment(p.id)}><Trash2 size={13} /></button>
+        </div>
+      ))}
+      {c.status !== 'Void' && (
+        <div className="dir-pay-form">
+          <div className="dir-signup-qedit-row">
+            <input className="dir-input" inputMode="decimal" aria-label="Amount paid" value={amount} onChange={e => setAmount(e.target.value)}
+              placeholder={balance != null && balance > 0 ? `$ ${(balance / 100).toFixed(2)} (balance)` : '$ amount'} />
+            <input className="dir-input" type="date" aria-label="Date paid" value={paidOn} onChange={e => setPaidOn(e.target.value)} />
+          </div>
+          <div className="dir-signup-qedit-row">
+            <select className="dir-select" aria-label="Paid by" value={method} onChange={e => setMethod(e.target.value as PayMethod)}>
+              {PAY_METHODS.map(m => <option key={m} value={m}>{PAY_METHOD_LABEL[m]}</option>)}
+            </select>
+            <input className="dir-input" aria-label="Confirmation or check number" maxLength={60} value={reference} onChange={e => setReference(e.target.value)} placeholder="confirmation or check # (optional)" />
+          </div>
+          <button className="dir-btn dir-btn-primary" disabled={busy || bad} onClick={() => void mark()}>
+            Mark paid{typed != null && typed !== 0 ? ` ${formatCents(typed)}` : ''}
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 /** Base-plus-line-items breakdown — one source of arithmetic (contractMoney,
@@ -140,7 +201,8 @@ export function ContractPrintSheet({ contract: c }: { contract: Contract }) {
 
 export function ContractSheet({
   contract: c, templates,
-  onEdit, onMarkSent, onSign, onCountersign, onVoid, onDeleteDraft, onSaveNotes, onClose,
+  onEdit, onMarkSent, onSign, onCountersign, onVoid, onDeleteDraft, onSaveNotes,
+  payments, defaultMethod, onMarkPaid, onDeletePayment, onClose,
 }: Props) {
   const panelRef = useModalA11y<HTMLDivElement>(onClose, true, { closeOnBack: true });
   const printRef = useRef<HTMLDivElement>(null);
@@ -227,6 +289,9 @@ export function ContractSheet({
             <div className="dir-detail-section-title">Compensation</div>
             <CompensationTable contract={c} />
           </div>
+
+          {/* ── Payments: the ledger and Mark paid ── */}
+          <PaymentsSection contract={c} payments={payments} defaultMethod={defaultMethod} onMarkPaid={onMarkPaid} onDeletePayment={onDeletePayment} />
 
           {/* ── Agreement text ── */}
           <div className="dir-detail-section">

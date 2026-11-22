@@ -1,4 +1,4 @@
-import type { Contract, ContractLineItem, RateBasis } from '../types';
+import type { Contract, ContractLineItem, Payment, RateBasis } from '../types';
 
 /**
  * Money display for the paid roster (#personnel). Every function here takes
@@ -69,4 +69,20 @@ export function contractTotalCents(
     total += t;
   }
   return total;
+}
+
+/** Sum of payments, integer cents. */
+export function paidCents(payments: Pick<Payment, 'amountCents'>[]): number {
+  return payments.reduce((n, p) => n + p.amountCents, 0);
+}
+
+/** Where a contract stands on money. Null while the estimate is unknown or
+ *  the contract is not yet agreed (only Signed and Countersigned are owed). */
+export function payState(c: Pick<Contract, 'status' | 'baseRateCents' | 'baseRateBasis' | 'baseRateQuantity' | 'lineItems'>,
+  payments: Pick<Payment, 'amountCents'>[]): 'unpaid' | 'part' | 'paid' | null {
+  if (c.status !== 'Signed' && c.status !== 'Countersigned') return null;
+  const total = contractTotalCents(c);
+  if (total == null) return null;
+  const paid = paidCents(payments);
+  return paid >= total ? 'paid' : paid > 0 ? 'part' : 'unpaid';
 }

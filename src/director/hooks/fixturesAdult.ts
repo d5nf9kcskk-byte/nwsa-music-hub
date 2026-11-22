@@ -1,7 +1,7 @@
 import { addDays, todayStr } from '../utils';
 import type {
   Announcement, CalendarEvent, Contract, ContractLineItem, ContractStatus, ContractTemplate, Ensemble,
-  LibraryDocument, Personnel, PersonnelContact, RepertoirePiece, ServiceAttendance, SignupForm,
+  LibraryDocument, Payment, Personnel, PersonnelContact, RepertoirePiece, ServiceAttendance, SignupForm,
 } from '../types';
 
 /**
@@ -331,4 +331,27 @@ export const FIXTURE_SERVICE_ATTENDANCE: ServiceAttendance[] = __ORG_PERSONNEL__
       status: p.id === 'fx-p12' ? 'Absent' : p.id === 'fx-p06' ? 'Excused' : 'Present',
       updatedAt: ago(0), updatedBy: 'Priscilla Mwangi', updatedByRole: 'director',
     }))
+  : [];
+
+/** What a contract is worth at issue, in cents. Mirrors contractMoney.ts,
+ *  which this file may not import (it lands in the public chunk). */
+const worth = (c: Contract) =>
+  c.baseRateCents * (c.baseRateBasis === 'flat' ? 1 : c.baseRateQuantity ?? 1)
+  + (c.lineItems ?? []).reduce((n, li) => n + li.amountCents * (li.basis === 'per-service' ? li.quantity ?? 1 : 1), 0);
+
+/** Paid so far: the first seven countersigned players in full by Zelle or
+ *  Venmo, one of them in two instalments, a part payment, and the conductor's
+ *  deposit. Everyone else is still owed. */
+export const FIXTURE_PAYMENTS: Payment[] = __ORG_PERSONNEL__ && import.meta.env.VITE_FIXTURES
+  ? FIXTURE_CONTRACTS.filter(c => c.status === 'Countersigned').slice(0, 7).flatMap((c, i): Payment[] => {
+      const method = FIXTURE_PERSONNEL_CONTACTS[c.personnelId]?.payMethod || 'check';
+      const base = { contractId: c.id, personnelId: c.personnelId, method, updatedBy: 'Priscilla Mwangi', updatedByRole: 'director' as const };
+      const total = worth(c);
+      if (i === 1) return [{ ...base, id: `fx-pay-${i}`, amountCents: Math.round(total / 2), paidOn: day(-2), reference: 'first half' }];
+      if (i === 2) return [
+        { ...base, id: `fx-pay-${i}a`, amountCents: 20000, paidOn: day(-5) },
+        { ...base, id: `fx-pay-${i}b`, amountCents: total - 20000, paidOn: day(-1), note: 'Balance after the dress.' },
+      ];
+      return [{ ...base, id: `fx-pay-${i}`, amountCents: total, paidOn: day(-1) }];
+    })
   : [];

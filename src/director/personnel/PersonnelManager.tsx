@@ -7,6 +7,7 @@ import { usePersonnel } from '../hooks/usePersonnel';
 import { usePersonnelContacts } from '../hooks/usePersonnelContacts';
 import { useContracts } from '../hooks/useContracts';
 import { useContractTemplates } from '../hooks/useContractTemplates';
+import { usePayments } from '../hooks/usePayments';
 import { recordActivity } from '../hooks/useActivityLog';
 import { EnsembleFilter } from '../components/EnsembleFilter';
 import { scoreOrderRank, lastName } from '../scoreOrder';
@@ -16,7 +17,8 @@ import { ContractSheet } from './ContractSheet';
 import { ContractForm, type ContractDraftData } from './ContractForm';
 import { ContractTemplatesView } from './ContractTemplatesView';
 import { ServiceAttendanceSheet } from './ServiceAttendanceSheet';
-import type { Personnel, Contract } from '../types';
+import { contractTotalCents, paidCents, payState, formatCents } from './contractMoney';
+import type { Personnel, Contract, Payment } from '../types';
 
 /**
  * The paid roster (#personnel) — the RosterView pattern rebuilt for adults:
@@ -55,6 +57,7 @@ export default function PersonnelManager({ initialPersonId, initialEventId }: {
     signContract, countersignContract, voidContract, setContractNotes, deleteContract,
   } = useContracts();
   const { templates, addTemplate, updateTemplate, deleteTemplate } = useContractTemplates();
+  const { payments, addPayment, deletePayment } = usePayments();
 
   useEffect(() => { recordActivity('personnel.view'); }, []);
 
@@ -90,6 +93,27 @@ export default function PersonnelManager({ initialPersonId, initialEventId }: {
     for (const c of contracts) (m[c.personnelId] ??= []).push(c);
     return m;
   }, [contracts]);
+
+  const paymentsByContract = useMemo(() => {
+    const m: Record<string, Payment[]> = {};
+    for (const p of payments) (m[p.contractId] ??= []).push(p);
+    return m;
+  }, [payments]);
+
+  // Roster-wide money: what the agreed (signed) contracts come to, what has
+  // gone out against them, and what is still owed. Void contracts and
+  // estimates with no quantity yet are left out, not guessed at.
+  const ledger = useMemo(() => {
+    let owed = 0, paid = 0;
+    for (const c of contracts) {
+      if (c.status !== 'Signed' && c.status !== 'Countersigned') continue;
+      const t = contractTotalCents(c);
+      if (t == null) continue;
+      owed += t;
+      paid += paidCents(paymentsByContract[c.id] ?? []);
+    }
+    return { owed, paid };
+  }, [contracts, paymentsByContract]);
 
   const isEmpty = !loading && personnel.length === 0;
 
@@ -189,6 +213,12 @@ export default function PersonnelManager({ initialPersonId, initialEventId }: {
         </div>
       )}
 
+      {ledger.owed > 0 && (
+        <p className="dir-pay-summary">
+          Signed contracts <strong>{formatCents(ledger.owed)}</strong> · paid <strong>{formatCents(ledger.paid)}</strong> · still owed <strong>{formatCents(Math.max(0, ledger.owed - ledger.paid))}</strong>
+        </p>
+      )}
+
       {groups.map(({ key, label, people }) => (
         <div key={key} className="dir-roster-group">
           <div className="dir-roster-group-header">
@@ -201,6 +231,7 @@ export default function PersonnelManager({ initialPersonId, initialEventId }: {
                 key={p.id}
                 person={p}
                 contracts={contractsByPerson[p.id] ?? []}
+                paymentsByContract={paymentsByContract}
                 onOpen={() => setViewing(p)}
               />
             ))}
@@ -258,6 +289,10 @@ export default function PersonnelManager({ initialPersonId, initialEventId }: {
           onVoid={() => voidContract(openContract.id)}
           onDeleteDraft={() => deleteContract(openContract.id)}
           onSaveNotes={n => setContractNotes(openContract.id, n)}
+          payments={paymentsByContract[openContract.id] ?? []}
+          defaultMethod={contacts[openContract.personnelId]?.payMethod}
+          onMarkPaid={p => addPayment({ contractId: openContract.id, personnelId: openContract.personnelId, ...p })}
+          onDeletePayment={deletePayment}
           onClose={() => setOpenContractId(null)}
         />
       )}
@@ -337,13 +372,14 @@ export default function PersonnelManager({ initialPersonId, initialEventId }: {
   );
 }
 
-function PersonnelRow({ person, contracts, onOpen }: { person: Personnel; contracts: Contract[]; onOpen: () => void }) {
+function PersonnelRow({ person, contracts, paymentsByContract, onOpen }: { person: Personnel; contracts: Contract[]; paymentsByContract: Record<string, Payment[]>; onOpen: () => void }) {
   // The row's pill mirrors the person's paperwork state: the newest
   // non-void contract's status, Void if that's all there is, or a nudge
   // that a contracted member has no contract at all.
   const live = contracts.filter(c => c.status !== 'Void');
   const newest = [...(live.length ? live : contracts)].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))[0];
   const statusLabel = STATUS_ROW_LABEL[person.status];
+  const pay = newest ? payState(newest, paymentsByContract[newest.id] ?? []) : null;
   return (
     <div className="dir-roster-card" onClick={onOpen}>
       <div className={`dir-status-dot ${person.status}`} />
@@ -363,6 +399,7 @@ function PersonnelRow({ person, contracts, onOpen }: { person: Personnel; contra
           ].filter(Boolean).join(' · ')}
         </div>
       </div>
+      {pay && <span className={`dir-pay-pill ${pay}`}>{pay === 'part' ? 'Part paid' : pay === 'paid' ? 'Paid' : 'Unpaid'}</span>}
       {newest ? (
         <span className={`dir-contract-pill ${newest.status}`}>{newest.status}</span>
       ) : person.status === 'Contracted' ? (
