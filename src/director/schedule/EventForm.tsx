@@ -27,6 +27,12 @@ import { GroupPicker } from '../components/GroupPicker';
 import { ChangeNoteEsField } from './ChangeNoteEsField';
 import { bannerDrafterOn } from './bannerDrafterFlag';
 
+// Build-time literal (vite.config.ts `define`), as in DirectorApp.tsx. Who
+// must sit in the audience, whether a concert counts for the semester, and
+// the door check-in are a school's questions about students; a personnel org
+// has no screen that reads them (#adult-cleanup), so its form does not ask.
+declare const __ORG_PERSONNEL__: boolean;
+
 interface Props {
   event: CalendarEvent | null;
   ensembles: Ensemble[];
@@ -701,7 +707,7 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
             )}
           </div>
 
-          {(form.type === 'Concert' || form.type === 'Event') && (
+          {!__ORG_PERSONNEL__ && (form.type === 'Concert' || form.type === 'Event') && (
             <div className="dir-field">
               <label className="dir-label">Also required to attend (not performing)</label>
               <div className="dir-field-hint">
@@ -790,7 +796,7 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
               whether the concert COUNTS (and toward which pot), and whether
               the door station is collecting check-ins. A concert can be
               required for planning without anyone being photographed. */}
-          {(form.type === 'Concert' || form.type === 'Event') && (
+          {!__ORG_PERSONNEL__ && (form.type === 'Concert' || form.type === 'Event') && (
             <div className="dir-field">
               <label className="dir-label">Concert attendance</label>
               <div className="dir-field-hint">

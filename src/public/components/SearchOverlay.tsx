@@ -14,6 +14,9 @@ import type { CalendarEvent, Ensemble } from '../../director/types';
 import { searchEgg } from '../../shared/whimsy';
 import { getLang, t, useLang } from '../../shared/i18n';
 
+// Build-time literal (vite.config.ts `define`), as in DirectorApp.tsx.
+declare const __ORG_PERSONNEL__: boolean;
+
 /* ── Tiny fuzzy-search util ──────────────────────────────────────────────
  * Diacritic-stripped, case-insensitive matching: every whitespace-separated
  * query token must appear in the text. Tokens that land on a word start
@@ -208,7 +211,8 @@ function SearchOverlayInner({ onClose }: { onClose: () => void }) {
       });
     }
 
-    const asgs = rankMatches(publishedAssignments, q, a => [a.title, a.type]);
+    // No assignments page in a personnel org, so none are offered there.
+    const asgs = __ORG_PERSONNEL__ ? [] : rankMatches(publishedAssignments, q, a => [a.title, a.type]);
     if (asgs.length) {
       out.push({
         label: t('cal.assignments'), Icon: ClipboardCheck,
@@ -287,7 +291,7 @@ function SearchOverlayInner({ onClose }: { onClose: () => void }) {
         <div className="pub-search-results" ref={listRef}>
           {q.length < 2 && (
             <div className="pub-search-hint">
-              {t('search.hint')}
+              {t(__ORG_PERSONNEL__ ? 'search.hintNoAssignments' : 'search.hint')}
             </div>
           )}
           {q.length >= 2 && flat.length === 0 && !egg && (

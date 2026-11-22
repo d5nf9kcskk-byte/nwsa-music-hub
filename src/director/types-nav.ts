@@ -6,6 +6,9 @@ export interface DirNavOpts {
   ensembleId?: string;
   date?: string;
   eventId?: string;
+  /** A student. In a personnel org it is a person on the paid roster instead:
+   *  the roster tab follows the org kind (#personnel) and this goes with it,
+   *  travelling as ?person= there and ?student= everywhere else. */
   studentId?: string;
   announcementId?: string;
   /** Open this assignment's sheet on the Assignments tab — so an assignment

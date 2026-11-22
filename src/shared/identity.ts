@@ -7,6 +7,9 @@
 
 import { mergeStudents } from './deviceTransfer';
 
+// Build-time literal (vite.config.ts `define`), as in DirectorApp.tsx.
+declare const __ORG_PERSONNEL__: boolean;
+
 export interface SavedStudent {
   id: string;
   name: string;
@@ -25,6 +28,12 @@ type Listener = () => void;
 const listeners = new Set<Listener>();
 
 function read(): IdentityState {
+  // A personnel org has no student to look up, so no device ever has one
+  // saved (#adult-cleanup). The check is here, where every caller reads,
+  // because the storage key below is per ORIGIN and the hubs share one: a
+  // student saved on a school's hub would otherwise put their name in an
+  // adult orchestra's menu and "My part" on its concert cards.
+  if (__ORG_PERSONNEL__) return { students: [], parentMode: false };
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return { students: [], parentMode: false };

@@ -8,6 +8,11 @@ import { useEvents } from '../hooks/useEvents';
 import { todayStr, parseDate, formatTimeRange, ensembleColor, highSchoolEnsembles } from '../utils';
 import type { DirNavigate } from '../types-nav';
 
+// Build-time literal (vite.config.ts `define`), as in DirectorApp.tsx. An
+// adult orchestra's ensembles have no student roster to count or add to
+// (#adult-cleanup); its people are on the Personnel tab.
+declare const __ORG_PERSONNEL__: boolean;
+
 /**
  * All Ensembles — high-school performing groups only (#classes, #college).
  * Classes live on the Classes tab; college ensembles on the College tab.
@@ -38,8 +43,9 @@ export function EnsemblesView({ onNavigate }: { onNavigate: DirNavigate }) {
       <div className="dir-sc-intro">
         <Music size={18} />
         <span>
-          Every performing ensemble in one place — create one, add students to its roster, or open its
-          hub. Tap a name to see its schedule, roll, repertoire, and documents.
+          {__ORG_PERSONNEL__
+            ? 'Every ensemble in one place — create one, or open its hub. Tap a name to see its schedule, repertoire, and documents.'
+            : 'Every performing ensemble in one place — create one, add students to its roster, or open its hub. Tap a name to see its schedule, roll, repertoire, and documents.'}
         </span>
       </div>
 
@@ -70,19 +76,23 @@ export function EnsemblesView({ onNavigate }: { onNavigate: DirNavigate }) {
                   onClick={() => onNavigate('ensembleHub', { ensembleId: e.id })}
                 >
                   <div className="dir-ens-name">{e.name} <ChevronRight size={14} style={{ verticalAlign: '-2px', opacity: 0.5 }} /></div>
-                  <div className="dir-ens-sub">
-                    {count} student{count === 1 ? '' : 's'}
-                    {count === 0 && ' — add some below'}
-                    {next && ` · next rehearsal ${parseDate(next.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}${next.startTime ? ` ${formatTimeRange(next.startTime, next.endTime)}` : ''}`}
-                  </div>
+                  {!__ORG_PERSONNEL__ && (
+                    <div className="dir-ens-sub">
+                      {count} student{count === 1 ? '' : 's'}
+                      {count === 0 && ' — add some below'}
+                      {next && ` · next rehearsal ${parseDate(next.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}${next.startTime ? ` ${formatTimeRange(next.startTime, next.endTime)}` : ''}`}
+                    </div>
+                  )}
                 </button>
-                <button
-                  className="dir-btn dir-btn-ghost dir-sc-small"
-                  style={{ flexShrink: 0 }}
-                  onClick={() => setAddingTo(e.id)}
-                >
-                  <UserPlus size={14} style={{ verticalAlign: '-2px' }} /> Add students
-                </button>
+                {!__ORG_PERSONNEL__ && (
+                  <button
+                    className="dir-btn dir-btn-ghost dir-sc-small"
+                    style={{ flexShrink: 0 }}
+                    onClick={() => setAddingTo(e.id)}
+                  >
+                    <UserPlus size={14} style={{ verticalAlign: '-2px' }} /> Add students
+                  </button>
+                )}
               </div>
             );
           })
@@ -92,7 +102,8 @@ export function EnsemblesView({ onNavigate }: { onNavigate: DirNavigate }) {
       {managing && (
         <EnsembleManager
           startNew={managing === 'new'}
-          onCreated={id => { setManaging(null); setAddingTo(id); }}
+          // A school goes straight on to building the new group's roster.
+          onCreated={id => { setManaging(null); if (!__ORG_PERSONNEL__) setAddingTo(id); }}
           onClose={() => setManaging(null)}
         />
       )}

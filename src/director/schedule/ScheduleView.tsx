@@ -39,6 +39,11 @@ import { ORG } from '../../org';
 import { registerOverlayClose } from '../../shared/overlayBack';
 import { useDissolvedState } from '../../shared/hub2Dissolve';
 
+// Build-time literal (vite.config.ts `define`), as in DirectorApp.tsx. An
+// adult orchestra's calendar counts no expected students and has no Who's
+// Out or Move a Student screen to send anyone to (#adult-cleanup).
+declare const __ORG_PERSONNEL__: boolean;
+
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 // Sentinel for the "school-wide events only" pick in the ensemble filter menu.
@@ -408,7 +413,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
                    an untimed all-day item. */
                 : e.type === 'Concert' && <span><Clock size={12} /> Time TBA</span>}
               {e.location && <span><MapPin size={12} /> {e.location}</span>}
-              {e.ensembleIds.length > 0 && <span><Users size={12} /> {expectedCount(e)} expected</span>}
+              {!__ORG_PERSONNEL__ && e.ensembleIds.length > 0 && <span><Users size={12} /> {expectedCount(e)} expected</span>}
             </div>
             {e.repertoire && <div className="dir-event-rep"><Linkify text={e.repertoire} /></div>}
             {(e.pieceIds ?? []).length > 0 && (
@@ -429,13 +434,13 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
               Program ↗
             </a>
           )}
-          {(e.type === 'Rehearsal' || e.type === 'Sectional') && e.ensembleIds.length > 0 && onNavigate && (
+          {!__ORG_PERSONNEL__ && (e.type === 'Rehearsal' || e.type === 'Sectional') && e.ensembleIds.length > 0 && onNavigate && (
             <button className="dir-event-roster-btn" onClick={() => onNavigate('whosOut', { date: e.date, ensembleId: e.ensembleIds[0] })} title="Who is out that day, and why">
               Who’s out
             </button>
           )}
           {e.ensembleIds.length > 0 && onNavigate && (
-            <button className="dir-event-roster-btn" onClick={() => onNavigate('scheduleSwap', { date: e.date })} title="Swap, shift, cancel, or move a student for this day">
+            <button className="dir-event-roster-btn" onClick={() => onNavigate('scheduleSwap', { date: e.date })} title={__ORG_PERSONNEL__ ? 'Swap, shift, or cancel for this day' : 'Swap, shift, cancel, or move a student for this day'}>
               Change
             </button>
           )}
@@ -732,7 +737,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
                   className="dir-tool-btn"
                   style={{ marginLeft: 'auto' }}
                   onClick={() => onNavigate('scheduleSwap', { date: selectedDate })}
-                  title="Swap, shift, cancel, or move a student — everything different about this day"
+                  title={__ORG_PERSONNEL__ ? 'Swap, shift, or cancel — everything different about this day' : 'Swap, shift, cancel, or move a student — everything different about this day'}
                 >
                   <CalendarClock size={14} /> Change this day
                 </button>

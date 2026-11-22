@@ -10,6 +10,9 @@ import { useModalA11y } from '../../shared/useModalA11y';
 import { ORG } from '../../org';
 import { backdropClose } from '../../shared/backdropClose';
 
+// Build-time literal (vite.config.ts `define`), as in DirectorApp.tsx.
+declare const __ORG_PERSONNEL__: boolean;
+
 /** Public site root the QR codes point at — per-org (config/orgs/*.json). */
 const SITE_URL = ORG.publicUrl;
 /** Human-typeable form printed under the codes. */
@@ -142,7 +145,9 @@ function LaunchPosterPage() {
         The new<br /><em>{ORG.appName}</em><br />is here
       </h2>
       <p className="dir-qr-launch-tag">
-        Schedules, parts, concerts &amp; announcements — one place for every music student and family.
+        {__ORG_PERSONNEL__
+          ? 'Schedules, parts, concerts & announcements — one place for every member of the orchestra.'
+          : 'Schedules, parts, concerts & announcements — one place for every music student and family.'}
       </p>
       <div className="dir-qr-launch-qr" dangerouslySetInnerHTML={{ __html: svg }} />
       <p className="dir-qr-launch-scan">Scan to open</p>
@@ -271,12 +276,16 @@ export function QrKitView({ onClose }: { onClose?: () => void }) {
             url={SITE_URL}
             urlLabel={SHORT_HOST}
           />
-          <PosterPage
-            name="Find MY schedule"
-            tagline="Scan, pick your name once — every rehearsal, concert & assignment that's yours."
-            url={`${SITE_URL}lookup`}
-            urlLabel={`${SHORT_HOST}/lookup`}
-          />
+          {/* A student looks themselves up; a personnel org has no such page
+              for a poster to point at. */}
+          {!__ORG_PERSONNEL__ && (
+            <PosterPage
+              name="Find MY schedule"
+              tagline="Scan, pick your name once — every rehearsal, concert & assignment that's yours."
+              url={`${SITE_URL}lookup`}
+              urlLabel={`${SHORT_HOST}/lookup`}
+            />
+          )}
 
           {ordered.map(e => (
             <Fragment key={e.id}>

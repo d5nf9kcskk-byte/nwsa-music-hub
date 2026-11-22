@@ -13,6 +13,9 @@ import { printViaPopup } from '../shared/printPopup';
 import type { CalendarEvent, Ensemble } from '../director/types';
 import { ORG } from '../org';
 
+// Build-time literal (vite.config.ts `define`), as in DirectorApp.tsx.
+declare const __ORG_PERSONNEL__: boolean;
+
 /** Season at a Glance (#13): every concert of the year on one printable page. */
 export function SeasonPage() {
   useLang();
@@ -65,9 +68,13 @@ export function SeasonPage() {
         )}
       </p>
 
-      <Link to="/required-concerts" className="pub-required-link no-print">
-        <Armchair size={15} /> {t('season.requiredLink')}
-      </Link>
+      {/* Concerts a group must sit in on are a school's rule, and that page
+          is not in a personnel org. */}
+      {!__ORG_PERSONNEL__ && (
+        <Link to="/required-concerts" className="pub-required-link no-print">
+          <Armchair size={15} /> {t('season.requiredLink')}
+        </Link>
+      )}
 
       {concertEnsembles.length > 1 && (
         <PubEnsembleSelect ensembles={concertEnsembles} value={filter} onChange={setFilter} allLabel={t('nav.allEnsembles')} />

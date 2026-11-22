@@ -26,14 +26,23 @@ import { ensembleColor, ensembleDisplayName, highSchoolEnsembles, highSchoolClas
 import { ORG } from '../org';
 import type { Ensemble } from '../director/types';
 
+// Build-time literal (vite.config.ts `define`), as in DirectorApp.tsx. An
+// adult orchestra (#personnel) has no student records, so the public pages
+// built on one are not on its menus (#adult-cleanup); main.tsx sends their
+// addresses home.
+declare const __ORG_PERSONNEL__: boolean;
+
 /** Staff sign-in links — always visible; access is decided after Google auth
- *  by the directors/{email} doc, not by whether the link is shown. */
-const STAFF_LOGINS = [
+ *  by the directors/{email} doc, not by whether the link is shown. An adult
+ *  orchestra has one staff panel, so one door: no assistant or teacher shells. */
+const STAFF_LOGINS: readonly { to: string; label: string }[] = __ORG_PERSONNEL__ ? [
+  { to: '/director', label: 'nav.staffLogin' },
+] : [
   { to: '/director', label: 'nav.directorLogin' },
   { to: '/assistant', label: 'nav.assistantLogin' },
   { to: '/teacher', label: 'nav.teacherLogin' },
   { to: '/classroom', label: 'nav.classroomLogin' },
-] as const;
+];
 
 /** Daily destinations — the ONE list, mapped by the phone drawer AND the
  *  desktop rail (#one-nav). The rail used to type these out again by hand in a
@@ -76,6 +85,18 @@ const RESOURCES = [
   ...(ORG.features.contactForm ? [{ to: '/contact', label: 'nav.contact', Icon: Mail }] : []),
   ...(ORG.features.absenceReport ? [{ to: '/absence', label: 'nav.absence', Icon: CalendarX }] : []),
 ];
+
+// A personnel org's menus leave out the pages that need a student record: a
+// schedule lookup, concerts a group must sit in on, the concert door,
+// assignments, copy requests (they name a student), the absence report. The
+// two lists are trimmed in place, and the drawer and the rail both map them,
+// so the two cannot drift (#one-nav).
+if (__ORG_PERSONNEL__) {
+  const school = ['/lookup', '/required-concerts', '/checkin', '/assignments', '/copies', '/absence'];
+  const kept = (i: { to: string }) => !school.includes(i.to);
+  NAV_TOP.splice(0, NAV_TOP.length, ...NAV_TOP.filter(kept));
+  RESOURCES.splice(0, RESOURCES.length, ...RESOURCES.filter(kept));
+}
 
 function pathInResources(pathname: string): boolean {
   return RESOURCE_PATHS.some(p => pathname === p || pathname.startsWith(`${p}/`));
@@ -193,9 +214,11 @@ export function PublicLayout() {
   // (#classes). Same order field, two headings.
   const navEnsembles = [...ensembles].sort((a, b) => a.order - b.order);
   const navPerforming = highSchoolEnsembles(navEnsembles);
-  const navClasses = highSchoolClasses(navEnsembles);
-  const navCollegeEns = collegeEnsembles(navEnsembles);
-  const navCollegeCls = collegeClasses(navEnsembles);
+  // Classes and College are a school's groupings; each group below renders
+  // only when its list has something in it, so an adult orchestra has neither.
+  const navClasses = __ORG_PERSONNEL__ ? [] : highSchoolClasses(navEnsembles);
+  const navCollegeEns = __ORG_PERSONNEL__ ? [] : collegeEnsembles(navEnsembles);
+  const navCollegeCls = __ORG_PERSONNEL__ ? [] : collegeClasses(navEnsembles);
   const [, bump] = useReducer(x => x + 1, 0);
   const menuRef = useModalA11y<HTMLElement>(() => setMenuOpen(false), menuOpen);
   useEffect(() => onIdentityChange(bump), []);
@@ -378,16 +401,21 @@ export function PublicLayout() {
               </NavLink>
             ))}
 
-            <button
-              className="pub-menu-item pub-menu-expand"
-              onClick={() => setHelpOpen(o => !o)}
-              aria-expanded={helpOpen}
-            >
-              <HelpCircle size={18} />
-              {t('nav.help')}
-              <ExpandChevron open={helpOpen} />
-            </button>
-            {helpOpen && (
+            {/* Help holds the start guide alone, and that guide is written for
+                students, parents and school staff: no Help group, here or in
+                the rail, for an adult orchestra. */}
+            {!__ORG_PERSONNEL__ && (
+              <button
+                className="pub-menu-item pub-menu-expand"
+                onClick={() => setHelpOpen(o => !o)}
+                aria-expanded={helpOpen}
+              >
+                <HelpCircle size={18} />
+                {t('nav.help')}
+                <ExpandChevron open={helpOpen} />
+              </button>
+            )}
+            {!__ORG_PERSONNEL__ && helpOpen && (
               <NavLink
                 to="/start"
                 className={({ isActive }) => `pub-menu-item pub-menu-subitem ${isActive ? 'active' : ''}`}
@@ -508,16 +536,18 @@ export function PublicLayout() {
               </NavLink>
             ))}
 
-            <button
-              type="button"
-              className="pub-side-head pub-side-expand"
-              onClick={() => setSideHelpOpen(o => !o)}
-              aria-expanded={sideHelpOpen}
-            >
-              {t('nav.help')}
-              <ChevronDown size={14} style={{ transform: sideHelpOpen ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }} />
-            </button>
-            {sideHelpOpen && (
+            {!__ORG_PERSONNEL__ && (
+              <button
+                type="button"
+                className="pub-side-head pub-side-expand"
+                onClick={() => setSideHelpOpen(o => !o)}
+                aria-expanded={sideHelpOpen}
+              >
+                {t('nav.help')}
+                <ChevronDown size={14} style={{ transform: sideHelpOpen ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }} />
+              </button>
+            )}
+            {!__ORG_PERSONNEL__ && sideHelpOpen && (
               <NavLink to="/start" className={({ isActive }) => `pub-side-item ${isActive ? 'active' : ''}`}>
                 <HelpCircle size={18} />{t('nav.startHere')}
               </NavLink>
@@ -559,12 +589,20 @@ export function PublicLayout() {
         <RRNavLink to="/calendar" className={({ isActive }) => `pub-tabbar-btn ${isActive ? 'active' : ''}`}>
           <CalendarDays size={20} /><span>{t('nav.calendar')}</span>
         </RRNavLink>
-        <RRNavLink
-          to={scheduleTo}
-          className={({ isActive }) => `pub-tabbar-btn ${isActive ? 'active' : ''}`}
-        >
-          <UserSearch size={20} /><span>{t('nav.mySchedule')}</span>
-        </RRNavLink>
+        {__ORG_PERSONNEL__ ? (
+          // No student to look up: an adult orchestra's third daily task is
+          // the music, under the label and icon it already has in the menu.
+          <RRNavLink to="/repertoire" className={({ isActive }) => `pub-tabbar-btn ${isActive ? 'active' : ''}`}>
+            <Music size={20} /><span>{t('nav.repertoire')}</span>
+          </RRNavLink>
+        ) : (
+          <RRNavLink
+            to={scheduleTo}
+            className={({ isActive }) => `pub-tabbar-btn ${isActive ? 'active' : ''}`}
+          >
+            <UserSearch size={20} /><span>{t('nav.mySchedule')}</span>
+          </RRNavLink>
+        )}
         <RRNavLink to="/concerts" className={({ isActive }) => `pub-tabbar-btn ${isActive ? 'active' : ''}`}>
           <Ticket size={20} /><span>{t('nav.concertsShort')}</span>
         </RRNavLink>

@@ -32,6 +32,22 @@ export interface WhatsNewEntry {
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
+  // An adult orchestra's panel without the school screens (#adult-cleanup).
+  // Nothing changed for a school, so the entry is folded out of school builds
+  // at build time, like the two personnel entries further down.
+  ...(__ORG_PERSONNEL__ ? [{
+    id: '2026-11-21-adult-panel',
+    date: '2026-11-21',
+    title: 'The menu now lists only what an orchestra uses',
+    audience: 'staff' as const,
+    expires: '2026-12-05',
+    bullets: [
+      'The menu is Today, Calendar, Change a Day, Personnel, the Library (Concerts, Repertoire, Documents, Forms, Announcements, Messages) and Ensembles. The screens built for a school are gone: Take Roll, Requests, Move a Student, Rotations, Who’s Out, lessons, progress notes, assignments, juries, concert check-in, and the Classes and College lists.',
+      'Attendance is under Personnel → Attendance. On Today, each rehearsal and concert has an Attendance button that opens the roll on that service.',
+      'Search (the magnifying glass) now finds people on the personnel roster by name, instrument or section, and opens them.',
+      'The public site matches: one Staff sign-in link, no student lookup, and its contact page reads “Message the office”.',
+    ],
+  }] : []),
   {
     id: '2026-11-16-chaperones',
     date: '2026-11-16',

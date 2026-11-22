@@ -35,10 +35,12 @@ const WINDOW_AHEAD_DAYS = 35;
 interface Props {
   personnel: Personnel[];
   ensembles: Ensemble[];
+  /** Start on this service instead of the nearest one (opened from Today). */
+  initialEventId?: string;
   onClose: () => void;
 }
 
-export function ServiceAttendanceSheet({ personnel, ensembles, onClose }: Props) {
+export function ServiceAttendanceSheet({ personnel, ensembles, initialEventId, onClose }: Props) {
   const panelRef = useModalA11y<HTMLDivElement>(onClose, true, { closeOnBack: true });
   const today = todayStr();
   const { events, loading: eventsLoading } = useEvents({
@@ -55,7 +57,7 @@ export function ServiceAttendanceSheet({ personnel, ensembles, onClose }: Props)
 
   // Default to the nearest service: today's first, else the next upcoming,
   // else the most recent past one.
-  const [picked, setPicked] = useState<string | null>(null);
+  const [picked, setPicked] = useState<string | null>(initialEventId ?? null);
   const defaultService = services.find(e => e.date >= today) ?? services[services.length - 1];
   const service = (picked != null ? services.find(e => e.id === picked) : undefined) ?? defaultService;
 

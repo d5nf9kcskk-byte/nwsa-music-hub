@@ -179,6 +179,27 @@ const NAV_GROUPS: { head: string; items: NavItem[] }[] = [
   },
 ];
 
+/**
+ * An adult orchestra's screens (#adult-cleanup). A personnel org has no
+ * students, guardians, classes, lessons, grades or juries, so a screen built
+ * on one of those has nothing to show there. Those screens are left out of
+ * its shell: off both menus (the two lists above are trimmed in place, and
+ * the rail and the phone drawer both map them), and not an address either
+ * (VALID_TABS below), so an old link to one opens Today rather than an empty
+ * school screen. Adult roll is Personnel → Attendance.
+ */
+const ADULT_TABS: readonly DirTab[] = [
+  'today', 'schedule', 'scheduleSwap',
+  'personnel',
+  'concerts', 'repertoire', 'documents', 'signups', 'announcements', 'messages',
+  'ensembles', 'ensembleHub', 'directors',
+];
+if (__ORG_PERSONNEL__) {
+  const kept = (i: NavItem) => ADULT_TABS.includes(i.id);
+  NAV_TOP.splice(0, NAV_TOP.length, ...NAV_TOP.filter(kept));
+  for (const g of NAV_GROUPS) g.items = g.items.filter(kept);
+}
+
 const TAB_TITLES: Record<DirTab, string> = {
   today:           'Today',
   roll:            'Take Roll',
@@ -212,14 +233,14 @@ const TAB_TITLES: Record<DirTab, string> = {
   directors:       'Directors',
 };
 
-const VALID_TABS: readonly DirTab[] = [
+const VALID_TABS: readonly DirTab[] = __ORG_PERSONNEL__ ? ADULT_TABS : [
   'today', 'roll', 'lessons', 'myLessons', 'schedule', 'scheduleChanges', 'repertoire', 'documents',
   'notes', 'assignments', 'announcements', 'readAloud', 'ensembleHub', 'ensembles', 'classes', 'college', 'whosOut', 'scheduleSwap', 'rotations',
   'messages', 'requests', 'signups', 'juries', 'concerts', 'concertCheckin', 'gradebook', 'approvals', 'directors',
   // The roster URL segment follows the org kind too (#personnel), so a
   // school build has no /director/personnel route and an adult build no
   // /director/roster \u2014 an off-org deep link falls back to Today.
-  ...(__ORG_PERSONNEL__ ? ['personnel' as const] : ['roster' as const]),
+  'roster',
 ];
 
 /**
@@ -258,6 +279,16 @@ const TAB_HINTS: Partial<Record<DirTab, string>> = {
   // Spread-conditional so the string ships only in personnel-org bundles.
   ...(__ORG_PERSONNEL__ ? {
     personnel: 'Everyone the orchestra engages \u2014 players, podium, and staff. Tap a person for private contact details and their contracts.',
+    // The screens an adult orchestra keeps, in its own words (#adult-cleanup):
+    // the lines above talk about students, families and a district.
+    today:         'Your day at a glance \u2014 everything happening today, and what is coming up.',
+    scheduleSwap:  'Whole-ensemble changes for a day \u2014 swap blocks, combine into one room, change time or room, or cancel. Members see a red banner automatically.',
+    ensembles:     'Create ensembles and open any ensemble\u2019s hub \u2014 schedule, repertoire, and documents.',
+    documents:     'Handbooks, forms, and files for members. Anything you post here shows on the public site.',
+    announcements: 'Post news for members \u2014 for everyone or per ensemble. Urgent posts show as a red banner.',
+    messages:      'Messages sent through the public Contact Us form. Reply opens your own email app.',
+    signups:       'Sign-ups and registrations \u2014 anything members fill out. On a form open to anyone with the link they type their name, answer your questions, and sign. You get a spreadsheet and the signed forms.',
+    directors:     'Who can sign in and at what level. Tap the pencil to edit roles and assigned ensembles.',
   } : {}),
 };
 
@@ -444,7 +475,9 @@ export default function DirectorApp() {
     ensembleId: searchParams.get('ensemble') ?? undefined,
     date: searchParams.get('date') ?? undefined,
     eventId: searchParams.get('event') ?? undefined,
-    studentId: searchParams.get('student') ?? undefined,
+    // The same slot names a person on the paid roster in a personnel org,
+    // where the address reads ?person= (see DirNavOpts.studentId).
+    studentId: searchParams.get(__ORG_PERSONNEL__ ? 'person' : 'student') ?? undefined,
     announcementId: searchParams.get('announcement') ?? undefined,
     assignmentId: searchParams.get('assignment') ?? undefined,
     selectAll: searchParams.get('selectall') === '1' || undefined,
@@ -456,7 +489,7 @@ export default function DirectorApp() {
     if (opts?.ensembleId) p.set('ensemble', opts.ensembleId);
     if (opts?.date) p.set('date', opts.date);
     if (opts?.eventId) p.set('event', opts.eventId);
-    if (opts?.studentId) p.set('student', opts.studentId);
+    if (opts?.studentId) p.set(__ORG_PERSONNEL__ ? 'person' : 'student', opts.studentId);
     if (opts?.announcementId) p.set('announcement', opts.announcementId);
     if (opts?.assignmentId) p.set('assignment', opts.assignmentId);
     if (opts?.selectAll) p.set('selectall', '1');
@@ -487,6 +520,8 @@ export default function DirectorApp() {
   // list was empty, which was fine while People carried duplicate rows to the
   // same tabs — now that those are gone, a school with no classes yet would
   // have had no door to the Classes tab and so no way to create its first one.
+  // An adult orchestra (#personnel) has Ensembles alone: Classes and College
+  // are school groupings, and their tabs are not in its shell at all.
   const groupAccordions: DirNavGroupSpec[] = [
     ...([{
       key: 'ensembles',
@@ -498,7 +533,7 @@ export default function DirectorApp() {
       all: { tab: 'ensembles' as DirTab, label: 'All Ensembles', Icon: Music },
       items: hsEnsembles,
     }]),
-    ...([{
+    ...(__ORG_PERSONNEL__ ? [] : [{
       key: 'classes',
       label: 'Classes',
       Icon: BookOpen,
@@ -508,7 +543,7 @@ export default function DirectorApp() {
       all: { tab: 'classes' as DirTab, label: 'All Classes', Icon: BookOpen },
       items: hsClasses,
     }]),
-    ...([{
+    ...(__ORG_PERSONNEL__ ? [] : [{
       key: 'college',
       label: 'College',
       Icon: GraduationCap,
@@ -574,7 +609,11 @@ export default function DirectorApp() {
           <div className="dir-panel-banner no-print" role="note" onClick={onPanelTap} style={{ cursor: 'pointer' }}>
             <span className="dir-panel-banner-dot" />
             <span>Director Panel</span>
-            <span className="dir-panel-banner-sub">· editing area — the student side shows what you set here</span>
+            <span className="dir-panel-banner-sub">
+              {__ORG_PERSONNEL__
+                ? '· editing area — the member side shows what you set here'
+                : '· editing area — the student side shows what you set here'}
+            </span>
           </div>
           {/* Desktop/iPad-landscape rail (≥1024px): the phone drawer's list in
               the phone drawer's order, just always on screen. */}
@@ -609,14 +648,19 @@ export default function DirectorApp() {
               ))}
             </nav>
             <div className="dir-rail-bottom">
-              <a
-                className="dir-rail-item"
-                href={DIRECTOR_FEEDBACK_FORM_URL}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <MessageSquarePlus size={18} /> Suggest a change
-              </a>
+              {/* The form behind this is the school's own, and the start guide
+                  below is written for students, parents and school staff, so a
+                  personnel org gets neither row, here or in the drawer. */}
+              {!__ORG_PERSONNEL__ && (
+                <a
+                  className="dir-rail-item"
+                  href={DIRECTOR_FEEDBACK_FORM_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <MessageSquarePlus size={18} /> Suggest a change
+                </a>
+              )}
               <button className="dir-rail-item" onClick={() => setQrOpen(true)}>
                 <QrCode size={18} /> QR Kit
               </button>
@@ -633,9 +677,11 @@ export default function DirectorApp() {
                   on a laptop could not reach the start guide, could not install
                   the app, and had no way to see which version they were running
                   (#one-nav). */}
-              <button className="dir-rail-item" onClick={() => navigate('/start?staff=1')}>
-                <HelpCircle size={18} /> Start guide (all audiences)
-              </button>
+              {!__ORG_PERSONNEL__ && (
+                <button className="dir-rail-item" onClick={() => navigate('/start?staff=1')}>
+                  <HelpCircle size={18} /> Start guide (all audiences)
+                </button>
+              )}
               <InstallAppButton rail />
               <PushAlertsButton rail />
               <AppVersionRow rail />
@@ -748,7 +794,8 @@ export default function DirectorApp() {
             {tab === 'juries'          && <JuriesView />}
             {tab === 'personnel' && PersonnelManager && (
               <Suspense fallback={<div style={{ padding: 32, textAlign: 'center', color: '#6b7686' }}>Loading personnel…</div>}>
-                <PersonnelManager />
+                {/* Search opens a person here; an event on Today opens its roll. */}
+                <PersonnelManager key={intentKey} initialPersonId={intent.studentId} initialEventId={intent.eventId} />
               </Suspense>
             )}
             {tab === 'ensembles'       && <EnsemblesView onNavigate={go} />}
@@ -771,7 +818,7 @@ export default function DirectorApp() {
           <DirectorSearch
             open={searchOpen}
             onClose={() => setSearchOpen(false)}
-            onOpenStudent={id => { setSearchOpen(false); go('roster', { studentId: id }); }}
+            onOpenStudent={id => { setSearchOpen(false); go(__ORG_PERSONNEL__ ? 'personnel' : 'roster', { studentId: id }); }}
             onNavigate={go}
           />
 
@@ -817,15 +864,17 @@ export default function DirectorApp() {
 
                 <div className="dir-menu-divider" />
 
-                <a
-                  className="dir-menu-item"
-                  href={DIRECTOR_FEEDBACK_FORM_URL}
-                  target="_blank"
-                  rel="noreferrer"
-                  onClick={() => setMenuOpen(false)}
-                >
-                  <MessageSquarePlus size={19} /> Suggest a change
-                </a>
+                {!__ORG_PERSONNEL__ && (
+                  <a
+                    className="dir-menu-item"
+                    href={DIRECTOR_FEEDBACK_FORM_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    <MessageSquarePlus size={19} /> Suggest a change
+                  </a>
+                )}
 
                 <button className="dir-menu-item" onClick={() => { setQrOpen(true); setMenuOpen(false); }}>
                   <QrCode size={19} /> QR Kit
@@ -840,9 +889,11 @@ export default function DirectorApp() {
                 <button className="dir-menu-item" onClick={() => navigate('/')}>
                   <ExternalLink size={19} /> View public site
                 </button>
-                <button className="dir-menu-item" onClick={() => navigate('/start?staff=1')}>
-                  <HelpCircle size={19} /> Start guide (all audiences)
-                </button>
+                {!__ORG_PERSONNEL__ && (
+                  <button className="dir-menu-item" onClick={() => navigate('/start?staff=1')}>
+                    <HelpCircle size={19} /> Start guide (all audiences)
+                  </button>
+                )}
                 <InstallAppButton />
                 <PushAlertsButton onOpen={() => { setPushOpen(true); setMenuOpen(false); }} />
                 <AppVersionRow />

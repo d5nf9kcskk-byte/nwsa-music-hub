@@ -13,9 +13,15 @@ import { useRepertoire } from '../hooks/useRepertoire';
 import { useAnnouncements } from '../hooks/useAnnouncements';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { useAssignments } from '../hooks/useAssignments';
+import { usePersonnel } from '../hooks/usePersonnel';
 import { formatDate, formatTimeRange, todayStr, pieceEnsembleIds } from '../utils';
 import { rankMatches } from '../../shared/fuzzy';
-import type { CalendarEvent, Ensemble, RosterOverride, Student } from '../types';
+import type { CalendarEvent, Ensemble, Personnel, RosterOverride, Student } from '../types';
+
+// Build-time literal (vite.config.ts `define`), as in DirectorApp.tsx. In a
+// personnel org the people this finds are the paid roster, not students, and
+// nothing here names a screen that org's shell does not have (#adult-cleanup).
+declare const __ORG_PERSONNEL__: boolean;
 
 /* ── "Where are they now" helpers ─────────────────────────────────────── */
 
@@ -113,7 +119,8 @@ interface DirectorSearchProps {
   onNavigate?: import('../types-nav').DirNavigate;
   open: boolean;
   onClose: () => void;
-  /** Open the director-side view for a student (roster profile, etc.). */
+  /** Open the director-side view for a student (roster profile, etc.), or in
+   *  a personnel org for a person on the paid roster. */
   onOpenStudent: (studentId: string) => void;
 }
 
@@ -125,10 +132,26 @@ interface DirectorSearchProps {
  */
 export function DirectorSearch({ open, onClose, onOpenStudent, onNavigate }: DirectorSearchProps) {
   if (!open) return null;
-  return <DirectorSearchInner onClose={onClose} onOpenStudent={onOpenStudent} onNavigate={onNavigate} />;
+  return __ORG_PERSONNEL__
+    ? <PersonnelSearch onClose={onClose} onOpenStudent={onOpenStudent} onNavigate={onNavigate} />
+    : <DirectorSearchInner onClose={onClose} onOpenStudent={onOpenStudent} onNavigate={onNavigate} />;
 }
 
-function DirectorSearchInner({ onClose, onOpenStudent, onNavigate }: Omit<DirectorSearchProps, 'open'>) {
+/**
+ * The same overlay for a personnel org, with the paid roster standing where
+ * students do. Its own component so a school build never loads the hook; the
+ * hook itself subscribes only for an Owner or Director (personnelGate.ts),
+ * and this overlay is only mounted in their shell.
+ */
+function PersonnelSearch(props: Omit<DirectorSearchProps, 'open'>) {
+  const { personnel } = usePersonnel();
+  return <DirectorSearchInner {...props} people={personnel} />;
+}
+
+function DirectorSearchInner({ onClose, onOpenStudent, onNavigate, people }: Omit<DirectorSearchProps, 'open'> & {
+  /** Personnel orgs only: the paid roster, found by name, instrument or section. */
+  people?: Personnel[];
+}) {
   const navigate = useNavigate();
   const { students } = useStudents();
   const { contacts } = useContacts();
@@ -195,8 +218,32 @@ function DirectorSearchInner({ onClose, onOpenStudent, onNavigate }: Omit<Direct
     };
     const out: ResultGroup[] = [];
 
+    // People first. In a personnel org that is the paid roster (working
+    // roster ahead of archived on ties), and a name opens that person on the
+    // Personnel tab; contact details stay there, behind the tap.
+    if (__ORG_PERSONNEL__ && people) {
+      const persons = rankMatches(
+        people, q, p => [p.name, p.preferredName, p.instrument, p.section], 8,
+        (a, b) =>
+          (a.status === 'Inactive' ? 1 : 0) - (b.status === 'Inactive' ? 1 : 0)
+          || a.name.localeCompare(b.name),
+      );
+      if (persons.length) {
+        out.push({
+          label: 'Personnel', Icon: Users,
+          items: persons.map(p => ({
+            key: `per-${p.id}`,
+            label: p.preferredName ? `${p.name} “${p.preferredName}”` : p.name,
+            sub: [p.instrument, p.section, p.status === 'SubList' ? 'Sub list' : p.status === 'Inactive' ? 'Archived' : undefined]
+              .filter(Boolean).join(' · '),
+            onSelect: () => { onOpenStudent(p.id); onClose(); },
+          })),
+        });
+      }
+    }
+
     // Students first — Active students ahead of Inactive/Graduated on ties.
-    const studs = rankMatches(
+    const studs = __ORG_PERSONNEL__ ? [] : rankMatches(
       students, q, s => [s.name, s.preferredName, s.instrument, s.grade], 8,
       (a, b) =>
         (a.status === 'Active' ? 0 : 1) - (b.status === 'Active' ? 0 : 1)
@@ -281,7 +328,7 @@ function DirectorSearchInner({ onClose, onOpenStudent, onNavigate }: Omit<Direct
       });
     }
 
-    const asgs = rankMatches(assignments, q, a => [a.title, a.type]);
+    const asgs = __ORG_PERSONNEL__ ? [] : rankMatches(assignments, q, a => [a.title, a.type]);
     if (asgs.length) {
       out.push({
         label: 'Assignments', Icon: ClipboardCheck,
@@ -297,7 +344,7 @@ function DirectorSearchInner({ onClose, onOpenStudent, onNavigate }: Omit<Direct
     return out;
   }, [
     q, students, contacts, events, pieces, announcements, ensembles, assignments,
-    todaysEvents, todaysLessons, ensembleMap, today, navigate, onClose, onOpenStudent, onNavigate,
+    todaysEvents, todaysLessons, ensembleMap, today, navigate, onClose, onOpenStudent, onNavigate, people,
   ]);
 
   const flat = useMemo(() => groups.flatMap(g => g.items), [groups]);
@@ -334,7 +381,7 @@ function DirectorSearchInner({ onClose, onOpenStudent, onNavigate }: Omit<Direct
           <input
             className="dir-search-input"
             type="search"
-            placeholder="Search students, events, music…"
+            placeholder={__ORG_PERSONNEL__ ? 'Search personnel, events, music…' : 'Search students, events, music…'}
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={onInputKeyDown}
@@ -352,7 +399,9 @@ function DirectorSearchInner({ onClose, onOpenStudent, onNavigate }: Omit<Direct
         <div className="dir-search-results" ref={listRef}>
           {q.length < 2 && (
             <div className="dir-search-hint">
-              Find students, events, repertoire, announcements, ensembles, and assignments.
+              {__ORG_PERSONNEL__
+                ? 'Find personnel, events, repertoire, announcements, and ensembles.'
+                : 'Find students, events, repertoire, announcements, ensembles, and assignments.'}
             </div>
           )}
           {q.length >= 2 && flat.length === 0 && (

@@ -2,8 +2,12 @@ import { useMemo, useState } from 'react';
 import { Mail, MailOpen, Reply, Archive, Trash2, Inbox } from 'lucide-react';
 import { useParentMessages } from '../hooks/useParentMessages';
 import { ORG } from '../../org';
+import { OFFICE_TOPIC_LABELS } from '../../shared/labels';
 import type { ParentMessage, ParentMessageTopic } from '../types';
 import './messages.css';
+
+// Build-time literal (vite.config.ts `define`), as in DirectorApp.tsx.
+declare const __ORG_PERSONNEL__: boolean;
 
 /**
  * Parent-messages inbox (#parent-messages): everything families send through
@@ -20,6 +24,9 @@ const TOPIC_LABELS: Record<ParentMessageTopic, string> = {
   volunteer: 'Volunteering',
   enrollment: 'Joining / auditions',
   other: 'Other',
+  // A personnel org's form asks adults, under adult labels (the same stored
+  // values). Its inbox names each topic the way that form did.
+  ...(__ORG_PERSONNEL__ ? OFFICE_TOPIC_LABELS : {}),
 };
 
 type Filter = 'active' | 'archived';
@@ -77,7 +84,9 @@ export function MessagesView() {
         <div className="dir-messages-empty">
           {filter === 'archived'
             ? 'Nothing archived yet.'
-            : 'No messages yet. Families reach this inbox from the public site’s Contact Us page.'}
+            : __ORG_PERSONNEL__
+              ? 'No messages yet. Members reach this inbox from the public site’s Contact Us page.'
+              : 'No messages yet. Families reach this inbox from the public site’s Contact Us page.'}
         </div>
       )}
 

@@ -23,6 +23,9 @@ import { fmtDayHeader, fmtLongDate, fmtLongDateInline, fmtMonthYear, fmtShortDat
 import { assignmentMatchesView, eventMatchesView, normalizeView, type ViewTypeKey } from '../shared/calendarView';
 import type { CalendarEvent } from '../director/types';
 
+// Build-time literal (vite.config.ts `define`), as in DirectorApp.tsx.
+declare const __ORG_PERSONNEL__: boolean;
+
 // The type-filter buckets. Sectionals fold into "Rehearsals"; everything else
 // is its own bucket. Empty selection === show all. Assignments are a parallel
 // stream (due dates), handled separately below.
@@ -35,6 +38,10 @@ const TYPE_OPTIONS: { value: TypeKey; labelKey: string; color: string }[] = [
   { value: 'Event',      labelKey: 'cal.events',     color: '#64748b' },
   { value: 'Assignment', labelKey: 'cal.assignments', color: ASSIGN_COLOR },
 ];
+// An adult orchestra has no classes and no assignments to filter by.
+if (__ORG_PERSONNEL__) {
+  TYPE_OPTIONS.splice(0, TYPE_OPTIONS.length, ...TYPE_OPTIONS.filter(o => o.value !== 'Class' && o.value !== 'Assignment'));
+}
 
 /** The event types behind each bucket — "Rehearsals" covers sectionals too. */
 const BUCKET_TYPES: Record<TypeKey, ViewTypeKey[]> = {
@@ -229,21 +236,25 @@ export function PublicCalendar() {
           selected={typeFilters}
           onChange={next => { setTypeFilters(next as TypeKey[]); noteFilter('type'); }}
         />
-        <FilterMenu
-          prefix="pub"
-          allLabel={t('cal.allConcerts')}
-          ariaLabel={t('cal.filterAttendance')}
-          options={[
-            { value: 'required', label: t('cal.requiredConcerts') },
-            { value: 'optional', label: t('cal.optionalConcerts') },
-          ]}
-          selected={attendance ? [attendance] : []}
-          // Mutually exclusive: keep the newest pick rather than both.
-          onChange={next => {
-            setAttendance((next[next.length - 1] as ConcertAttendance) ?? '');
-            noteFilter('type');
-          }}
-        />
+        {/* Required or optional is a student's question about a concert, so
+            a personnel org has no such menu. */}
+        {!__ORG_PERSONNEL__ && (
+          <FilterMenu
+            prefix="pub"
+            allLabel={t('cal.allConcerts')}
+            ariaLabel={t('cal.filterAttendance')}
+            options={[
+              { value: 'required', label: t('cal.requiredConcerts') },
+              { value: 'optional', label: t('cal.optionalConcerts') },
+            ]}
+            selected={attendance ? [attendance] : []}
+            // Mutually exclusive: keep the newest pick rather than both.
+            onChange={next => {
+              setAttendance((next[next.length - 1] as ConcertAttendance) ?? '');
+              noteFilter('type');
+            }}
+          />
+        )}
       </div>
       {collegeFilterIds(ensembles, 'all').length > 0 && (
         <div className="pub-filter-presets" role="group" aria-label={t('cal.collegeFilters')}>

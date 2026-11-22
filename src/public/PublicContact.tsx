@@ -5,8 +5,12 @@ import { db } from '../director/firebase';
 import { t, useLang } from '../shared/i18n';
 import { ORG } from '../org';
 import { PARENT_MESSAGE_TOPICS, type ParentMessageTopic } from '../director/types';
+import { OFFICE_TOPICS, OFFICE_TOPIC_LABELS } from '../shared/labels';
 import { useHoneypot } from './components/Honeypot';
 import './publicContact.css';
+
+// Build-time literal (vite.config.ts `define`), as in DirectorApp.tsx.
+declare const __ORG_PERSONNEL__: boolean;
 
 /**
  * Parent→staff contact form (#parent-messages). Create-only public write —
@@ -14,6 +18,13 @@ import './publicContact.css';
  * absence form this is modeled on); staff read and reply from the director
  * Messages inbox. The hidden "website" field is a honeypot: humans never
  * see it, bots that fill it produce a payload the rules reject.
+ *
+ * In a personnel org the same form reads "Message the office" and asks an
+ * adult for their own name and email (#adult-cleanup). The stored shape is
+ * the one above, because the rules pin it: the sender's name goes in
+ * `parentName` (the one required name key), `studentName` is optional and is
+ * simply never sent, and the topics are four of the same stored values under
+ * adult labels (OFFICE_TOPICS).
  */
 
 const TOPIC_LABELS: Record<ParentMessageTopic, string> = {
@@ -110,13 +121,20 @@ export function PublicContact() {
   return (
     <div className="pub-contact-page">
       <header className="pub-contact-head">
-        <h1><Mail size={22} /> {t('nav.contact')}</h1>
+        <h1><Mail size={22} /> {t(__ORG_PERSONNEL__ ? 'contact.officeTitle' : 'nav.contact')}</h1>
+        {__ORG_PERSONNEL__ ? (
+        <p>
+          A question, a heads-up, or something we should know — this goes
+          straight to the {ORG.orgShortName} staff.
+        </p>
+        ) : (
         <p>
           A question, a heads-up, or something we should know — this goes
           straight to the {ORG.orgShortName} staff. For a planned absence on a
           specific date, you can also use the button on your student’s
           schedule page.
         </p>
+        )}
       </header>
 
       <div className="pub-contact-card">
@@ -130,19 +148,25 @@ export function PublicContact() {
           onChange={e => setEmail(e.target.value)} maxLength={254}
           placeholder="you@example.com" autoComplete="email" inputMode="email" />
 
-        <label className="pub-absence-label" htmlFor="pc-student">
-          Student’s name <span className="pub-contact-optional">(optional)</span>
-        </label>
-        <input id="pc-student" className="pub-absence-input" value={studentName}
-          onChange={e => setStudentName(e.target.value)} maxLength={120}
-          placeholder="If your question is about a student in the program" />
+        {!__ORG_PERSONNEL__ && (
+          <label className="pub-absence-label" htmlFor="pc-student">
+            Student’s name <span className="pub-contact-optional">(optional)</span>
+          </label>
+        )}
+        {!__ORG_PERSONNEL__ && (
+          <input id="pc-student" className="pub-absence-input" value={studentName}
+            onChange={e => setStudentName(e.target.value)} maxLength={120}
+            placeholder="If your question is about a student in the program" />
+        )}
 
         <label className="pub-absence-label" htmlFor="pc-topic">What’s this about?</label>
         <select id="pc-topic" className="pub-absence-input" value={topic}
           onChange={e => setTopic(e.target.value as ParentMessageTopic)}>
-          {PARENT_MESSAGE_TOPICS.map(k => (
-            <option key={k} value={k}>{TOPIC_LABELS[k]}</option>
-          ))}
+          {__ORG_PERSONNEL__
+            ? OFFICE_TOPICS.map(k => <option key={k} value={k}>{OFFICE_TOPIC_LABELS[k]}</option>)
+            : PARENT_MESSAGE_TOPICS.map(k => (
+              <option key={k} value={k}>{TOPIC_LABELS[k]}</option>
+            ))}
         </select>
 
         <label className="pub-absence-label" htmlFor="pc-message">Your message</label>

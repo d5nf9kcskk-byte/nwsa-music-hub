@@ -27,6 +27,9 @@ import { audienceEnsembleIds } from '../shared/requiredAudience';
 import './pubDaySheet.css';
 import './pubEventShell.css';
 
+// Build-time literal (vite.config.ts `define`), as in DirectorApp.tsx.
+declare const __ORG_PERSONNEL__: boolean;
+
 /**
  * Dedicated page for one calendar event — rehearsal, concert, school date —
  * with everything a student/parent needs: time, place, repertoire (with
@@ -229,7 +232,8 @@ function EventBody({ event, cancelled, primaryEnsembleName, shortDate, dateLabel
               booked sign-up times first, then anyone the director named. */}
           {masterClass && <PlayingToday event={event} />}
 
-          <CheckinCallout event={event} />
+          {/* The door station checks students in: not in a personnel org. */}
+          {!__ORG_PERSONNEL__ && <CheckinCallout event={event} />}
 
           {/* Equipment this concert needs on stage (#equipment): chairs,
               stands, conductor podium/stand, and the percussion battery.
