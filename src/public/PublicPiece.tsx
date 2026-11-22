@@ -139,10 +139,14 @@ export function PublicPiece() {
       )}
 
       {/* A clean copy of a part (#copy-requests) — shown whether or not parts
-          are posted, since a bad page turn is a problem with the paper copy. */}
-      <Link className="pub-piece-link" to={`/copies?piece=${encodeURIComponent(piece.id)}`} style={{ marginBottom: 14, display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-        <Copy size={13} /> Request a copy of my part
-      </Link>
+          are posted, since a bad page turn is a problem with the paper copy.
+          A request names a student, so there is no link where the public
+          student roster is off (a personnel org has no /copies page). */}
+      {PUBLIC_STUDENT_INFO && (
+        <Link className="pub-piece-link" to={`/copies?piece=${encodeURIComponent(piece.id)}`} style={{ marginBottom: 14, display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+          <Copy size={13} /> Request a copy of my part
+        </Link>
+      )}
 
       {/* Media links */}
       {(piece.imslpUrl || piece.videoUrl || piece.audioUrl) && (
