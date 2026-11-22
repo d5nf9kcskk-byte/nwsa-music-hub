@@ -1,6 +1,6 @@
 import './personnel.css';
 import { useState, useEffect, useMemo } from 'react';
-import { UserPlus, Users, Star, FileText, ClipboardList, Upload } from 'lucide-react';
+import { UserPlus, Users, Star, FileText, ClipboardList, Upload, Download } from 'lucide-react';
 import { deleteField } from 'firebase/firestore';
 import { useEnsembles } from '../hooks/useEnsembles';
 import { usePersonnel } from '../hooks/usePersonnel';
@@ -19,6 +19,7 @@ import { ContractTemplatesView } from './ContractTemplatesView';
 import { ServiceAttendanceSheet } from './ServiceAttendanceSheet';
 import { PersonnelImport } from './PersonnelImport';
 import { PersonnelEmailBar } from './PersonnelEmailBar';
+import { PersonnelReports } from './PersonnelReports';
 import { contractTotalCents, paidCents, payState, formatCents } from './contractMoney';
 import type { Personnel, Contract, Payment } from '../types';
 
@@ -100,6 +101,7 @@ export default function PersonnelManager({ initialPersonId, initialEventId }: {
   const [contractEdit, setContractEdit] = useState<{ person: Personnel; contract: Contract | null } | null>(null);
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [reportsOpen, setReportsOpen] = useState(false);
   const [attendanceOpen, setAttendanceOpen] = useState(Boolean(initialEventId));
   const openContract = openContractId != null
     ? contracts.find(c => c.id === openContractId) ?? null
@@ -229,6 +231,11 @@ export default function PersonnelManager({ initialPersonId, initialEventId }: {
         <button className="dir-tool-btn" onClick={() => setAttendanceOpen(true)}>
           <ClipboardList size={15} /> Attendance
         </button>
+        {personnel.length > 0 && (
+          <button className="dir-tool-btn" onClick={() => setReportsOpen(true)}>
+            <Download size={15} /> Reports
+          </button>
+        )}
         <button className="dir-tool-btn" onClick={() => setImportOpen(true)}>
           <Upload size={15} /> Import
         </button>
@@ -372,6 +379,14 @@ export default function PersonnelManager({ initialPersonId, initialEventId }: {
           ensembles={ensembles}
           initialEventId={initialEventId}
           onClose={() => setAttendanceOpen(false)}
+        />
+      )}
+
+      {reportsOpen && (
+        <PersonnelReports
+          people={personnel.filter(p => p.status !== 'Inactive' && (!filterEnsembleId || p.ensembleIds?.includes(filterEnsembleId)))}
+          contacts={contacts} contracts={contracts} payments={payments}
+          onClose={() => setReportsOpen(false)}
         />
       )}
 

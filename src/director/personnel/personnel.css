@@ -247,3 +247,17 @@
 /* The services picker on a contract. */
 .pers-services { max-height: 190px; overflow-y: auto; border: 1px solid var(--dir-border); border-radius: 10px; padding: 4px 10px; }
 .pers-service { display: flex; align-items: center; gap: 8px; min-height: 36px; font-size: 13px; }
+
+/* The printed sign-in sheet and seating list (#personnel reports). */
+.pers-print-line { margin: 0 0 12px; font-size: 13px; }
+.pers-print-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; break-inside: avoid; }
+.pers-print-table caption { text-align: left; font-weight: 800; font-size: 13px; padding: 4px 0; border-bottom: 1.5px solid #111; }
+.pers-print-table td { padding: 7px 4px; border-bottom: 1px solid #bbb; font-size: 13px; }
+.pers-print-name { width: 38%; }
+.pers-print-seat { color: #555; font-size: 12px; margin-right: 10px; }
+.pers-print-table .pers-print-seat { width: 22%; margin: 0; }
+.pers-print-sign { border-bottom: 1px solid #111 !important; }
+.pers-print-section { break-inside: avoid; margin-bottom: 10px; }
+.pers-print-section h2 { font-size: 13px; margin: 0 0 2px; border-bottom: 1.5px solid #111; padding-bottom: 2px; }
+.pers-print-section ol { list-style: none; margin: 0; padding: 0; }
+.pers-print-section li { font-size: 13px; padding: 2px 0; }

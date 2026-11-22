@@ -20,3 +20,16 @@ export function byScoreSectionSeat(a: Personnel, b: Personnel): number {
     || (a.seat ?? Number.MAX_SAFE_INTEGER) - (b.seat ?? Number.MAX_SAFE_INTEGER)
     || lastName(a.name).localeCompare(lastName(b.name));
 }
+
+const STRING_SECTION = /^(violin|viola|cello|violoncello|bass|double bass)/i;
+
+/** Where a player sits, in words. Strings share stands, two to a stand: seat
+ *  1 and 2 are stand 1 (odd = outside, nearest the audience, even = inside).
+ *  Everyone else's seat is a part number. '' when there is no seat. */
+export function seatLabel(p: Pick<Personnel, 'section' | 'instrument' | 'seat'>): string {
+  if (p.seat == null) return '';
+  if (STRING_SECTION.test(p.section ?? p.instrument ?? '')) {
+    return `Stand ${Math.ceil(p.seat / 2)}, ${p.seat % 2 === 1 ? 'outside' : 'inside'}`;
+  }
+  return `Part ${p.seat}`;
+}
