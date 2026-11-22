@@ -1,6 +1,6 @@
 import { StrictMode, Suspense, lazy } from 'react';
 import { createRoot } from 'react-dom/client';
-import { createBrowserRouter, RouterProvider } from 'react-router';
+import { createBrowserRouter, Navigate, RouterProvider } from 'react-router';
 import './base.css';
 import './public/public.css';
 import './public/look.css';
@@ -50,6 +50,21 @@ import { AppError } from './shared/AppError';
 import { ORG, applyBrand } from './org';
 import { initPwa } from './pwa';
 
+// ORG.features.personnel as a build-time literal (vite.config.ts `define`),
+// as in DirectorApp.tsx: the object form does not constant-fold.
+declare const __ORG_PERSONNEL__: boolean;
+
+/**
+ * Where a school-only page goes in a personnel org (#adult-cleanup). An adult
+ * orchestra has no student records, so a schedule lookup, a class list, an
+ * assignment, the concert door, a copy request or the start guide would open
+ * as an empty school screen. Each of those routes below names its page for a
+ * school build and this for an adult one, so an old link or a typed address
+ * lands on Home. The ternaries fold at build time: a school bundle has no
+ * redirect in it, and an adult bundle none of those pages.
+ */
+const HOME = <Navigate to="/" replace />;
+
 // Code-split: students and parents never download the director surface.
 // If a deploy replaced the hashed chunk while this tab was open (stale PWA
 // shell requesting an asset the server no longer has), reload once to pick
@@ -87,25 +102,25 @@ const router = createBrowserRouter(
         // group in the school, which made it a second door to every class and
         // every college course.
         { path: 'ensembles', element: <PublicEnsembles section="ensembles" /> },
-        { path: 'classes', element: <PublicEnsembles section="classes" /> },
-        { path: 'college', element: <PublicEnsembles section="college" /> },
+        { path: 'classes', element: __ORG_PERSONNEL__ ? HOME : <PublicEnsembles section="classes" /> },
+        { path: 'college', element: __ORG_PERSONNEL__ ? HOME : <PublicEnsembles section="college" /> },
         { path: 'ensemble/:id', element: <PublicEnsemble /> },
         { path: 'repertoire', element: <PublicRepertoire /> },
-        { path: 'lookup', element: <PublicLookup /> },
+        { path: 'lookup', element: __ORG_PERSONNEL__ ? HOME : <PublicLookup /> },
         // "Send to my other phone" (Hub 2.0 item 9). A published link: never rename.
-        { path: 'add-students', element: <PublicAddStudents /> },
-        { path: 'student/:id', element: <PublicSchedule /> },
+        { path: 'add-students', element: __ORG_PERSONNEL__ ? HOME : <PublicAddStudents /> },
+        { path: 'student/:id', element: __ORG_PERSONNEL__ ? HOME : <PublicSchedule /> },
         { path: 'piece/:id', element: <PublicPiece /> },
         { path: 'seating/:id', element: <PublicSeating /> },
         { path: 'event/:id', element: <PublicEvent /> },
         { path: 'announcements', element: <PublicAnnouncementsPage /> },
-        { path: 'assignments', element: <PublicAssignments /> },
+        { path: 'assignments', element: __ORG_PERSONNEL__ ? HOME : <PublicAssignments /> },
         // One assignment on its own page: instructions, the music it's on,
         // files, and the recorder, all together. `/submit` is the older
         // submit URL (already handed out on QR codes) — same page, scrolled
         // to the recorder.
-        { path: 'assignments/:id', element: <PublicAssignment /> },
-        { path: 'assignments/:id/submit', element: <PublicAssignment /> },
+        { path: 'assignments/:id', element: __ORG_PERSONNEL__ ? HOME : <PublicAssignment /> },
+        { path: 'assignments/:id/submit', element: __ORG_PERSONNEL__ ? HOME : <PublicAssignment /> },
         { path: 'documents', element: <PublicDocuments /> },
         // Forms (#forms, formerly "Sign-ups"): the index, and one page per
         // form. The old /signups addresses stay mounted forever — they are in
@@ -116,12 +131,12 @@ const router = createBrowserRouter(
         { path: 'signup/:id', element: <PublicSignup /> },
         // The concert door (#concert-checkin) — also reachable from the
         // concert card, the Home/Calendar banner, and a QR poster.
-        { path: 'checkin', element: <PublicCheckins /> },
-        { path: 'checkin/:id', element: <PublicCheckin /> },
-        { path: 'start', element: <StartGuide /> },
+        { path: 'checkin', element: __ORG_PERSONNEL__ ? HOME : <PublicCheckins /> },
+        { path: 'checkin/:id', element: __ORG_PERSONNEL__ ? HOME : <PublicCheckin /> },
+        { path: 'start', element: __ORG_PERSONNEL__ ? HOME : <StartGuide /> },
         { path: 'concerts', element: <SeasonPage /> },
         // Concerts a group must attend without playing (#required-audience).
-        { path: 'required-concerts', element: <RequiredConcertsPage /> },
+        { path: 'required-concerts', element: __ORG_PERSONNEL__ ? HOME : <RequiredConcertsPage /> },
         // Campus map is NWSA-only (hardcoded MDC Wolfson buildings) — other
         // orgs drop the route entirely (#org-config).
         ...(ORG.features.campusMap ? [{ path: 'map', element: <CampusMap /> }] : []),
@@ -130,9 +145,12 @@ const router = createBrowserRouter(
         // Rehearsal absence / early dismissal report (#absence-report) —
         // org-gated: a K-12 school-day bureaucracy model that assumes a
         // normal school day and an office, which doesn't fit every org.
-        ...(ORG.features.absenceReport ? [{ path: 'absence', element: <PublicAbsence /> }] : []),
+        // A personnel org sends the address home whatever the flag says: the
+        // report names a student.
+        ...(__ORG_PERSONNEL__ ? [{ path: 'absence', element: HOME }]
+          : ORG.features.absenceReport ? [{ path: 'absence', element: <PublicAbsence /> }] : []),
         // Ask a director for a copy of a part (#copy-requests).
-        { path: 'copies', element: <PublicCopyRequest /> },
+        { path: 'copies', element: __ORG_PERSONNEL__ ? HOME : <PublicCopyRequest /> },
         { path: 'program/:id', element: <PublicProgram /> },
         // Vanity short links (#5) — per-org list in config/orgs/*.json.
         ...VANITY_SLUGS.map(v => ({ path: v.slug, element: <VanityRedirect slug={v.slug} /> })),

@@ -40,6 +40,10 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'nav.assistantLogin':   { en: 'Student Assistant login', es: 'Acceso para asistentes estudiantiles' },
   'nav.teacherLogin':     { en: 'Applied Teacher login', es: 'Acceso para maestros aplicados' },
   'nav.classroomLogin':   { en: 'Classroom Teacher login', es: 'Acceso para maestros de clase' },
+  // An adult orchestra has one staff door, not four (#adult-cleanup). Like
+  // the other rows only a personnel org asks for, it is a plain row and not
+  // gated on the build: scripts outside Vite load this table too.
+  'nav.staffLogin':       { en: 'Staff sign-in',       es: 'Acceso para el personal' },
   'nav.more':             { en: 'More',                es: 'Más' },
   'nav.menu':             { en: 'Menu',                es: 'Menú' },
   'nav.closeMenu':        { en: 'Close menu',          es: 'Cerrar menú' },
@@ -58,6 +62,8 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'search.placeholder':   { en: 'Search events, music, announcements…', es: 'Buscar eventos, música, anuncios…' },
   'search.close':         { en: 'Close search', es: 'Cerrar búsqueda' },
   'search.hint':          { en: 'Find events, repertoire, announcements, ensembles, and assignments.', es: 'Encuentra eventos, repertorio, anuncios, ensambles y tareas.' },
+  // The same line where there are no assignments to find (a personnel org).
+  'search.hintNoAssignments': { en: 'Find events, repertoire, announcements, and ensembles.', es: 'Encuentra eventos, repertorio, anuncios y ensambles.' },
   'search.noMatches':     { en: 'No matches for “{q}”.', es: 'No hay resultados para “{q}”.' },
   'search.schoolWide':    { en: 'School-wide', es: 'Toda la escuela' },
 
