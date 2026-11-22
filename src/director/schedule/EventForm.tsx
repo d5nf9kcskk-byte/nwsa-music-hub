@@ -597,7 +597,7 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
               value={form.ensembleIds}
               onChange={setEnsembleIds}
               label="Ensembles and classes this is for"
-              emptyLabel="None — a school-wide item"
+              emptyLabel={__ORG_PERSONNEL__ ? 'None — for everyone' : 'None — a school-wide item'}
               tools={musicIds.length > 0 ? (
                 <button
                   type="button"
@@ -625,12 +625,15 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
                 </span>
               </label>
             )}
+            {/* A personnel org's players are not students: no student picker. */}
+            {!__ORG_PERSONNEL__ && (
             <div className="dir-field-hint" style={{ marginTop: 8 }}>
               {masterClassEvent
                 ? 'Who is playing in this class'
                 : 'Or add individual students (performers)'}
             </div>
-            {(form.studentIds ?? []).length > 0 && (
+            )}
+            {!__ORG_PERSONNEL__ && (form.studentIds ?? []).length > 0 && (
               <div className="dir-checkbox-group" style={{ marginBottom: 8 }}>
                 {(form.studentIds ?? []).map(id => {
                   const s = students.find(x => x.id === id);
@@ -642,13 +645,15 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
                 })}
               </div>
             )}
+            {!__ORG_PERSONNEL__ && (
             <input
               className="dir-input"
               value={performerQuery}
               onChange={e => setPerformerQuery(e.target.value)}
               placeholder="Search a student to add as performer…"
             />
-            {performerMatches.length > 0 && (
+            )}
+            {!__ORG_PERSONNEL__ && performerMatches.length > 0 && (
               <div className="dir-add-sub-list" style={{ marginTop: 6 }}>
                 {performerMatches.map(s => (
                   <button
@@ -977,6 +982,8 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
               <input className="dir-input" type="time" value={form.endTime ?? ''} onChange={e => set('endTime', e.target.value)} />
             </div>
           </div>
+          {/* The school's period times; a personnel org has no periods. */}
+          {!__ORG_PERSONNEL__ && (
           <div className="dir-field-row" style={{ gap: 8, flexWrap: 'wrap' }}>
             {TIME_BLOCKS.map(b => (
               <button key={b.label} type="button" className="dir-tool-btn" onClick={() => { set('startTime', b.start); set('endTime', b.end); }}>
@@ -984,6 +991,7 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
               </button>
             ))}
           </div>
+          )}
 
           <div className="dir-field">
             <label className="dir-label">Location</label>
@@ -1006,7 +1014,9 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
             <>
               <div className="dir-section-title" style={{ margin: '6px 0 2px' }}>Concert day sheet</div>
               <div className="dir-field-hint" style={{ marginBottom: 10 }}>
-                Shown to families on the public event page — call time, dress, venue, pickup.
+                {__ORG_PERSONNEL__
+                  ? 'Shown on the public event page — call time, dress, venue.'
+                  : 'Shown to families on the public event page — call time, dress, venue, pickup.'}
               </div>
               <div className="dir-field-row">
                 <div className="dir-field">
@@ -1018,6 +1028,7 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
                     onChange={e => set('callTime', e.target.value)}
                   />
                 </div>
+                {!__ORG_PERSONNEL__ && (
                 <div className="dir-field">
                   <label className="dir-label">Pickup time</label>
                   <input
@@ -1027,6 +1038,7 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
                     onChange={e => set('pickupTime', e.target.value)}
                   />
                 </div>
+                )}
               </div>
               <div className="dir-field">
                 <label className="dir-label">Dress</label>
@@ -1354,7 +1366,7 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
             />
           </div>
 
-          {(form.ensembleIds.length > 0 || (form.studentIds?.length ?? 0) > 0 || (form.attendanceStudentIds?.length ?? 0) > 0) && (
+          {!__ORG_PERSONNEL__ && (form.ensembleIds.length > 0 || (form.studentIds?.length ?? 0) > 0 || (form.attendanceStudentIds?.length ?? 0) > 0) && (
             <div className="dir-expected">
               <span className="dir-expected-count">{expected.length}</span> student{expected.length !== 1 ? 's' : ''} expected
             </div>
