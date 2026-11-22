@@ -95,6 +95,11 @@ const MemberApp = __ORG_PERSONNEL__ ? lazy(() => import('./member/MemberApp')) :
 const PersonnelManager = __ORG_PERSONNEL__
   ? lazy(() => import('./personnel/PersonnelManager'))
   : null;
+// Messages to players (#messages): in a personnel org the Messages screen IS
+// the Office (inbox, write, sent, chat links, and the public form as a pane),
+// so there is no new tab and no new nav row. Folded away in every other org.
+const OfficeView = __ORG_PERSONNEL__ ? lazy(() => import('./office/OfficeView')) : null;
+const OfficeNavBadge = __ORG_PERSONNEL__ ? lazy(() => import('./office/OfficeNavBadge')) : null;
 
 /**
  * Navigation groups shared by the desktop rail and the phone menu (redesign
@@ -288,7 +293,7 @@ const TAB_HINTS: Partial<Record<DirTab, string>> = {
     ensembles:     'Create ensembles and open any ensemble\u2019s hub \u2014 schedule, repertoire, and documents.',
     documents:     'Handbooks, forms, and files for members. Anything you post here shows on the public site.',
     announcements: 'Post news for members \u2014 for everyone or per ensemble. Urgent posts show as a red banner.',
-    messages:      'Messages sent through the public Contact Us form. Reply opens your own email app.',
+    messages:      'Everything the office says to players \u2014 answer their messages, write to everyone, a section or one player and see who each email reached, add a chat link for each section, and read the public Contact Us form.',
     signups:       'Sign-ups and registrations \u2014 anything members fill out. On a form open to anyone with the link they type their name, answer your questions, and sign. You get a spreadsheet and the signed forms.',
     directors:     'Who can sign in and at what level. Tap the pencil to edit roles and assigned ensembles.',
   } : {}),
@@ -449,6 +454,8 @@ export default function DirectorApp() {
     + absenceRequests.filter(a => absenceAwaiting(a, todayForCount) && requestMine(a.ensembleIds)).length;
   // ONE badge per screen, the same in the rail and the phone drawer (#one-nav).
   const navBadge = (id: DirTab) => {
+    // Personnel orgs: unread player threads count here too (#messages).
+    if (__ORG_PERSONNEL__ && id === 'messages' && OfficeNavBadge && isStaffShell) return <Suspense fallback={null}><OfficeNavBadge extra={newMsgCount} /></Suspense>;
     const n = id === 'messages' ? newMsgCount : id === 'approvals' ? approvalCount : id === 'requests' ? requestCount : 0;
     return n > 0 ? <span className="dir-nav-badge">{n}</span> : null;
   };
@@ -792,7 +799,9 @@ export default function DirectorApp() {
             {tab === 'notes'           && <NotesView />}
             {tab === 'assignments'     && <AssignmentsView key={intentKey} initialAssignmentId={intent.assignmentId} initialEnsembleId={intent.ensembleId} />}
             {tab === 'announcements'   && <AnnouncementManager key={intentKey} asTab initialId={intent.announcementId} initialEnsembleId={intent.ensembleId} onClose={() => {}} />}
-            {tab === 'messages'        && <MessagesView />}
+            {tab === 'messages'        && (__ORG_PERSONNEL__ && OfficeView
+              ? <Suspense fallback={<div style={{ padding: 32, textAlign: 'center', color: '#6b7686' }}>Loading messages…</div>}><OfficeView form={<MessagesView />} /></Suspense>
+              : <MessagesView />)}
             {tab === 'approvals'       && <ApprovalsView />}
             {tab === 'readAloud'       && <ReadAloudView />}
             {tab === 'requests'        && <RequestsView />}

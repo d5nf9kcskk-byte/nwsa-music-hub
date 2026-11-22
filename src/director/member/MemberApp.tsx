@@ -20,6 +20,7 @@ import { contractTotalCents, formatCents, paidCents, payState } from '../personn
 import { formatDate, formatTime, formatTimeRange, todayStr } from '../utils';
 import { PAY_METHOD_LABEL, type CalendarEvent, type Contract, type Payment, type Personnel } from '../types';
 import { ORG } from '../../org';
+import { MemberMessages } from '../office/MemberMessages';
 
 /**
  * A player's own home (#member-sign-in, personnel orgs only): the next call,
@@ -225,6 +226,11 @@ export default function MemberApp({ user, signOut }: { user: User; signOut: () =
             </>
           )}
         </section>
+
+        {/* ── Messages from the office, and my section's chat link (#messages) ── */}
+        {view && personnelId && (
+          <MemberMessages personnelId={personnelId} section={person?.section ?? ''} cardStyle={card} titleStyle={title} mutedStyle={muted} />
+        )}
 
         {/* ── My parts ── */}
         <section style={card} aria-labelledby="m-parts">

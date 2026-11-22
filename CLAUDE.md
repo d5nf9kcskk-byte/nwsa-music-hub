@@ -1429,6 +1429,63 @@ keep Google. PR #244's staff password work, ported to MEMBERS only.
 - Proof: `scripts/member-sign-in.emulator-proof.mjs` (real rules, the real
   invitation and password steps), in rules-checks.yml.
 
+## Messages to players (Nov 2026, #messages, personnel orgs)
+
+"Accountable messages, no chat room." Three things, all personnel-org only
+(the school's rules, functions bundle and dist are unchanged):
+
+- **Tracked broadcasts.** Owner/Director write to everyone, a section or one
+  player (Messages → Write to players). The press writes a REQUEST to
+  `memberMailQueue` (subject, body, audience, `byEmail` bound to the token; no
+  address anywhere in it). `memberMailSend` (functions/src/memberMessages.ts,
+  pure logic in `memberMail.ts`) re-checks it, reads recipients from the
+  stored roster (`personnel` + `personnelContacts`: Contracted players for
+  everyone/section, a SubList player only when named, never Inactive), writes
+  ONE `mail/<queueId>_<personnelId>` per person with `create()` (a retry sends
+  nothing twice) and one row per player under `memberMailQueue/<id>/to/`
+  (queued / no-address). `memberMailStatus` carries the extension's verdict
+  onto that row (sent / failed + a plain reason), exactly as the school's
+  `mailStatusWriteback` does for grades; the school's is NOT reused or
+  edited. The Sent list reads those rows. Caps: subject 150, body 5000, 200
+  recipients a request, 300 mails per UTC day (`memberMailCaps/<day>`; over
+  the cap sends NOTHING, never half a roster), reply-to the real sender,
+  `expireAt` 30 days on `mail`, 90 on the queue and its rows. Merge field:
+  `{name}` only. `mail` stays denied to every client.
+- **Office threads.** ONE `threads/<personnelId>` per player, shared by all
+  Owner/Directors (the Requests pattern: one inbox, not one per staff
+  member). A player reads and writes only their own (`isMemberOf(pid)`: their
+  honoured member entry's `personnelId`, never the request's). Messages are
+  append-only (no edit, no delete), text ≤ 2000, `at` within -1 day/+10
+  minutes of the server clock. The thread doc is the function's summary
+  (`officeMessageSent`: last message, who wrote it); the only client write
+  to it is a read stamp, one key per side (`staffReadAt` / `memberReadAt`).
+  Unread = last message is from the other side and newer than your stamp
+  (`office/officeCore.ts`). A message to a player who has set a password sends
+  an email NUDGE with no message text (it may mention pay), at most every two
+  hours per thread, inside the same daily cap. Messages is the personnel
+  org's `messages` tab (the public Contact Us inbox is its "Website form"
+  pane), so there is no new tab and no new nav row.
+- **Section chat links.** `sectionLinks/<slug of the section>` holds one
+  optional https link (WhatsApp, WeChat, GroupMe...). Staff write; any player
+  can read them all (a link is only as private as its members), and the app
+  shows each player their own section's. The Hub relays NO player-to-player
+  message and is not a custodian of any conversation between players.
+- **Not built, on purpose:** phone alerts. The push stack is the school's:
+  `pushSubscriptions` rules know staff devices and a family device tied to a
+  `students/{id}`, a member clause would CHANGE an existing school rule, the
+  same-day trigger is in the school's functions only, and an iPhone needs the
+  Home Screen app. The nudge email and a broadcast cover a same-day change.
+- Proof: `scripts/messages-rules.emulator-check.mjs` (the rules, 110+ cases),
+  `scripts/member-messages.emulator-proof.mjs` (the real trigger code on the
+  emulator), `functions/src/memberMail.selfcheck.ts`,
+  `src/director/office/officeCore.selfcheck.ts` (also checks the screen's
+  "reaches N players" preview against the function's own plan).
+- Keep out of the school's bundle: the Office screen, its hooks and the badge
+  load only through `__ORG_PERSONNEL__` ternaries in DirectorApp.tsx. A
+  JSX child like `{__ORG_PERSONNEL__ && tab === 'x' && ...}` leaves a stray
+  `!1` in the school build and moves its hash: put personnel-only content
+  inside a ternary on an EXISTING child instead.
+
 ## Playing-exam grading — one line, one rubric (Sept 2026, #exam-rubric)
 
 The grade sheet used to be two lists of the SAME people: a roster row that

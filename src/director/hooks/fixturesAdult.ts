@@ -371,3 +371,50 @@ export const FIXTURE_MEMBER_ENTRIES: { email: string; personnelId: string; name?
 ] : [];
 /** Whose home `?role=member` shows in fixtures. */
 export const FIXTURE_MEMBER_PERSONNEL_ID = 'fx-p02';
+
+/**
+ * Messages to players (#messages): office threads, a Sent list, section chat
+ * links. Types are inlined (this file may not import ../office: it lands in
+ * the public chunk). The second flute (`?role=member`) has an office thread
+ * with an unread reply; the concertmaster has written to the office.
+ */
+const fxThread = (personnelId: string, name: string, lastFrom: 'member' | 'staff', lastText: string, lastAt: number, read: { staffReadAt?: number; memberReadAt?: number }) =>
+  ({ personnelId, name, lastFrom, lastText, lastAt, ...read });
+export const FIXTURE_THREADS = __ORG_PERSONNEL__ && import.meta.env.VITE_FIXTURES ? [
+  fxThread('fx-p17', 'Okwuosa, Amara', 'member', 'Is the dress rehearsal call 6:00 or 6:30? My bus gets in at 6:10.', Date.now() - 40 * 60_000, { staffReadAt: ago(2) }),
+  fxThread('fx-p02', 'Kowalczyk, Dominik', 'staff', 'Yes, the piccolo part is in your Hub now. Open it from My parts.', Date.now() - 3 * 3_600_000, { staffReadAt: Date.now(), memberReadAt: ago(1) }),
+  fxThread('fx-p26', 'Villanueva, Rafael', 'staff', 'Got it, thank you. Your check goes out Friday.', ago(1), { staffReadAt: Date.now(), memberReadAt: Date.now() }),
+] : [];
+export const FIXTURE_THREAD_MESSAGES: Record<string, { id: string; from: 'member' | 'staff'; text: string; at: number; byName?: string }[]> = __ORG_PERSONNEL__ && import.meta.env.VITE_FIXTURES ? {
+  'fx-p17': [
+    { id: 'm1', from: 'staff', text: 'Welcome to the Hub, Amara. Your concertmaster parts are up.', at: ago(3), byName: 'Camille' },
+    { id: 'm2', from: 'member', text: 'Thank you! Is the dress rehearsal call 6:00 or 6:30? My bus gets in at 6:10.', at: Date.now() - 40 * 60_000 },
+  ],
+  'fx-p02': [
+    { id: 'm1', from: 'member', text: 'Could I also get the piccolo part for the Fledermaus? I double on it.', at: ago(1) },
+    { id: 'm2', from: 'staff', text: 'Yes, the piccolo part is in your Hub now. Open it from My parts.', at: Date.now() - 3 * 3_600_000, byName: 'Camille' },
+  ],
+  'fx-p26': [
+    { id: 'm1', from: 'member', text: 'Has my fee for the Saturday service been sent?', at: ago(2) },
+    { id: 'm2', from: 'staff', text: 'Got it, thank you. Your check goes out Friday.', at: ago(1), byName: 'Camille' },
+  ],
+} : {};
+const fxTo = (rows: [string, string, string, string?][]) => rows.map(([personnelId, name, state, error]) => ({ personnelId, name, state, ...(error ? { error } : {}) }));
+export const FIXTURE_BROADCASTS = __ORG_PERSONNEL__ && import.meta.env.VITE_FIXTURES ? [
+  { id: 'fx-b1', byEmail: 'camille@example.org', subject: 'Dress rehearsal call is 6:30', body: 'Hi {name},\n\nThe call for Saturday’s dress is 6:30, not 6:00. Black and bring your stand light.', audience: 'all', queuedAt: Date.now() - 2 * 3_600_000, status: 'queued', counts: { send: 28, noAddress: 2 } },
+  { id: 'fx-b2', byEmail: 'camille@example.org', subject: 'Strings: bowings are final', body: 'The bowings in your folder are final. Please mark them tonight.', audience: 'section', section: 'Violin I', queuedAt: ago(1), status: 'queued', counts: { send: 3, noAddress: 1 } },
+  { id: 'fx-b3', byEmail: 'camille@example.org', subject: 'Parking for Sunday', body: 'Use the north lot.', audience: 'all', queuedAt: ago(2), status: 'refused', reason: 'The Hub has reached its daily limit for email. Nothing was sent. Try tomorrow, or send this one from your own email.' },
+] : [];
+export const FIXTURE_BROADCAST_TO: Record<string, ReturnType<typeof fxTo>> = __ORG_PERSONNEL__ && import.meta.env.VITE_FIXTURES ? {
+  'fx-b1': fxTo([
+    ['fx-p01', 'Khoury, Rania', 'sent'], ['fx-p02', 'Kowalczyk, Dominik', 'sent'], ['fx-p03', 'Teixeira, Ines', 'sent'], ['fx-p04', 'Oyelaran, Tobi', 'sent'],
+    ['fx-p05', 'Seo, Minjun', 'sent'], ['fx-p06', 'Abernathy, Quentin', 'failed', 'The address was rejected — check the email on the player’s contact record.'],
+    ['fx-p09', 'Raman, Kavya', 'queued'], ['fx-p10', 'MacTavish, Fergus', 'queued'], ['fx-p13', 'Ostrowski, Marek', 'sent'], ['fx-p14', 'Al-Masri, Yusuf', 'sent'],
+    ['fx-p16', 'Vanterpool, Celeste', 'no-address'], ['fx-p28', 'Dimaculangan, Paolo', 'no-address'],
+  ]),
+  'fx-b2': fxTo([['fx-p17', 'Okwuosa, Amara', 'sent'], ['fx-p18', 'Lindqvist, Soren', 'sent'], ['fx-p19', 'Takeda, Miyu', 'sent'], ['fx-p20', 'Whitlow, Jerome', 'no-address']]),
+} : {};
+export const FIXTURE_SECTION_LINKS: { section: string; url: string }[] = __ORG_PERSONNEL__ && import.meta.env.VITE_FIXTURES ? [
+  { section: 'Flute', url: 'https://chat.whatsapp.com/fixture-flutes' },
+  { section: 'Violin I', url: 'https://groupme.com/join_group/fixture-violin-1' },
+] : [];
