@@ -29,6 +29,10 @@ export interface WhatsNewEntry {
   audience: WhatsNewAudience;
   /** Optional: hide after this date (inclusive). */
   expires?: string;
+  /** For a personnel org (adult orchestra). A personnel build shows ONLY
+   *  these: its staff never used the school's Hub, so the school's history is
+   *  noise to them (WhatsNewBanner.tsx). */
+  personnel?: boolean;
 }
 
 export const WHATS_NEW: WhatsNewEntry[] = [
@@ -37,6 +41,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
   // at build time, like the two personnel entries further down.
   ...(__ORG_PERSONNEL__ ? [{
     id: '2026-11-21-adult-panel',
+    personnel: true,
     date: '2026-11-21',
     title: 'The menu now lists only what an orchestra uses',
     audience: 'staff' as const,
@@ -1963,6 +1968,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
   // fold as the contracts entry below.
   ...(__ORG_PERSONNEL__ ? [{
     id: '2026-08-24-service-attendance',
+    personnel: true,
     date: '2026-08-24',
     title: 'Attendance, taken per service',
     audience: 'staff' as const,
@@ -1978,6 +1984,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
   // or the strings ship in every org's bundle.
   ...(__ORG_PERSONNEL__ ? [{
     id: '2026-08-24-contracts',
+    personnel: true,
     date: '2026-08-24',
     title: 'Contracts: issue, sign, and print from Personnel',
     audience: 'staff' as const,

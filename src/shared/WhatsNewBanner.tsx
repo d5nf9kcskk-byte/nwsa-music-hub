@@ -17,6 +17,10 @@ function visibleFor(audience: WhatsNewAudience, entry: WhatsNewEntry, today: str
   return entry.audience === audience;
 }
 
+// Build-time literal (vite.config.ts `define`): a personnel org sees only
+// entries marked `personnel` (whatsNew.ts).
+declare const __ORG_PERSONNEL__: boolean;
+
 /**
  * One roll-up of everything shipped that this device hasn't seen yet.
  * Collapsed: just "What's New". Open: each unseen entry with its ship date.
@@ -27,7 +31,7 @@ export function WhatsNewBanner({ audience }: { audience: WhatsNewAudience }) {
   const today = todayStr();
   const entries = useMemo(
     () => WHATS_NEW
-      .filter(e => visibleFor(audience, e, today) && !isDismissed(e.id))
+      .filter(e => (!__ORG_PERSONNEL__ || e.personnel) && visibleFor(audience, e, today) && !isDismissed(e.id))
       .sort((a, b) => b.date.localeCompare(a.date)),
     [audience, today],
   );
