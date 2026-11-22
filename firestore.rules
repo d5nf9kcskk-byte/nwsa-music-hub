@@ -1889,6 +1889,102 @@ service cloud.firestore {
     // intent is visible at the point someone would otherwise edit it.
     match /mail/{doc}            { allow read, write: if false; }
 
+    // ── Messages to players (#messages, personnel orgs; W3b) ──────────────
+    // Three NEW collections, nothing existing touched. A player is a Directors
+    // entry with roles == ['member'] (#member-sign-in); `isMemberOf(pid)` is
+    // that entry, honoured, and tied to THIS roster row. Everything a client
+    // may not write (a thread's summary, who a broadcast reached) is written
+    // by the Cloud Functions with the Admin SDK, which bypasses these rules.
+
+    // A signed-in, honoured player (any player).
+    function isMember() {
+      return signedIn() && isMemberEntry(myDirectorDoc());
+    }
+    // The signed-in player whose roster row is `pid`. A player's thread id IS
+    // their personnelId, taken from their own entry, never from the request.
+    function isMemberOf(pid) {
+      return isMember() && myDirectorDoc().get('personnelId', '') == pid;
+    }
+
+    // Broadcasts: staff write one REQUEST (who, what); `memberMailSend` makes
+    // one `mail` doc per person from the stored roster and writes back, per
+    // player, sent / failed / no-address under `to/`. The doc carries no
+    // address: recipients are read from `personnelContacts` by the function.
+    // `byEmail` is bound to the caller so a reply goes to the real sender.
+    function memberMailOk() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['byEmail', 'subject', 'body', 'audience', 'section', 'personnelId', 'queuedAt'])
+        && d.byEmail == request.auth.token.email
+        && d.subject is string && d.subject.size() >= 1 && d.subject.size() <= 150
+        && d.body is string && d.body.size() >= 1 && d.body.size() <= 5000
+        && d.audience in ['all', 'section', 'person']
+        && (d.audience != 'section' || (d.section is string && d.section.size() >= 1 && d.section.size() <= 80))
+        && (d.audience != 'person' || (d.personnelId is string && d.personnelId.size() >= 1 && d.personnelId.size() <= 128))
+        && d.queuedAt is int;
+    }
+    match /memberMailQueue/{id} {
+      allow read: if isStaff();
+      allow create: if isStaff() && memberMailOk();
+      allow update, delete: if false;
+      match /to/{pid} {
+        allow read: if isStaff();
+        allow write: if false;
+      }
+    }
+
+    // Office threads: ONE thread per player, id == personnelId, shared by all
+    // staff (the Requests pattern: one inbox, not one per staff member). The
+    // thread doc is the function's summary (last message, who wrote it); the
+    // only client write is a read stamp, one key each side, whose own side
+    // alone may move it. Messages are append-only: no edit, no delete.
+    match /threads/{pid} {
+      allow read: if isStaff() || isMemberOf(pid);
+      allow create, delete: if false;
+      allow update: if (isStaff()
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['staffReadAt'])
+            && request.resource.data.staffReadAt is int)
+        || (isMemberOf(pid)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberReadAt'])
+            && request.resource.data.memberReadAt is int);
+
+      match /messages/{mid} {
+        allow read: if isStaff() || isMemberOf(pid);
+        allow create: if (isMemberOf(pid) && threadMessageOk('member', pid))
+          || (isStaff() && threadMessageOk('staff', pid)
+              && request.resource.data.byEmail == request.auth.token.email
+              && exists(/databases/$(database)/documents/personnel/$(pid)));
+        allow update, delete: if false;
+      }
+    }
+    // The shape of one message. `at` may not be forged far from now (it sorts
+    // the thread), and the text ceiling is the whole defence against a flood.
+    function threadMessageOk(from, pid) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(from == 'staff' ? ['from', 'text', 'at', 'byEmail', 'byName'] : ['from', 'text', 'at'])
+        && d.from == from
+        && d.text is string && d.text.size() >= 1 && d.text.size() <= 2000
+        && d.at is int
+        && d.at <= request.time.toMillis() + 600000
+        && d.at >= request.time.toMillis() - 86400000
+        && (from == 'member' || (d.byName is string && d.byName.size() <= 120));
+    }
+
+    // One optional group-chat link per section (WeChat, WhatsApp, GroupMe...).
+    // Doc id is a slug of the section name. Players read all of them (the app
+    // shows each player their own section's); staff write. https only.
+    match /sectionLinks/{doc} {
+      allow read: if isStaff() || isMember();
+      allow create, update: if isStaff()
+        && request.resource.data.keys().hasOnly(['section', 'url', 'updatedAt', 'updatedBy'])
+        && request.resource.data.section is string
+        && request.resource.data.section.size() >= 1 && request.resource.data.section.size() <= 80
+        && request.resource.data.url is string
+        && request.resource.data.url.matches('^https://[^ ]+$')
+        && request.resource.data.url.size() <= 300
+        && request.resource.data.updatedAt is int;
+      allow delete: if isStaff();
+    }
+
     // Server-only switches the rules themselves read (#google-binding:
     // serverConfig/signIn.googleTieRequired). Written by the Admin SDK alone
     // (scripts/require-google-ties.mjs). No client may write it, the Owner

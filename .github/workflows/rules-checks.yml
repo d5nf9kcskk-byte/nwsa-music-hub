@@ -39,6 +39,7 @@ on:
       - 'scripts/rules-verdicts.emulator-check.mjs'
       - 'scripts/personnel-rules.emulator-check.mjs'
       - 'scripts/member-sign-in.emulator-proof.mjs'
+      - 'scripts/messages-rules.emulator-check.mjs'
       - 'functions/src/memberToken*.ts'
       - 'functions/src/passwordSetup*.ts'
       - '.github/workflows/rules-checks.yml'
@@ -116,3 +117,12 @@ jobs:
           --config firebase.emulators.json --only auth,firestore,storage
           --project demo-member-sign-in
           "node scripts/member-sign-in.emulator-proof.mjs"
+
+      # Messages to players (#messages): broadcasts, office threads, section
+      # chat links. Additive collections only.
+      - name: Prove the message rules
+        run: >
+          npx --yes firebase-tools@15.28.1 emulators:exec
+          --config firebase.emulators.json --only auth,firestore
+          --project demo-messages-rules
+          "node scripts/messages-rules.emulator-check.mjs"
