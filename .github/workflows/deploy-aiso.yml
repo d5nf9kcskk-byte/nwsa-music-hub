@@ -71,6 +71,10 @@ jobs:
           VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.AISO_FIREBASE_STORAGE_BUCKET }}
           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.AISO_FIREBASE_MESSAGING_SENDER_ID }}
           VITE_FIREBASE_APP_ID: ${{ secrets.AISO_FIREBASE_APP_ID }}
+          # App Check (#member-sign-in): the passwordSetup function refuses a
+          # request without a token, so player invitations and passwords
+          # need this key. Empty until set; the site still builds.
+          VITE_RECAPTCHA_SITE_KEY: ${{ secrets.AISO_RECAPTCHA_SITE_KEY }}
 
       # AISO's boot script differs from the school's (hub2Everyone), the case
       # the CSP check's inline-script hash test exists for.

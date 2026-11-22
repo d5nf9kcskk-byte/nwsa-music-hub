@@ -175,8 +175,6 @@ jobs:
           printf '%s' "$AISO_SERVICE_ACCOUNT_JSON" > "$RUNNER_TEMP/aiso-sa.json"
           echo "configured=true" >> "$GITHUB_OUTPUT"
 
-      # Firestore only, like the demos: no Storage bucket until the project
-      # is on Blaze. Add a storage step here if that ever changes.
       - name: Deploy Firestore rules (AISO)
         if: steps.aiso_key.outputs.configured == 'true'
         env:
@@ -184,6 +182,20 @@ jobs:
         run: |
           npx --yes firebase-tools@13 deploy \
             --only firestore:rules \
+            --project aiso-hub \
+            --non-interactive
+
+      # Storage (#member-sign-in): AISO is on Blaze with a bucket, and its
+      # members-only parts live there. Its own step, after Firestore, so a
+      # Storage failure cannot take the Firestore deploy with it (the
+      # school's pattern above).
+      - name: Deploy Storage rules (AISO)
+        if: steps.aiso_key.outputs.configured == 'true'
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/aiso-sa.json
+        run: |
+          npx --yes firebase-tools@13 deploy \
+            --only storage \
             --project aiso-hub \
             --non-interactive
 

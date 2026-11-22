@@ -64,7 +64,13 @@ setup script's) still goes red at the publish step, on purpose.
       the school's deploy), and the maskable art in the middle two thirds.
 - [ ] **Enable the Google provider** in the Firebase console
       (Authentication, Sign-in method). The script waits for this.
-- [ ] **Know what is not there yet.** Member sign-in, uploads, email sent by
-      the Hub and phone alerts are not available to this org: Cloud Functions
-      deploy only to the school's project. Staff sign in with Google, the
-      public pages need no sign-in, and files are added as links.
+- [ ] **Player sign-in, uploads and Hub email need Blaze and three
+      functions** (#member-sign-in in CLAUDE.md): a Storage bucket in
+      `us-central1`; Email/Password on (email link off, enumeration
+      protection on); App Check with its key in `AISO_RECAPTCHA_SITE_KEY`;
+      the Trigger Email extension with an
+      `extensions/firestore-send-email.env.aiso-hub` of AISO's own sender;
+      then `firebase deploy --config firebase.aiso.json --project aiso-hub
+      --only functions` (never the default firebase.json, whose predeploy
+      builds the school's functions); then `features.googleConfirm: true` in
+      `config/orgs/aiso.json`. Phone alerts are still the school's only.
