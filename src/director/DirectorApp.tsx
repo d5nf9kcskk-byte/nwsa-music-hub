@@ -90,6 +90,8 @@ declare const __ORG_PERSONNEL__: boolean;
 // orgs the ternary folds to null at build time, so their bundles reference
 // no personnel chunk and carry none of its strings; for adult orgs the
 // chunk loads on first open, like the director surface itself in main.tsx.
+// A player's own home (#member-sign-in): personnel builds only.
+const MemberApp = __ORG_PERSONNEL__ ? lazy(() => import('./member/MemberApp')) : null;
 const PersonnelManager = __ORG_PERSONNEL__
   ? lazy(() => import('./personnel/PersonnelManager'))
   : null;
@@ -382,13 +384,14 @@ function AccountRow({ user, rail = false, children }: {
   );
 }
 
-function pickShell(me: CurrentDirector | null): 'staff' | 'teacher' | 'classroom' | 'assistant' | 'chaperone' {
+function pickShell(me: CurrentDirector | null): 'staff' | 'teacher' | 'classroom' | 'assistant' | 'chaperone' | 'member' {
   if (!me) return 'staff';
   if (isStaffMember(me)) return 'staff';
   if (hasDirectorRole(me, 'teacher')) return 'teacher';
   if (hasDirectorRole(me, 'classroom')) return 'classroom';
   if (hasDirectorRole(me, 'assistant')) return 'assistant';
   if (hasDirectorRole(me, 'chaperone')) return 'chaperone';
+  if (__ORG_PERSONNEL__ && (me.roles as string[]).includes('member')) return 'member';
   return 'staff';
 }
 
@@ -600,6 +603,8 @@ export default function DirectorApp() {
         <AssistantApp user={user} signOut={signOut} />
       ) : shell === 'chaperone' ? (
         <ChaperoneApp user={user} signOut={signOut} />
+      ) : __ORG_PERSONNEL__ && MemberApp && shell === 'member' ? (
+        <Suspense fallback={null}><MemberApp user={user} signOut={signOut} /></Suspense>
       ) : (
         // Only DARK is stamped. Four rules read `:not([data-dir-theme="dark"])`
         // (hub2.css, hub2Staff.css), and an explicit "light" would still match
