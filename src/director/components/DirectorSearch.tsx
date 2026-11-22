@@ -173,18 +173,27 @@ function withPeople(groups: ResultGroup[], people: Personnel[] | undefined, q: s
   }, ...groups];
 }
 
+// Stable empties for a personnel build (see DirectorSearchInner).
+const NO_ROWS: never[] = [];
+const NO_CONTACTS: Record<string, never> = {};
+
 function DirectorSearchInner({ onClose, onOpenStudent, onNavigate }: Omit<DirectorSearchProps, 'open'>) {
   // Personnel orgs only (see PersonnelSearch); folds away in a school build.
   const people = __ORG_PERSONNEL__ ? use(PeopleContext!) : undefined;
   const navigate = useNavigate();
-  const { students } = useStudents();
-  const { contacts } = useContacts();
+  // A personnel org has no students, contacts, pull-outs or assignments, so it
+  // opens no listener on them. The condition is a build-time literal: the hook
+  // order is fixed for any one build, and a school build folds it away.
+  /* eslint-disable react-hooks/rules-of-hooks */
+  const { students } = __ORG_PERSONNEL__ ? { students: NO_ROWS } : useStudents();
+  const { contacts } = __ORG_PERSONNEL__ ? { contacts: NO_CONTACTS } : useContacts();
   const { events } = useEvents();
-  const { overrides } = useRosterOverrides();
+  const { overrides } = __ORG_PERSONNEL__ ? { overrides: NO_ROWS } : useRosterOverrides();
   const { pieces } = useRepertoire();
   const { announcements } = useAnnouncements();
   const { ensembles } = useEnsembles();
-  const { assignments } = useAssignments();
+  const { assignments } = __ORG_PERSONNEL__ ? { assignments: NO_ROWS } : useAssignments();
+  /* eslint-enable react-hooks/rules-of-hooks */
 
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);

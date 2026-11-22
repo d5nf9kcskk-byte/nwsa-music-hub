@@ -436,8 +436,9 @@ export default function DirectorApp() {
   // …and absence requests waiting on an answer (#requests): ONE count for the
   // badge and the Today line, through the same filter the screen opens on.
   const isStaffShell = !!me && isStaffMember(me);
-  const { requests: copyRequests } = useCopyRequests(isStaffShell);
-  const { absences: absenceRequests } = usePlannedAbsences(isStaffShell);
+  // A personnel org has neither kind of request (#adult-cleanup): no listener.
+  const { requests: copyRequests } = useCopyRequests(!__ORG_PERSONNEL__ && isStaffShell);
+  const { absences: absenceRequests } = usePlannedAbsences(!__ORG_PERSONNEL__ && isStaffShell);
   const requestMine = useMemo(() => requestMineFilter(me, ensembles), [me, ensembles]);
   const todayForCount = todayStr();
   const requestCount =
