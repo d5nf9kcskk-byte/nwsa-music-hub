@@ -242,7 +242,7 @@
 .pers-bar-clear { margin-left: auto; }
 .pers-bar-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .pers-bar-actions a { text-decoration: none; }
-.pers-tick { width: 20px; height: 20px; flex-shrink: 0; margin: 0 4px 0 0; accent-color: var(--dir-accent, #2563eb); }
+.pers-tick { width: 20px; height: 20px; flex-shrink: 0; margin: 0 4px 0 0; }
 .pers-select-all { margin: 0 16px 4px; }
 
 /* The services picker on a contract. */
