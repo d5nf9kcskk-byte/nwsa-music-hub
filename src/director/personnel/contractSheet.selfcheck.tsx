@@ -20,7 +20,8 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { ContractPrintSheet } from './ContractSheet.tsx';
 import { STARTER_TEMPLATES, resolveContractTokens } from './contractTerms.ts';
-import type { Contract } from '../types.ts';
+import type { Contract, Personnel } from '../types.ts';
+import { byScoreSectionSeat, sectionIsInstrument } from './personnelOrder.ts';
 // The sheet stamps the org's own name; resolve the expected text with the
 // same one rather than a literal, so this check is org-agnostic.
 import { ORG } from '../../org/index.ts';
@@ -106,5 +107,23 @@ assert(
 // ── Prose with no markup at all is untouched, apostrophes and all ────────
 const plain = 'The Musician\'s fee is 2 * 3 dollars per service (see below).';
 assert(textOf(render({ ...BASE, termsText: plain })).includes(plain), 'plain prose round-trips verbatim');
+
+// ── The attendance sheet's order and person line (personnelOrder.ts) ─────
+{
+  const p = (name: string, instrument: string, section: string, seat?: number) =>
+    ({ id: name, name, instrument, section, seat, status: 'Contracted' }) as Personnel;
+  const sorted = [
+    p('B Two', 'Violin', 'Violin II', 1), p('A One', 'Violin', 'Violin I', 2),
+    p('C Cello', 'Cello', 'Cello', 1), p('D One', 'Violin', 'Violin I', 1),
+    p('E Two', 'Violin', 'Violin II', 2), p('F Flute', 'Flute', 'Flute', 1),
+  ].sort(byScoreSectionSeat).map(x => x.name);
+  assert(
+    sorted.join('|') === 'F Flute|D One|A One|B Two|E Two|C Cello',
+    `Violin I stays ahead of Violin II, seats inside, got: ${sorted.join('|')}`,
+  );
+  assert(sectionIsInstrument({ instrument: 'Flute', section: ' flute ' }), 'Flute / flute is one word');
+  assert(!sectionIsInstrument({ instrument: 'Violin', section: 'Violin I' }), 'Violin / Violin I are both shown');
+  assert(!sectionIsInstrument({ instrument: undefined, section: undefined }), 'no section is not a repeat');
+}
 
 console.log('contractSheet.selfcheck: ok');

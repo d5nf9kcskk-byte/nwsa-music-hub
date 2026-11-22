@@ -4,7 +4,7 @@ import { useEvents } from '../hooks/useEvents';
 import { useServiceAttendance } from '../hooks/useServiceAttendance';
 import { useModalA11y } from '../../shared/useModalA11y';
 import { todayStr, addDays, formatDate, formatTimeRange } from '../utils';
-import { scoreOrderRank, lastName } from '../scoreOrder';
+import { byScoreSectionSeat, sectionIsInstrument } from './personnelOrder';
 import type { Ensemble, Personnel, ServiceAttendanceStatus } from '../types';
 import { backdropClose } from '../../shared/backdropClose';
 
@@ -78,10 +78,7 @@ export function ServiceAttendanceSheet({ personnel, ensembles, initialEventId, o
     if (!service) return [];
     return personnel
       .filter(p => p.status !== 'Inactive' && p.ensembleIds?.some(id => service.ensembleIds.includes(id)))
-      .sort((a, b) =>
-        scoreOrderRank(a.instrument) - scoreOrderRank(b.instrument)
-        || (a.seat ?? Number.MAX_SAFE_INTEGER) - (b.seat ?? Number.MAX_SAFE_INTEGER)
-        || lastName(a.name).localeCompare(lastName(b.name)));
+      .sort(byScoreSectionSeat);
   }, [personnel, service]);
 
   const marked = roster.filter(p => recordMap[p.id]).length;
@@ -131,7 +128,7 @@ export function ServiceAttendanceSheet({ personnel, ensembles, initialEventId, o
                         <div className="dir-roster-info">
                           <div className="dir-roster-name">{p.name}</div>
                           <div className="dir-roster-detail">
-                            {[p.section, p.instrument, p.seat != null ? `Seat ${p.seat}` : null]
+                            {[p.section, sectionIsInstrument(p) ? null : p.instrument, p.seat != null ? `Seat ${p.seat}` : null]
                               .filter(Boolean).join(' · ')}
                           </div>
                         </div>

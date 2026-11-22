@@ -7,6 +7,7 @@ import { Linkify } from '../components/Linkify';
 import { EditedByLine } from '../components/EditedByLine';
 import { useModalA11y } from '../../shared/useModalA11y';
 import { backdropClose } from '../../shared/backdropClose';
+import { sectionIsInstrument } from './personnelOrder';
 
 /**
  * Read-only profile sheet for one person on the paid roster (#personnel) —
@@ -55,7 +56,7 @@ export function PersonnelDetail({ person, contact, contracts, ensembles, onEdit,
 
   const subtitle = [
     person.instrument,
-    person.section,
+    sectionIsInstrument(person) ? null : person.section,
     person.seat != null ? `Seat ${person.seat}` : null,
     person.sectionLeader ? 'Section leader' : null,
     person.status !== 'Contracted' ? STATUS_LABEL[person.status] : null,
