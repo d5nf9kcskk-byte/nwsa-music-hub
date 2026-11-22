@@ -538,7 +538,7 @@ check(googleSubOf(claims()) === 'g-pat' && googleSubOf(claims({ firebase: { sign
     'and not on the server either');
   // Only a deployment that has the server step asks at all.
   const flag = (org: string) => (JSON.parse(readFileSync(resolve(repo, `config/orgs/${org}.json`), 'utf8')) as { features: Record<string, unknown> }).features.googleConfirm;
-  check(flag('nwsa') === true && flag('asyo') === false && flag('as') === false, 'the Hub offers to confirm only where the server step exists: NWSA, and neither demo site');
+  check(flag('nwsa') === true && flag('asyo') === false && flag('as') === false && flag('aiso') === false, 'the Hub offers to confirm only where the server step exists: NWSA, and no other org\'s site');
   check(!/googleSub:|boundUid:|boundAt:/.test(gate), 'the app never writes the record');
 }
 
