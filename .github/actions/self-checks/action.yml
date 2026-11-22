@@ -801,3 +801,13 @@ runs:
     - name: Check college session pruning
       run: node scripts/prune-college-sessions.mjs --selfcheck
       shell: bash
+
+    # The Bottega set ingest (#bottega-ingest, Design A). It must refuse a
+    # file whose sha256 differs from Bottega's manifest, a card that already
+    # has parts, a licence that is not public-domain or Grant's own without
+    # --licensed (rental and cc-by-nc never), a path that leaves the folder,
+    # and any tenant but aiso; and it writes only the fields it owns, under
+    # members/parts/. Pure, on an invented manifest; no Firebase.
+    - name: Check Bottega set ingest refusals
+      run: node scripts/ingest-bottega-set.mjs --selfcheck
+      shell: bash

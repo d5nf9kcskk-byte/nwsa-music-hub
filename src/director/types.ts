@@ -871,6 +871,17 @@ export interface RepertoirePiece {
   partsLinks?: PiecePartLink[]; // per-instrument downloadable parts
   partsSharedUrl?: string;    // shared folder / IMSLP all-parts link
   partsUrl?: string;          // legacy single-link field (backward compat)
+  /**
+   * Members-only parts (#bottega-ingest). Written ONLY by
+   * scripts/ingest-bottega-set.mjs from a Bottega `final/manifest.json`; the
+   * app never writes them. Each `path` is a Storage object under
+   * `members/parts/<pieceId>/`, read through the SDK under rules (Wave 2),
+   * never a tokenized URL. ABSENT = no ingested parts.
+   */
+  memberParts?: { label: string; role: 'score' | 'part'; path: string; sha256: string }[];
+  partsLicence?: { status: string; credit: string };
+  /** Who passed Bottega's PROOF gate: autopilot-sweep, waived-by-grant, unrecorded. */
+  partsProof?: string;
   notes?: string;             // director notes (edition, cuts, etc.)
   eventIds?: string[];        // concerts/events this piece is programmed for
   order: number;
