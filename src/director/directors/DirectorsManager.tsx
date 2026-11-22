@@ -356,7 +356,7 @@ export function DirectorsManager({ currentEmail, currentRole, currentRoles }: Pr
 
       <div className="dir-drawer-footer">
         <button className="dir-btn dir-btn-primary" onClick={() => setMode('add')}>
-          <Plus size={16} style={{ verticalAlign: '-3px' }} /> Add a director, teacher, or assistant
+          <Plus size={16} style={{ verticalAlign: '-3px' }} />{__ORG_PERSONNEL__ ? ' Add a director' : ' Add a director, teacher, or assistant'}
         </button>
       </div>
     </div>
