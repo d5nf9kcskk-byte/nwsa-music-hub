@@ -38,6 +38,9 @@ on:
       - 'scripts/google-binding.emulator-proof.mjs'
       - 'scripts/rules-verdicts.emulator-check.mjs'
       - 'scripts/personnel-rules.emulator-check.mjs'
+      - 'scripts/member-sign-in.emulator-proof.mjs'
+      - 'functions/src/memberToken*.ts'
+      - 'functions/src/passwordSetup*.ts'
       - '.github/workflows/rules-checks.yml'
       - '.github/workflows/deploy-rules.yml'
       - '.github/workflows/deploy-functions.yml'
@@ -66,6 +69,9 @@ jobs:
 
       - name: Check the switch script
         run: node scripts/require-google-ties.mjs --selfcheck
+
+      - name: Check the member sign-in test
+        run: node --experimental-strip-types functions/src/memberToken.selfcheck.ts
 
       # The two checks below ask the REAL rules, on local emulators. A text
       # check cannot see a rule that lets the same thing through another way;
@@ -100,3 +106,13 @@ jobs:
           --config firebase.emulators.json --only auth,firestore
           --project demo-personnel-rules
           "node scripts/personnel-rules.emulator-check.mjs"
+
+      # Players sign in by invitation (#member-sign-in): staff invite, the
+      # player sets a password, and a signed-in player reads their own entry
+      # and the members-only parts and nothing else.
+      - name: Prove player sign-in against the real rules
+        run: >
+          npx --yes firebase-tools@15.28.1 emulators:exec
+          --config firebase.emulators.json --only auth,firestore,storage
+          --project demo-member-sign-in
+          "node scripts/member-sign-in.emulator-proof.mjs"

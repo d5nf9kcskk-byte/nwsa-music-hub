@@ -735,6 +735,22 @@ runs:
       run: node --experimental-strip-types functions/src/staffToken.selfcheck.ts
       shell: bash
 
+    # Players sign in by invitation (#member-sign-in, personnel orgs): the
+    # password arm the member functions apply, the invitation and password
+    # steps (ported from PR #244), and what a player sees of their own
+    # records (no staff notes) and which part is their chair's.
+    - name: Check the member sign-in test
+      run: node --experimental-strip-types functions/src/memberToken.selfcheck.ts
+      shell: bash
+
+    - name: Check player password setup
+      run: node --experimental-strip-types functions/src/passwordSetup.selfcheck.ts
+      shell: bash
+
+    - name: Check what a player sees
+      run: node --experimental-strip-types src/shared/memberView.selfcheck.ts
+      shell: bash
+
     # The switch script says nothing about its result in a public log.
     - name: Check the switch script
       run: node scripts/require-google-ties.mjs --selfcheck

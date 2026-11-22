@@ -1367,6 +1367,50 @@ for them), `boundUid` (the one Hub sign-in account that goes with it),
   modes show what a rules change moved against `main`; use them for the
   next rules change too.
 
+## Players sign in by invitation (Nov 2026, #member-sign-in, personnel orgs)
+
+AISO's players (not staff) sign in with their own email and password; staff
+keep Google. PR #244's staff password work, ported to MEMBERS only.
+
+- **A player is a Directors entry `{ roles: ['member'], personnelId }`**, the
+  chaperone pattern: a closed role NOT in `isKnownRole()`, so a member reads
+  their own entry and nothing else in firestore.rules. `roles` is exactly
+  `['member']` (`isMemberEntry()`), so a member entry can carry no staff role.
+  Staff (Owner/Director) create one from Personnel (`memberEntryOk()`: that
+  shape only, tied to a `personnel` row that exists, no binding keys), list
+  member entries only (`where('roles','==',['member'])`, query and rule agree),
+  and delete them. A member edits nothing on their own entry.
+- **The password arm of `honouredSignIn()` is for member entries only**, in
+  firestore.rules, storage.rules and `functions/src/memberToken.ts`: the bound
+  account, `passwordSet === true` (only the personnel org's passwordSetup
+  writes it). A password on a staff entry is refused everywhere. The school
+  has no member entries, so its verdicts do not move (proved with
+  `rules-verdicts.emulator-check.mjs` record/compare: 5,445 verdicts, 0 moved).
+  `functions/src/staffToken.ts` is NOT changed: staff functions never honour
+  a member, and the school's functions bundle stays byte-identical.
+- **Members get NO read on the pay tier.** `personnel.notes`, `contracts.notes`
+  ("never shown to the signer") and `payments.note` are the personnel
+  manager's, and a rule cannot hide a field. A player's own row, contracts and
+  payments come from the `memberHome` function through ONE projection,
+  `src/shared/memberView.ts` (allowlists pinned by its self-check). Never
+  loosen a pay-tier read rule for members.
+- **Parts are members-only Storage**, `members/parts/<pieceId>/<file>` (the
+  path `scripts/ingest-bottega-set.mjs` writes): any member or staff may read,
+  no client writes. Not per chair in the rule (two-document limit, and label
+  matching is word work); the app shows each player their chair's parts
+  (`partIsMine`).
+- **Functions per org**: the school builds `functions/src/index.ts` with
+  `npm run build`, exactly as before. A personnel org builds
+  `functions/src/personnelIndex.ts` with `node functions/build-org.mjs <org>`
+  (its config swapped in for nwsa.json) and deploys with
+  `firebase deploy --config firebase.aiso.json`. NEVER deploy a personnel org
+  with firebase.json: its predeploy builds the school's bundle.
+- Client: gated on `__ORG_PERSONNEL__` and loaded lazily (`MemberSignIn`,
+  `member/MemberApp`), so the school's dist is byte-identical. Fixtures:
+  `?role=member` shows the second flute's home.
+- Proof: `scripts/member-sign-in.emulator-proof.mjs` (real rules, the real
+  invitation and password steps), in rules-checks.yml.
+
 ## Playing-exam grading — one line, one rubric (Sept 2026, #exam-rubric)
 
 The grade sheet used to be two lists of the SAME people: a roster row that
