@@ -127,6 +127,9 @@ for (const p of [
 for (const f of readdirSync(join(repo, 'config/orgs')).filter(n => n.endsWith('.json'))) {
   const org = JSON.parse(read(`config/orgs/${f}`));
   assert(org.features?.bannerDrafter === false, `config/orgs/${f}: features.bannerDrafter must be false until docs/banner-drafter.md is followed`);
+  // Pinned here, not in functions/src/googleBinding.selfcheck.ts: any edit under
+  // functions/ redeploys the school's Cloud Functions (deploy-functions.yml).
+  assert(org.features?.googleConfirm === (f === 'nwsa.json'), `config/orgs/${f}: features.googleConfirm is true only where the server step exists (NWSA)`);
 }
 
 console.log(`changeNoteEs self-check: ok (${checks} checks)`);
