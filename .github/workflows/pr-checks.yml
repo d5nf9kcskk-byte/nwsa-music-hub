@@ -92,11 +92,14 @@ jobs:
           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
 
-      # The NWSA build must carry no trace of another org's config.
-      - name: Check the NWSA build has no demo-org strings
+      # The NWSA build must carry no trace of another org's config. `asyo`
+      # also covers AS, which ships the asyo-* files. A plain substring match
+      # on purpose: it fails loudly on an English word that happens to hold
+      # one ("liaison" holds `aiso`), rather than quietly missing a leak.
+      - name: Check the NWSA build has no other org's strings
         run: |
-          if grep -rqi asyo dist/; then
-            echo "::error::dist/ contains 'asyo' — the default build must be NWSA-only."
-            grep -ril asyo dist/ | head
+          if grep -rqi -e asyo -e aiso dist/; then
+            echo "::error::dist/ contains 'asyo' or 'aiso' — the default build must be NWSA-only."
+            grep -ril -e asyo -e aiso dist/ | head
             exit 1
           fi

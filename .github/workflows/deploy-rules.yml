@@ -156,6 +156,37 @@ jobs:
             --project as-hub-demo \
             --non-interactive
 
+      # ── AISO (#org-config) ─────────────────────────────────────────────
+      # Fourth project, same pattern as AS above, and the first that is a
+      # real org rather than a demo, which is why its project is `aiso-hub`
+      # (docs/aiso-setup.md). Skips cleanly until that project and its secret
+      # exist. Like AS it holds the paid-roster tier, so this is here BEFORE
+      # the project is.
+      - name: Write AISO service-account key
+        id: aiso_key
+        env:
+          AISO_SERVICE_ACCOUNT_JSON: ${{ secrets.AISO_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -z "$AISO_SERVICE_ACCOUNT_JSON" ]; then
+            echo "AISO_SERVICE_ACCOUNT_JSON not set — skipping the AISO rules deploy."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          printf '%s' "$AISO_SERVICE_ACCOUNT_JSON" > "$RUNNER_TEMP/aiso-sa.json"
+          echo "configured=true" >> "$GITHUB_OUTPUT"
+
+      # Firestore only, like the demos: no Storage bucket until the project
+      # is on Blaze. Add a storage step here if that ever changes.
+      - name: Deploy Firestore rules (AISO)
+        if: steps.aiso_key.outputs.configured == 'true'
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/aiso-sa.json
+        run: |
+          npx --yes firebase-tools@13 deploy \
+            --only firestore:rules \
+            --project aiso-hub \
+            --non-interactive
+
       - name: Clean up credentials
         if: always()
-        run: rm -f "$RUNNER_TEMP/sa.json" "$RUNNER_TEMP/asyo-sa.json" "$RUNNER_TEMP/as-sa.json"
+        run: rm -f "$RUNNER_TEMP/sa.json" "$RUNNER_TEMP/asyo-sa.json" "$RUNNER_TEMP/as-sa.json" "$RUNNER_TEMP/aiso-sa.json"

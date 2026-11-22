@@ -67,6 +67,7 @@
     "campusMap": false,
     "calendarSeed": false,
     "contactForm": true,
+    "absenceReport": false,
     "personnel": true,
     "bannerDrafter": false,
     "googleConfirm": false

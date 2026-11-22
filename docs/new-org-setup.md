@@ -66,6 +66,12 @@ be merged to main, or it refuses to start and lists what's missing:
 knows the files are `deploy-demo.yml` / `seed-demo.yml` /
 `seed-demo-org.mjs`.)
 
+A real org is the one exception to `<org>-hub-demo`. `aiso` uses the project
+`aiso-hub`, pinned in the script's `REAL_PROJECT_IDS` table (a table in the
+file, still not a flag); its seeder writes no people; and `--owner-email` is
+required, because its seed workflow has no default owner. See
+`docs/aiso-setup.md`.
+
 ## The per-org command
 
 ```bash
@@ -110,7 +116,7 @@ failed run is fixed by re-running):
    (gh-pages / root) and kicks a Pages build
 
 At the end it prints the demo URL and the smoke-test list. If the org's
-`deploy-rules.yml` step already exists (it does for `asyo` and `as`),
+`deploy-rules.yml` step already exists (it does for `asyo`, `as` and `aiso`),
 dispatch that workflow once after setup so the Firestore rules ship
 immediately instead of on the next rules edit.
 

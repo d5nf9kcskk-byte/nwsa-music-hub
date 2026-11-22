@@ -1,0 +1,111 @@
+{
+  "orgId": "aiso",
+  "appName": "AISO Hub",
+  "brandName": "Atlanta International Symphony Orchestra",
+  "orgShortName": "AISO",
+  "orgFullName": "Atlanta International Symphony Orchestra",
+  "basePath": "/aiso-music-hub/",
+  "publicUrl": "https://d5nf9kcskk-byte.github.io/aiso-music-hub/",
+  "publicUrlDisplay": "d5nf9kcskk-byte.github.io/aiso-music-hub",
+  "timezone": "America/New_York",
+  "contactEmail": "contact@example.org",
+  "logoFile": "aiso-logo.png",
+  "markFile": "aiso-mark.png",
+  "faviconFile": "aiso-favicon.png",
+  "icons": {
+    "icon192": "aiso-icon-192.png",
+    "icon512": "aiso-icon-512.png",
+    "maskable192": "aiso-icon-maskable-192.png",
+    "maskable512": "aiso-icon-maskable-512.png",
+    "svg": "aiso-icon.svg",
+    "appleTouchIcon": "aiso-apple-touch-icon.png"
+  },
+  "assets": [
+    "aiso-logo.png",
+    "aiso-mark.png",
+    "aiso-favicon.png",
+    "aiso-icon-192.png",
+    "aiso-icon-512.png",
+    "aiso-icon-maskable-192.png",
+    "aiso-icon-maskable-512.png",
+    "aiso-icon.svg",
+    "aiso-apple-touch-icon.png"
+  ],
+  "themeColor": "#0B1830",
+  "brand": {},
+  "brandDark": {},
+  "fonts": [],
+  "features": {
+    "campusMap": false,
+    "calendarSeed": false,
+    "contactForm": true,
+    "absenceReport": false,
+    "personnel": true,
+    "bannerDrafter": false,
+    "googleConfirm": false
+  },
+  "program": {
+    "missionStatement": "",
+    "wordmarkMain": "Atlanta International",
+    "wordmarkSub": "Symphony Orchestra",
+    "footerLine1": "Atlanta International Symphony Orchestra",
+    "footerLine2": "",
+    "leadership": [],
+    "partners": ""
+  },
+  "vanitySlugs": [
+    { "slug": "orch", "match": ["orchestra"] }
+  ],
+  "hub2": {
+    "forEveryone": true,
+    "light": {
+      "bg": "#F3F5F9", "surface": "#FFFFFF", "ink": "#0E1B33", "muted": "#5E6A80",
+      "line": "#DEE3EC", "accent": "#1E4FA3", "plum": "#8A2F4B", "sun": "#E7BE5A",
+      "accentFill": "#1E4FA3", "plumText": "#8A2F4B", "sunInk": "#0E1B33"
+    },
+    "dark": {
+      "bg": "#0A1120", "surface": "#131C2E", "ink": "#E8ECF4", "muted": "#9AA6BA",
+      "line": "#27334A", "accent": "#8DB4F2",
+      "accentFill": "#1E4FA3", "plumText": "#E8A9BE"
+    },
+    "radius": { "card": "18px", "row": "12px" },
+    "shadow": "0 1px 2px rgba(16,24,40,.06), 0 4px 12px rgba(16,24,40,.06)",
+    "concertHall": { "gold": "#C8A040" },
+    "spotlight": {
+      "bg": "#0A0F1C", "surface": "rgba(255,255,255,.06)", "ink": "#F2EEE4", "gold": "#E7C873",
+      "tealGlow": "rgba(77,128,214,.35)", "plumGlow": "rgba(138,47,75,.45)"
+    },
+    "fonts": {
+      "body": "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      "title": "'Newsreader', Georgia, 'Times New Roman', serif",
+      "spotlightDisplay": "'Sora', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      "spotlightBody": "'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    },
+    "glass": {
+      "chromeBlur": "28px",
+      "heroBlur": "22px",
+      "panelBlur": "0px",
+      "barBlur": "34px",
+      "fieldDrift": "40s",
+      "logoShine": "10s",
+      "dissolveMs": 320,
+      "dissolveBlur": "14px",
+      "dissolveHoldMs": 150
+    }
+  },
+  "breakGlassEmails": [],
+  "ics": {
+    "prodId": "-//AISO Hub//aiso//EN",
+    "uidDomain": "aiso.hub",
+    "namePrefix": "AISO",
+    "allDesc": "All Atlanta International Symphony Orchestra events",
+    "brand": "AISO",
+    "fileProdId": "-//AISO Hub//Event//EN",
+    "fileUidDomain": "aiso-music-hub"
+  },
+  "manifest": {
+    "name": "AISO Hub",
+    "shortName": "AISO",
+    "description": "Schedule, music and updates for the Atlanta International Symphony Orchestra."
+  }
+}
