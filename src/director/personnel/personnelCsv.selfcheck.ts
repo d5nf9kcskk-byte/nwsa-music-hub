@@ -6,7 +6,7 @@
  * and the stand and inside/outside wording.
  */
 import { payrollCsv, rosterCsv } from './personnelCsv.ts';
-import { seatLabel } from './personnelOrder.ts';
+import { seatLabel, calledIds } from './personnelOrder.ts';
 import type { Contract, Payment } from '../types.ts';
 
 function assert(cond: unknown, msg: string): asserts cond {
@@ -38,4 +38,15 @@ assert(seatLabel({ section: 'Violin II', seat: 4 }) === 'Stand 2, inside', 'seat
 assert(seatLabel({ section: 'Oboe', seat: 2 }) === 'Part 2', 'winds have parts, not stands');
 assert(seatLabel({ section: 'Harp' }) === '', 'no seat, no label');
 assert(rosterCsv([{ id: 'x', name: 'A, B', status: 'SubList', section: 'Cello', seat: 1 }], {}).includes('"Stand 1, outside",,Sub list'), 'roster row');
+const svc = { id: 'e2', date: '2027-01-02', ensembleIds: ['orch'] };
+const base = { category: 'chair' as const, position: 'Section', baseRateCents: 0, baseRateBasis: 'flat' as const, status: 'Draft' as const };
+const called = calledIds([
+  { ...base, id: '1', personnelId: 'named', personnelName: 'n', eventIds: ['e2'] },
+  { ...base, id: '2', personnelId: 'other-service', personnelName: 'o', eventIds: ['e9'], ensembleIds: ['orch'] },
+  { ...base, id: '3', personnelId: 'season', personnelName: 's', ensembleIds: ['orch'], startDate: '2027-01-01', endDate: '2027-01-03' },
+  { ...base, id: '4', personnelId: 'too-early', personnelName: 't', ensembleIds: ['orch'], endDate: '2026-12-31' },
+  { ...base, id: '5', personnelId: 'void', personnelName: 'v', ensembleIds: ['orch'], status: 'Void' as const },
+  { ...base, id: '6', personnelId: 'no-ensemble', personnelName: 'x' },
+], svc);
+assert([...called].sort().join() === 'named,season', `called: ${[...called]}`);
 console.log('personnelCsv self-check: ok');

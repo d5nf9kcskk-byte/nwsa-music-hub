@@ -376,6 +376,7 @@ export default function PersonnelManager({ initialPersonId, initialEventId }: {
       {attendanceOpen && (
         <ServiceAttendanceSheet
           personnel={personnel}
+          contracts={contracts}
           ensembles={ensembles}
           initialEventId={initialEventId}
           onClose={() => setAttendanceOpen(false)}

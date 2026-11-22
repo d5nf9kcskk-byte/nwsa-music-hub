@@ -1,5 +1,5 @@
 import { scoreOrderRank, lastName } from '../scoreOrder.ts';
-import type { Personnel } from '../types.ts';
+import type { CalendarEvent, Contract, Personnel } from '../types.ts';
 
 /** True when a section just repeats the instrument ("Flute" / "Flute"), so a
  *  person's line names it once. */
@@ -32,4 +32,23 @@ export function seatLabel(p: Pick<Personnel, 'section' | 'instrument' | 'seat'>)
     return `Stand ${Math.ceil(p.seat / 2)}, ${p.seat % 2 === 1 ? 'outside' : 'inside'}`;
   }
   return `Part ${p.seat}`;
+}
+
+/** Who a service calls, by contract: a contract that names services
+ *  (`eventIds`) calls its person to exactly those; one that names none is a
+ *  season contract and calls them to every service of its ensembles inside
+ *  its dates (a contract with no ensemble calls nobody). Void contracts call nobody. */
+export function calledIds(contracts: Contract[], service: Pick<CalendarEvent, 'id' | 'date' | 'ensembleIds'>): Set<string> {
+  const out = new Set<string>();
+  for (const c of contracts) {
+    if (c.status === 'Void') continue;
+    if (c.eventIds?.length) {
+      if (c.eventIds.includes(service.id)) out.add(c.personnelId);
+    } else if (
+      c.ensembleIds?.some(id => service.ensembleIds.includes(id))
+      && (!c.startDate || c.startDate <= service.date)
+      && (!c.endDate || service.date <= c.endDate)
+    ) out.add(c.personnelId);
+  }
+  return out;
 }

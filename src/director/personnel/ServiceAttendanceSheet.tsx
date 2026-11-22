@@ -4,8 +4,8 @@ import { useEvents } from '../hooks/useEvents';
 import { useServiceAttendance } from '../hooks/useServiceAttendance';
 import { useModalA11y } from '../../shared/useModalA11y';
 import { todayStr, addDays, formatDate, formatTimeRange } from '../utils';
-import { byScoreSectionSeat, sectionIsInstrument } from './personnelOrder';
-import type { Ensemble, Personnel, ServiceAttendanceStatus } from '../types';
+import { byScoreSectionSeat, sectionIsInstrument, calledIds } from './personnelOrder';
+import type { Contract, Ensemble, Personnel, ServiceAttendanceStatus } from '../types';
 import { backdropClose } from '../../shared/backdropClose';
 
 /**
@@ -27,26 +27,27 @@ const STATUSES: { status: ServiceAttendanceStatus; cls: string }[] = [
   { status: 'Excused', cls: 'svc-excused' },
 ];
 
-// Recent past + near future — enough to take roll at tonight's service or
-// backfill last week's, without subscribing the whole season.
+// The date range opens on recent past + near future — enough to take roll at
+// tonight's service or backfill last week's — and the director can widen it.
 const WINDOW_BACK_DAYS = 21;
 const WINDOW_AHEAD_DAYS = 35;
 
 interface Props {
   personnel: Personnel[];
+  contracts: Contract[];
   ensembles: Ensemble[];
   /** Start on this service instead of the nearest one (opened from Today). */
   initialEventId?: string;
   onClose: () => void;
 }
 
-export function ServiceAttendanceSheet({ personnel, ensembles, initialEventId, onClose }: Props) {
+export function ServiceAttendanceSheet({ personnel, contracts, ensembles, initialEventId, onClose }: Props) {
   const panelRef = useModalA11y<HTMLDivElement>(onClose, true, { closeOnBack: true });
   const today = todayStr();
-  const { events, loading: eventsLoading } = useEvents({
-    from: addDays(today, -WINDOW_BACK_DAYS),
-    to: addDays(today, WINDOW_AHEAD_DAYS),
-  });
+  const [from, setFrom] = useState(() => addDays(today, -WINDOW_BACK_DAYS));
+  const [to, setTo] = useState(() => addDays(today, WINDOW_AHEAD_DAYS));
+  const [everyone, setEveryone] = useState(false);
+  const { events, loading: eventsLoading } = useEvents({ from, to });
 
   // Services = anything called with an orchestra on it. Cancelled services
   // take no roll.
@@ -72,14 +73,19 @@ export function ServiceAttendanceSheet({ personnel, ensembles, initialEventId, o
       e.ensembleIds.map(ensembleName).join(' + '),
     ].filter(Boolean).join(' · ');
 
-  // Who is called: active roster members of the service's ensembles — the
-  // sub list included, since named-service sub contracts are the point.
+  // Who is called: the people whose contracts cover this service. A service no
+  // contract covers (a roster not yet contracted) falls back to every active
+  // member of its ensembles, sub list included, and says so.
+  const called = useMemo(() => (service ? calledIds(contracts, service) : new Set<string>()), [contracts, service]);
+  const byContract = !everyone && called.size > 0;
   const roster = useMemo(() => {
     if (!service) return [];
     return personnel
-      .filter(p => p.status !== 'Inactive' && p.ensembleIds?.some(id => service.ensembleIds.includes(id)))
+      .filter(p => p.status !== 'Inactive' && (byContract
+        ? called.has(p.id)
+        : p.ensembleIds?.some(id => service.ensembleIds.includes(id))))
       .sort(byScoreSectionSeat);
-  }, [personnel, service]);
+  }, [personnel, service, called, byContract]);
 
   const marked = roster.filter(p => recordMap[p.id]).length;
   const absent = roster.filter(p => recordMap[p.id]?.status === 'Absent').length;
@@ -93,9 +99,19 @@ export function ServiceAttendanceSheet({ personnel, ensembles, initialEventId, o
           <button className="dir-drawer-close" onClick={onClose}>×</button>
         </div>
         <div className="dir-drawer-body">
+          <div className="dir-field-row">
+            <div className="dir-field">
+              <label className="dir-label" htmlFor="svc-from">From</label>
+              <input id="svc-from" className="dir-input" type="date" value={from} max={to} onChange={e => e.target.value && setFrom(e.target.value)} />
+            </div>
+            <div className="dir-field">
+              <label className="dir-label" htmlFor="svc-to">To</label>
+              <input id="svc-to" className="dir-input" type="date" value={to} min={from} onChange={e => e.target.value && setTo(e.target.value)} />
+            </div>
+          </div>
           {services.length === 0 ? (
             <div className="dir-empty-inline">
-              {eventsLoading ? 'Loading services…' : 'No services on the calendar in the last three weeks or the next five.'}
+              {eventsLoading ? 'Loading services…' : 'No services on the calendar in these dates. Widen the range above.'}
             </div>
           ) : (
             <>
@@ -111,6 +127,11 @@ export function ServiceAttendanceSheet({ personnel, ensembles, initialEventId, o
                   ))}
                 </select>
               </div>
+
+              <label className="pers-service">
+                <input type="checkbox" checked={byContract} disabled={called.size === 0} onChange={e => setEveryone(!e.target.checked)} />
+                <span>Only people contracted for this service{called.size === 0 ? ' (no contract covers it, so everyone in the ensemble is listed)' : ''}</span>
+              </label>
 
               {roster.length === 0 ? (
                 <div className="dir-empty-inline">No active personnel in this service’s ensemble.</div>

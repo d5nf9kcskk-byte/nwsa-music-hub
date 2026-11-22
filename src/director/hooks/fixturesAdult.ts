@@ -327,7 +327,7 @@ export const FIXTURE_CONTRACTS: Contract[] = __ORG_PERSONNEL__ && import.meta.en
 // are marked and the strings are not, so the sheet shows every state at once.
 // The winds because the sheet lists in score order, which puts them on top.
 export const FIXTURE_SERVICE_ATTENDANCE: ServiceAttendance[] = __ORG_PERSONNEL__ && import.meta.env.VITE_FIXTURES
-  ? FIXTURE_PERSONNEL.filter(p => p.instrument && !['Violin', 'Viola', 'Cello', 'Double Bass'].includes(p.instrument)).map(p => ({
+  ? FIXTURE_PERSONNEL.filter(p => p.instrument && p.id !== 'fx-p16' && !['Violin', 'Viola', 'Cello', 'Double Bass'].includes(p.instrument)).map(p => ({
       // The id firestore.rules enforces: one record per person per service.
       id: `fx-rehearsal-1__${p.id}`, personnelId: p.id, eventId: 'fx-rehearsal-1',
       status: p.id === 'fx-p12' ? 'Absent' : p.id === 'fx-p06' ? 'Excused' : 'Present',
