@@ -211,6 +211,22 @@ function orgStatics(): Plugin {
           .replaceAll(JSON.stringify(nwsa.description), JSON.stringify(ORG.manifest.description))
           .replaceAll(JSON.stringify(nwsa.theme_color), JSON.stringify(ORG.themeColor));
         for (const [from, to] of Object.entries(iconMap)) manifest = manifest.replaceAll(from, to);
+        // An adult orchestra (#personnel) is not a school: its install prompt
+        // gets no "education" category, no Take Roll / Find My Schedule
+        // shortcuts and none of the school's calendar screenshots. This one
+        // branch may re-stringify, because the NWSA build never takes it.
+        if (ORG.features.personnel) {
+          const adult = JSON.parse(manifest);
+          const icons = adult.shortcuts[0].icons;
+          delete adult.screenshots;
+          adult.categories = ['music', 'productivity'];
+          adult.shortcuts = [
+            { name: 'Calendar', url: `${BASE}calendar`, icons },
+            { name: 'Music', url: `${BASE}repertoire`, icons },
+          ];
+          manifest = `${JSON.stringify(adult, null, 2)}\n`;
+          rmSync(resolve(ROOT, 'dist', 'screenshots'), { recursive: true, force: true });
+        }
         writeFileSync(manifestPath, manifest);
       }
       const notFoundPath = resolve(ROOT, 'dist', '404.html');
