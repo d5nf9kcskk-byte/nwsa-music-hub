@@ -2,6 +2,7 @@
   "projects": {
     "default": "nwsa-hub",
     "demo": "asyo-hub-demo",
-    "as": "as-hub-demo"
+    "as": "as-hub-demo",
+    "aiso": "aiso-hub"
   }
 }
