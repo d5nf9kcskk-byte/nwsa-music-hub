@@ -19,6 +19,10 @@ import { setCurrentDirector, clearCurrentDirector } from '../currentDirector';
 import { ORG } from '../../org';
 import { HomeScreenHint } from './HomeScreenHint';
 
+// The bare build-time literal, as in DirectorApp.tsx (it folds; an ORG read
+// does not). Used only to pick the Fixture Director's ensemble below.
+declare const __ORG_PERSONNEL__: boolean;
+
 /**
  * Break-glass allowlist. Access is normally decided by the `directors`
  * collection in Firestore (see useDirectors + firestore.rules), so this list is
@@ -128,7 +132,9 @@ export function AuthGate({ children }: Props) {
       // the owner-only rows (Directors, the Hub 2.0 preview). Fixtures only.
       const asked = new URLSearchParams(window.location.search).get('role');
       const role = asked === 'teacher' || asked === 'classroom' || asked === 'assistant' || asked === 'owner' ? asked : 'director';
-      setCurrentDirector({ email: 'fixtures@local', role, assignedEnsembleIds: ['symphony-orchestra'] }, 'Fixture Director');
+      // Assigned the orchestra of whichever fixture set this build serves:
+      // the school's (fixtures.ts) or the adult one's (fixturesAdult.ts).
+      setCurrentDirector({ email: 'fixtures@local', role, assignedEnsembleIds: [__ORG_PERSONNEL__ ? 'orchestra' : 'symphony-orchestra'] }, 'Fixture Director');
     }
   }, []);
 
