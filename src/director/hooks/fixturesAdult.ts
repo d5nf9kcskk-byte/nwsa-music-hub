@@ -24,9 +24,9 @@ import type {
  * imported binding, folded only inside the chunk that defines it, and the
  * paid-roster hooks sit in another chunk. Names and pay figures must not
  * ship, so in any build that is not both a personnel org and VITE_FIXTURES=1
- * each list below compiles to an empty one. For the same reason this file
- * imports nothing from ../personnel, which would pull that chunk's code into
- * the public one.
+ * each list below compiles to an empty one. This file also imports nothing
+ * from ../personnel: it lands in the public chunk, and an import would bring
+ * that code along with it.
  */
 declare const __ORG_PERSONNEL__: boolean;
 
@@ -57,7 +57,7 @@ export const ADULT_PIECES: RepertoirePiece[] = __ORG_PERSONNEL__ && import.meta.
     fullTitle: 'An der schönen blauen Donau (The Blue Danube), Op. 314', composer: 'Johann Strauss II',
     composerDates: '1825–1899', catalogNumber: 'Op. 314', year: '1866', duration: 10,
     instrumentation: '2 2 2 2 — 4 2 1 1 — timp, perc — hp — str',
-    programNotes: 'Written in 1866 for the Vienna Men’s Choral Association, who first sang it on 15 February 1867. The orchestral version followed that year, for the World’s Fair in Paris.',
+    programNotes: 'Composed in 1866 and first sung by the Vienna Men’s Choral Association on 15 February 1867. The orchestral version followed that year, for the World’s Fair in Paris.',
     eventIds: ['fx-new-years-concert'],
   },
   {
