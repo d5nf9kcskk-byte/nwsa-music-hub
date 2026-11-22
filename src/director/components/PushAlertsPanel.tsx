@@ -52,6 +52,13 @@ const ERROR_TEXT: Record<string, string> = {
   'no-service-worker': 'The Hub app is still installing on this device. Reload once, then try again.',
 };
 
+// One reading size and one button shape for the whole panel: the stock
+// 12px muted hint was too small to read, and a bare .dir-btn has no
+// outline or side padding, so the secondary buttons read as loose text.
+const TEXT = { margin: 0, fontSize: 15, lineHeight: 1.5, color: 'var(--dir-text)' } as const;
+const BUTTONS = { display: 'flex', flexDirection: 'column', gap: 10, marginTop: 4 } as const;
+const BTN = { flex: 'none', width: '100%', padding: '0 18px' } as const;
+
 export function PushAlertsPanel({ onClose }: { onClose: () => void }) {
   const panelRef = useModalA11y<HTMLDivElement>(onClose, true, { closeOnBack: true });
   const me = useCurrentDirector();
@@ -166,17 +173,17 @@ export function PushAlertsPanel({ onClose }: { onClose: () => void }) {
           <button className="dir-drawer-close" onClick={onClose} aria-label="Close">×</button>
         </div>
         <div className="dir-drawer-body">
-          <div className="dir-field-hint" style={{ marginTop: 0 }}>
+          <p style={TEXT}>
             When a director changes or cancels something happening <strong>today</strong>, this device
             buzzes with the change note. This is the trial: staff devices only.
-          </div>
-          <div className="dir-field-hint">
+          </p>
+          <p style={TEXT}>
             <strong>iPhone and iPad:</strong> alerts only reach a Hub added to the Home Screen
             (Safari → Share → Add to Home Screen), opened from that icon.
-          </div>
+          </p>
 
           {support !== 'ok' && (
-            <div className="dir-card" role="status" style={{ margin: '12px 0' }}>{SUPPORT_TEXT[support]}</div>
+            <div className="dir-card" role="status" style={{ ...TEXT, margin: 0 }}>{SUPPORT_TEXT[support]}</div>
           )}
 
           {support === 'ok' && (
@@ -215,14 +222,14 @@ export function PushAlertsPanel({ onClose }: { onClose: () => void }) {
                 </div>
               )}
 
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
-                <button className="dir-btn dir-btn-primary" style={{ flex: '0 0 auto' }} disabled={busy || !client} onClick={turnOn}>
+              <div style={BUTTONS}>
+                <button className="dir-btn dir-btn-primary" style={BTN} disabled={busy || !client} onClick={turnOn}>
                   {state ? 'Save' : 'Turn on alerts on this phone'}
                 </button>
                 {state && (
                   <>
-                    <button className="dir-btn" style={{ flex: '0 0 auto' }} disabled={busy} onClick={test}>Send a test alert</button>
-                    <button className="dir-btn" style={{ flex: '0 0 auto' }} disabled={busy} onClick={turnOff}>Turn off</button>
+                    <button className="dir-btn dir-btn-ghost" style={BTN} disabled={busy} onClick={test}>Send a test alert</button>
+                    <button className="dir-btn dir-btn-ghost" style={BTN} disabled={busy} onClick={turnOff}>Turn off</button>
                   </>
                 )}
               </div>
@@ -230,28 +237,28 @@ export function PushAlertsPanel({ onClose }: { onClose: () => void }) {
           )}
 
           {msg && (
-            <div className="dir-field-hint" role="status" style={{ color: msg.ok ? undefined : 'var(--dir-danger)' }}>
+            <div role="status" style={{ ...TEXT, fontWeight: 600, color: msg.ok ? undefined : 'var(--dir-danger)' }}>
               {msg.text}
             </div>
           )}
 
           {canFlipFamilies && (
-            <div className="dir-card" style={{ marginTop: 20 }}>
-              <strong>Families</strong>
-              <div className="dir-field-hint">
+            <div className="dir-card" style={{ margin: '8px 0 0', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <strong style={{ fontSize: 16 }}>Families</strong>
+              <p style={TEXT}>
                 {familiesOpen === null ? 'Checking…'
                   : familiesOpen
                     ? 'ON. Families see "Get alerts on this phone" on the Home page. Closing stops alerts to every family phone at once; opening again brings them back.'
                     : 'OFF. Families see nothing, and no family phone gets an alert.'}
-              </div>
-              <div className="dir-field-hint">
+              </p>
+              <p style={TEXT}>
                 Turn this on only after App Check enforcement is on and the two-week iPhone trial
                 shows alerts still arriving. It opens a public sign-up anyone can reach.
-              </div>
+              </p>
               {familiesOpen !== null && (
                 <button
-                  className="dir-btn"
-                  style={{ flex: '0 0 auto', marginTop: 8 }}
+                  className="dir-btn dir-btn-ghost"
+                  style={BTN}
                   disabled={busy}
                   onClick={() => flipFamilies(!familiesOpen)}
                 >
