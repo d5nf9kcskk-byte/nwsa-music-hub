@@ -481,7 +481,8 @@ export default function DirectorApp() {
     announcementId: searchParams.get('announcement') ?? undefined,
     assignmentId: searchParams.get('assignment') ?? undefined,
     selectAll: searchParams.get('selectall') === '1' || undefined,
-    closing: searchParams.get('closing') === '1' || undefined,
+    // School closing is a school's mode; an adult org's Today has no door to it.
+    closing: !__ORG_PERSONNEL__ && searchParams.get('closing') === '1' || undefined,
   };
 
   function go(t: DirTab, opts?: DirNavOpts) {

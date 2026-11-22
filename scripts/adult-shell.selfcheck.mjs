@@ -63,7 +63,7 @@ assert(shell.includes('const VALID_TABS: readonly DirTab[] = __ORG_PERSONNEL__ ?
 // ── Public: menu rows and addresses built on a student record ─────────────
 const layout = read('../src/public/PublicLayout.tsx');
 const trimmed = listAfter(layout, 'const school = [', '];', "PublicLayout's school-only menu list");
-const MENU_ROWS = ['/lookup', '/required-concerts', '/checkin', '/assignments', '/copies'];
+const MENU_ROWS = ['/lookup', '/required-concerts', '/checkin', '/assignments', '/copies', '/absence'];
 const untrimmed = MENU_ROWS.filter(p => !trimmed.includes(p));
 assert(untrimmed.length === 0,
   `PublicLayout no longer drops ${untrimmed.join(', ')} from a personnel org's menus.`);
@@ -71,8 +71,12 @@ assert(untrimmed.length === 0,
 const main = read('../src/main.tsx');
 const SCHOOL_ROUTES = [
   'lookup', 'student/:id', 'add-students', 'classes', 'college', 'required-concerts',
-  'checkin', 'checkin/:id', 'assignments', 'assignments/:id', 'copies', 'start',
+  'checkin', 'checkin/:id', 'assignments', 'assignments/:id', 'assignments/:id/submit', 'copies', 'start',
 ];
+// Each address exactly once: a second, ungated route for the same path would
+// otherwise pass the check below and still mount the school page.
+const doubled = SCHOOL_ROUTES.filter(p => main.split(`{ path: '${p}',`).length !== 2);
+assert(doubled.length === 0, `main.tsx declares ${doubled.map(p => `/${p}`).join(', ')} more or less than once.`);
 const open = SCHOOL_ROUTES.filter(p => !main.includes(`{ path: '${p}', element: __ORG_PERSONNEL__ ? HOME : `));
 assert(open.length === 0,
   `main.tsx renders ${open.map(p => `/${p}`).join(', ')} in a personnel org instead of sending it Home.`);

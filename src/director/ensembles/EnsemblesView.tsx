@@ -76,7 +76,12 @@ export function EnsemblesView({ onNavigate }: { onNavigate: DirNavigate }) {
                   onClick={() => onNavigate('ensembleHub', { ensembleId: e.id })}
                 >
                   <div className="dir-ens-name">{e.name} <ChevronRight size={14} style={{ verticalAlign: '-2px', opacity: 0.5 }} /></div>
-                  {!__ORG_PERSONNEL__ && (
+                  {/* An orchestra has no student count, but its next rehearsal still helps. */}
+                  {__ORG_PERSONNEL__ ? next && (
+                    <div className="dir-ens-sub">
+                      Next rehearsal {parseDate(next.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}{next.startTime ? ` ${formatTimeRange(next.startTime, next.endTime)}` : ''}
+                    </div>
+                  ) : (
                     <div className="dir-ens-sub">
                       {count} student{count === 1 ? '' : 's'}
                       {count === 0 && ' — add some below'}
