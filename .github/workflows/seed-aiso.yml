@@ -1,0 +1,65 @@
+name: Seed AISO
+
+# Starts the aiso-hub Firebase project — the browser-clickable version of
+# `node scripts/seed-aiso-org.mjs`, so the Hub can be started without a local
+# checkout, Node, or a service account key sitting on someone's laptop.
+# Mirrors seed-as.yml.
+#
+# AISO is a real orchestra, so this is NOT a demo reset. The seeder writes the
+# owner's sign-in entry, one ensemble and one concert, and no people.
+#
+# Manual only, never scheduled: it WRITES data. Re-running is safe, and is how
+# you name a different owner: it never overwrites. An address that is already
+# an owner is left alone, and the ensemble and the concert go only into a Hub
+# that has no ensemble and no event yet.
+#
+# SAFETY: seed-aiso-org.mjs hard-aborts unless the service account's own
+# project is exactly `aiso-hub`, so this workflow is physically unable to
+# write to the NWSA project — or to either demo — no matter what secret it is
+# handed.
+
+on:
+  workflow_dispatch:
+    inputs:
+      # Required, with NO default on purpose. Google is the only way in and
+      # the owner is the only role that can add anyone else, so a default that
+      # is the wrong person locks everyone out (docs/demo-as-setup.md).
+      owner_email:
+        description: 'Google account that will own the Hub (must be able to sign in with Google — a non-Google address locks everyone out)'
+        required: true
+
+permissions:
+  contents: read
+
+# Two seeders racing would interleave writes for no benefit.
+concurrency:
+  group: seed-aiso
+  cancel-in-progress: false
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Check the service-account secret exists
+        env:
+          AISO_SERVICE_ACCOUNT_JSON: ${{ secrets.AISO_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -z "$AISO_SERVICE_ACCOUNT_JSON" ]; then
+            echo "::error::AISO_SERVICE_ACCOUNT_JSON is not set. Add it under Settings → Secrets and variables → Actions (see docs/aiso-setup.md)." >&2
+            exit 1
+          fi
+
+      - name: Seed the Hub
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.AISO_SERVICE_ACCOUNT_JSON }}
+          DEMO_OWNER_EMAIL: ${{ inputs.owner_email }}
+        run: node scripts/seed-aiso-org.mjs
