@@ -203,6 +203,20 @@ service cloud.firestore {
         && (!('name' in d) || (d.name is string && d.name.size() <= 120));
     }
 
+    // (#messages) A signed-in, honoured player (any player). Asks hasRole first
+    // (so through signedIn(), the honoured-sign-in gate) like every function
+    // that reads the caller's own entry; the entry must also be EXACTLY a
+    // member's, so an entry that carries a staff role as well is not one.
+    function isMember() {
+      return hasRole('member') && isMemberEntry(myDirectorDoc());
+    }
+    // The player whose roster row is `pid`. A player's thread id IS their
+    // personnelId, taken from their own entry, never from the request.
+    function isMemberOf(pid) {
+      return hasRole('member') && isMemberEntry(myDirectorDoc())
+        && myDirectorDoc().get('personnelId', '') == pid;
+    }
+
     // The session is on the one account the entry names.
     function isBoundAccount(boundUid) {
       return boundUid is string
@@ -1891,20 +1905,11 @@ service cloud.firestore {
 
     // ── Messages to players (#messages, personnel orgs; W3b) ──────────────
     // Three NEW collections, nothing existing touched. A player is a Directors
-    // entry with roles == ['member'] (#member-sign-in); `isMemberOf(pid)` is
-    // that entry, honoured, and tied to THIS roster row. Everything a client
+    // entry with roles == ['member'] (#member-sign-in); `isMemberOf(pid)` (in
+    // the helpers above) is that entry, honoured, and tied to THIS roster
+    // row. Everything a client
     // may not write (a thread's summary, who a broadcast reached) is written
     // by the Cloud Functions with the Admin SDK, which bypasses these rules.
-
-    // A signed-in, honoured player (any player).
-    function isMember() {
-      return signedIn() && isMemberEntry(myDirectorDoc());
-    }
-    // The signed-in player whose roster row is `pid`. A player's thread id IS
-    // their personnelId, taken from their own entry, never from the request.
-    function isMemberOf(pid) {
-      return isMember() && myDirectorDoc().get('personnelId', '') == pid;
-    }
 
     // Broadcasts: staff write one REQUEST (who, what); `memberMailSend` makes
     // one `mail` doc per person from the stored roster and writes back, per

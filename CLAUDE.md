@@ -1475,7 +1475,7 @@ keep Google. PR #244's staff password work, ported to MEMBERS only.
   `students/{id}`, a member clause would CHANGE an existing school rule, the
   same-day trigger is in the school's functions only, and an iPhone needs the
   Home Screen app. The nudge email and a broadcast cover a same-day change.
-- Proof: `scripts/messages-rules.emulator-check.mjs` (the rules, 110+ cases),
+- Proof: `scripts/messages-rules.emulator-check.mjs` (the rules, 127 cases),
   `scripts/member-messages.emulator-proof.mjs` (the real trigger code on the
   emulator), `functions/src/memberMail.selfcheck.ts`,
   `src/director/office/officeCore.selfcheck.ts` (also checks the screen's
