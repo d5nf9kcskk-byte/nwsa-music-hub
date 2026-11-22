@@ -95,14 +95,24 @@ for (const provider of ['password', 'anonymous', 'custom', 'phone', 'microsoft.c
   // Firestore: bound, or (only while the server-only switch is off) no
   // record yet. The bound clause first, so a bound person never costs a
   // switch read.
-  check(fsFn('honouredSignIn') === "function honouredSignIn() { return request.auth.token.firebase.sign_in_provider == 'google.com' && (boundGoogleSignIn() || !googleTieRequired());",
-    'firestore.rules honouredSignIn: Google, and bound or the requirement not yet on');
+  check(fsFn('honouredSignIn') === "function honouredSignIn() { return (request.auth.token.firebase.sign_in_provider == 'google.com' && (boundGoogleSignIn() || !googleTieRequired())) || (request.auth.token.firebase.sign_in_provider == 'password' && boundMemberPasswordSignIn());",
+    'firestore.rules honouredSignIn: Google, and bound or the requirement not yet on; or a MEMBER\'s bound password (#member-sign-in)');
   check(fsFn('googleTieRequired') === "function googleTieRequired() { return exists(/databases/$(database)/documents/serverConfig/signIn) && get(/databases/$(database)/documents/serverConfig/signIn).data.get('googleTieRequired', false) == true;",
     'the switch is serverConfig/signIn.googleTieRequired, and a missing document means "not required"');
   // Storage: always bound. No switch (a Storage rule may read two Firestore
   // documents and these already use both).
-  check(stFn('honouredSignIn') === "function honouredSignIn() { return request.auth.token.firebase.sign_in_provider == 'google.com' && boundGoogleSignIn();",
-    'storage.rules honouredSignIn: Google and bound, always');
+  check(stFn('honouredSignIn') === "function honouredSignIn() { return (request.auth.token.firebase.sign_in_provider == 'google.com' && boundGoogleSignIn()) || (request.auth.token.firebase.sign_in_provider == 'password' && boundMemberPasswordSignIn());",
+    'storage.rules honouredSignIn: Google and bound, always; or a MEMBER\'s bound password (#member-sign-in)');
+  // (#member-sign-in) The password arm: member entries only, bound, server-set.
+  // memberToken.ts is its copy for the member functions (memberToken.selfcheck.ts).
+  check(fsFn('isMemberEntry') === "function isMemberEntry(d) { return d.get('roles', []) == ['member'];", 'firestore.rules: a member entry has exactly the one role');
+  check(fsFn('isBoundMemberPassword') === "function isBoundMemberPassword(d) { return isMemberEntry(d) && isBoundAccount(d.get('boundUid', '')) && d.get('passwordSet', false) == true && (d.get('googleSub', '') == '' || isTiedGoogleId(d.get('googleSub', '')));",
+    'firestore.rules: a password counts only on a member entry\'s bound account, with a server-set password');
+  check(stFn('isBoundMemberPassword') === "function isBoundMemberPassword(d) { return d.get('roles', []) == ['member'] && isBoundAccount(d.get('boundUid', '')) && d.get('passwordSet', false) == true && (d.get('googleSub', '') == '' || isTiedGoogleId(d.get('googleSub', '')));",
+    'storage.rules: the same password arm');
+  check(fsFn('boundMemberPasswordSignIn') === 'function boundMemberPasswordSignIn() { return exists(/databases/$(database)/documents/directors/$(request.auth.token.email)) && isBoundMemberPassword(myDirectorDoc());',
+    'firestore.rules reads the password record off the caller\'s own directors doc, and a missing doc is a plain no');
+  check(!/isMember|'member'/.test(fsFn('isKnownRole')), 'a member is not a known (staff) role');
   check(!/serverConfig/.test(stRules), 'storage.rules reads no switch');
   const same: [string, string][] = [
     ['isBoundGoogleAccount', "function isBoundGoogleAccount(d) { return isBoundAccount(d.get('boundUid', '')) && isTiedGoogleId(d.get('googleSub', ''));"],
@@ -143,7 +153,7 @@ for (const provider of ['password', 'anonymous', 'custom', 'phone', 'microsoft.c
   const readers = [...fsRules.matchAll(/function (\w+)\([^)]*\) \{([\s\S]*?)\n    \}/g)].filter(m => /myDirectorDoc\(\)/.test(m[2]));
   check(readers.length >= 5, 'found the functions that read the caller\'s directors doc');
   for (const [, name, body] of readers) {
-    if (name === 'hasRole' || name === 'boundGoogleSignIn' || name === 'roleClaimValid') continue;
+    if (name === 'hasRole' || name === 'boundGoogleSignIn' || name === 'boundMemberPasswordSignIn' || name === 'roleClaimValid') continue;
     check(/\b(is\w+Role|hasRole)\(/.test(body), `${name}() reads the caller's directors doc only behind a role helper`);
   }
   // roleClaimValid only compares a label; each rule that uses it asks a
@@ -155,7 +165,7 @@ for (const provider of ['password', 'anonymous', 'custom', 'phone', 'microsoft.c
   check(fsFn('isChaperoneRole') === "function isChaperoneRole() { return hasRole('chaperone');", 'isChaperoneRole reads the role through hasRole, so through the gate');
   check(!/myDirectorDoc\(\)/.test(fsRules.slice(fsRules.indexOf('match /directors/{email}'))) , 'no rule below the helpers reads the caller\'s directors doc directly');
   const stRole = stFn('hasRole');
-  for (const g of ['isStaff', 'isTeacher', 'isClassroom', 'isAssistant', 'isChaperone']) {
+  for (const g of ['isStaff', 'isTeacher', 'isClassroom', 'isAssistant', 'isChaperone', 'isMember']) {
     check(/honouredSignIn\(\)/.test(stFn(g)) && /email_verified == true/.test(stFn(g)), `storage.rules ${g}() is a full gate`);
   }
   check(stRole !== '' && [...stRules.matchAll(/hasRole\(/g)].length >= 5, 'storage.rules reads roles through hasRole, inside those gates');

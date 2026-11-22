@@ -114,19 +114,29 @@ service cloud.firestore {
     //     identity (`googleSub`). Once this is REQUIRED (the switch below),
     //     an entry with no record lets nobody in; the app asks the server to
     //     make the record at the next sign-in, by itself.
-    //   • Anything else (a password, anonymous, a custom token, a provider
-    //     nobody turned on deliberately) is refused. A new way of signing in
-    //     gets a clause here on purpose or it gets nothing.
+    //   • An email-and-password sign-in (#member-sign-in, personnel orgs) is
+    //     honoured ONLY on a MEMBER entry (`roles == ['member']`), on the
+    //     account the server bound (`boundUid`), with `passwordSet` true (only
+    //     the personnel org's passwordSetup function writes either). Staff
+    //     keep Google: a password on a staff entry is refused. No switch on
+    //     this arm. The school has no member entries, so for the school this
+    //     arm is never true and every verdict is as before.
+    //   • Anything else (anonymous, a custom token, a provider nobody turned
+    //     on deliberately) is refused. A new way of signing in gets a clause
+    //     here on purpose or it gets nothing.
     //
     // The bound clause comes FIRST, so for a bound person the switch is
-    // never even read: no extra document, no changed verdict.
+    // never even read: no extra document, no changed verdict. A Google token
+    // never reaches the password arm's document read either.
     //
     // storage.rules (honouredSignIn) and the Cloud Functions that check a
     // staff token (functions/src/staffToken.ts) apply the same test WITHOUT
     // the switch, for the reason given there. All three change together.
     function honouredSignIn() {
-      return request.auth.token.firebase.sign_in_provider == 'google.com'
-        && (boundGoogleSignIn() || !googleTieRequired());
+      return (request.auth.token.firebase.sign_in_provider == 'google.com'
+              && (boundGoogleSignIn() || !googleTieRequired()))
+        || (request.auth.token.firebase.sign_in_provider == 'password'
+            && boundMemberPasswordSignIn());
     }
 
     // The switch: `serverConfig/signIn.googleTieRequired == true`. It is data
@@ -155,6 +165,44 @@ service cloud.firestore {
       return isBoundAccount(d.get('boundUid', ''))
         && isTiedGoogleId(d.get('googleSub', ''));
     }
+    // (#member-sign-in) The password arm: a member entry, its own account,
+    // a password the server set on it. When the entry also names a Google
+    // identity, the account must still have it (PR #244's test, for members).
+    function boundMemberPasswordSignIn() {
+      return exists(/databases/$(database)/documents/directors/$(request.auth.token.email))
+        && isBoundMemberPassword(myDirectorDoc());
+    }
+    function isBoundMemberPassword(d) {
+      return isMemberEntry(d)
+        && isBoundAccount(d.get('boundUid', ''))
+        && d.get('passwordSet', false) == true
+        && (d.get('googleSub', '') == '' || isTiedGoogleId(d.get('googleSub', '')));
+    }
+    // A member (#member-sign-in): a player on a personnel org's paid roster,
+    // and nothing else. `roles` is exactly ['member'], so a member entry can
+    // carry no staff role. Deliberately NOT in isKnownRole() (the chaperone
+    // pattern): a member reads their own Directors entry and nothing else in
+    // this file. Their roster row, contracts and payments reach them through
+    // the memberHome function's projection (src/shared/memberView.ts), never
+    // a read rule, because those documents carry the personnel manager's
+    // own notes and a rule cannot hide one field.
+    function isMemberEntry(d) {
+      return d.get('roles', []) == ['member'];
+    }
+    // The shape staff may create for a player (Personnel → Invite): a member
+    // entry tied to a roster row that exists, and nothing else. No binding
+    // keys (only the server writes those).
+    function memberEntryOk() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['roles', 'personnelId', 'name', 'invitedAt', 'invitedBy'])
+        && d.roles == ['member']
+        && d.personnelId is string
+        && d.personnelId.size() > 0
+        && d.personnelId.size() <= 128
+        && exists(/databases/$(database)/documents/personnel/$(d.personnelId))
+        && (!('name' in d) || (d.name is string && d.name.size() <= 120));
+    }
+
     // The session is on the one account the entry names.
     function isBoundAccount(boundUid) {
       return boundUid is string
@@ -183,9 +231,11 @@ service cloud.firestore {
 
     // Who may edit a Directors entry: the Owner anything, a person a short
     // list of their own fields.
+    // A member edits nothing on their own entry (#member-sign-in).
     function directorEditAllowed(email) {
       return isOwner()
         || (verifiedSelf(email)
+            && !isMemberEntry(resource.data)
             && request.resource.data.diff(resource.data).affectedKeys()
                  .hasOnly(['name', 'assignedStudentIds', 'lessonSlots', 'lessonLogSheets', 'examRubric', 'extraEventIds']));
     }
@@ -1710,17 +1760,22 @@ service cloud.firestore {
       // unverified claim to an allowlisted address could read the doc and
       // poison `name` (which stamps updatedBy/rollTaken attribution).
       allow get:  if verifiedSelf(email) || isOwner();
-      allow list: if isOwner();
+      // Staff see which players have been invited, and whether they have
+      // set a password (#member-sign-in): member entries only. The app's
+      // query asks for exactly those (where roles == ['member']).
+      allow list: if isOwner() || (isStaff() && isMemberEntry(resource.data));
       // Existing directors are seeded out-of-band (Admin SDK bypasses these
       // rules); from here on, only the Owner adds or edits others.
       // The binding record is the server's alone (see bindingGuard above):
       // no create may carry it and every update goes through the guard.
-      allow create: if isOwner()
-        && !request.resource.data.keys().hasAny(['googleSub', 'boundUid', 'boundAt', 'passwordSet']);
+      allow create: if (isOwner()
+        && !request.resource.data.keys().hasAny(['googleSub', 'boundUid', 'boundAt', 'passwordSet']))
+        || (isStaff() && memberEntryOk());
       allow update: if directorEditAllowed(email) && bindingGuard(email);
       // The Owner may remove any OTHER director, but never their own
       // account — the app can never end up ownerless.
-      allow delete: if isOwner() && request.auth.token.email != email;
+      allow delete: if (isOwner() && request.auth.token.email != email)
+        || (isStaff() && isMemberEntry(resource.data));
     }
 
     // ── Sign-in log (#login-history) ────────────────────

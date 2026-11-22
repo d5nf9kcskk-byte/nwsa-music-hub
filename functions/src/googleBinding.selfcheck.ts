@@ -508,7 +508,9 @@ check(googleSubOf(claims()) === 'g-pat' && googleSubOf(claims({ firebase: { sign
     'bindingGuard: untouched, or the Owner removing someone ELSE\'s');
   const directors = rules.slice(rules.indexOf('match /directors/{email} {'));
   const block = squash(directors.slice(0, directors.indexOf('\n    }')));
-  check(block.includes(`allow create: if isOwner() && !request.resource.data.keys().hasAny(${KEYS});`), 'no create may carry the record');
+  check(block.includes(`allow create: if (isOwner() && !request.resource.data.keys().hasAny(${KEYS})) || (isStaff() && memberEntryOk());`), 'no create may carry the record');
+  // (#member-sign-in) Staff may create a player's member entry, whose key list has no room for the record.
+  check(fn('memberEntryOk').includes("d.keys().hasOnly(['roles', 'personnelId', 'name', 'invitedAt', 'invitedBy'])"), 'a member entry staff create cannot carry the record either');
   check(block.includes('allow update: if directorEditAllowed(email) && bindingGuard(email);'), 'every update goes through the guard: two named conditions, joined once');
   check((block.match(/allow update/g) ?? []).length === 1 && (block.match(/allow create/g) ?? []).length === 1 && !/allow write/.test(block), 'and there is exactly one update rule and one create rule for an entry');
   check((rules.match(/match \/directors\//g) ?? []).length === 1, 'and exactly one place that matches an entry');

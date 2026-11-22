@@ -46,14 +46,30 @@ service firebase.storage {
     // server step to make the record. A person with no record yet can
     // neither upload nor open staff-only files until the app has had the
     // record made, which it does by itself on opening.
+    //
+    // (#member-sign-in) An email-and-password sign-in is honoured only on a
+    // MEMBER entry, on the account the server bound, with a password the
+    // server set: the same arm as firestore.rules, and memberToken.ts for
+    // the member functions. The school has no member entries.
     function honouredSignIn() {
-      return request.auth.token.firebase.sign_in_provider == 'google.com'
-        && boundGoogleSignIn();
+      return (request.auth.token.firebase.sign_in_provider == 'google.com'
+              && boundGoogleSignIn())
+        || (request.auth.token.firebase.sign_in_provider == 'password'
+            && boundMemberPasswordSignIn());
     }
 
     // Every caller has already checked that the directors doc exists.
     function boundGoogleSignIn() {
       return isBoundGoogleAccount(directorDoc());
+    }
+    function boundMemberPasswordSignIn() {
+      return isBoundMemberPassword(directorDoc());
+    }
+    function isBoundMemberPassword(d) {
+      return d.get('roles', []) == ['member']
+        && isBoundAccount(d.get('boundUid', ''))
+        && d.get('passwordSet', false) == true
+        && (d.get('googleSub', '') == '' || isTiedGoogleId(d.get('googleSub', '')));
     }
     function isBoundGoogleAccount(d) {
       return isBoundAccount(d.get('boundUid', ''))
@@ -112,6 +128,16 @@ service firebase.storage {
         && firestore.exists(/databases/(default)/documents/directors/$(request.auth.token.email))
         && honouredSignIn()
         && hasRole('chaperone');
+    }
+
+    // Member (#member-sign-in): a player on a personnel org's paid roster.
+    // Reads the members-only library parts below and nothing else.
+    function isMember() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && firestore.exists(/databases/(default)/documents/directors/$(request.auth.token.email))
+        && honouredSignIn()
+        && hasRole('member');
     }
 
     function isStaff() {
@@ -348,6 +374,21 @@ service firebase.storage {
     }
 
     // Deny everything else by default.
+    // Members-only library parts (#member-sign-in, personnel orgs). The
+    // path is the one scripts/ingest-bottega-set.mjs writes:
+    // members/parts/<pieceId>/<file>. The Admin SDK uploads (the ingest);
+    // no client writes here, staff included. Any signed-in member may open
+    // any part, not only their own chair's: a Storage rule may read only two
+    // Firestore documents, and matching a Bottega part label to a roster
+    // section is word work a rule cannot do. The app shows each player their
+    // own chair's parts (partIsMine in src/shared/memberView.ts). The point
+    // of this path is that NOTHING is public: rental and copyrighted parts
+    // never sit on a world-readable path or behind a download token.
+    match /members/parts/{pieceId}/{file} {
+      allow read: if isMember() || isStaff();
+      allow write: if false;
+    }
+
     match /{allPaths=**}             { allow read, write: if false; }
   }
 }
