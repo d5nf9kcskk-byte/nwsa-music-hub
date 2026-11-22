@@ -111,7 +111,13 @@ export function AuthGate({ children }: Props) {
 
   useEffect(() => {
     if (!auth) { setUser(null); return; }
-    return onAuthStateChanged(auth, u => setUser(u));
+    // Personnel orgs: a signed-out device keeps no parts (#parts-reader),
+    // however the session ended; the Sign out button clears first, this
+    // catches the rest. Chosen at build time so the school's bundle is unchanged.
+    return onAuthStateChanged(auth, __ORG_PERSONNEL__ ? u => {
+      setUser(u);
+      if (!u) void import('../member/partStore').then(m => m.clearParts());
+    } : u => setUser(u));
   }, []);
 
   // Consume a pending redirect sign-in (the standalone-app fallback in

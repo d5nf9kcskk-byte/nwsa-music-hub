@@ -751,6 +751,13 @@ runs:
       run: node --experimental-strip-types src/shared/memberView.selfcheck.ts
       shell: bash
 
+    # The parts reader's device store (#parts-reader): a part is kept under
+    # account + members path only, "Updated" means the hash moved, and
+    # sign-out leaves no part on the device.
+    - name: Check the parts kept on a player's device
+      run: node --experimental-strip-types src/director/member/partStore.selfcheck.ts
+      shell: bash
+
     # The switch script says nothing about its result in a public log.
     - name: Check the switch script
       run: node scripts/require-google-ties.mjs --selfcheck

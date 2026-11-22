@@ -2,7 +2,7 @@ import '../director.css';
 import '../uiUpdates.css';
 import '../dirShell.css';
 import '../personnel/personnel.css';
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import type { User } from 'firebase/auth';
 import { LogOut, CalendarClock, Music, ClipboardSignature, Wallet, FileDown, MapPin } from 'lucide-react';
 import { ref as storageRef, getBlob } from 'firebase/storage';
@@ -14,6 +14,7 @@ import {
   FIXTURE_CONTRACTS, FIXTURE_MEMBER_PERSONNEL_ID, FIXTURE_PAYMENTS, FIXTURE_PERSONNEL, FIXTURE_PERSONNEL_CONTACTS,
 } from '../hooks/fixturesAdult';
 import { memberView, partIsMine, type MemberView } from '../../shared/memberView';
+import { clearParts, getPart, isUpdated, listParts, putPart, type StoredPart } from './partStore';
 import { calledIds, seatLabel } from '../personnel/personnelOrder';
 import { contractTotalCents, formatCents, paidCents, payState } from '../personnel/contractMoney';
 import { formatDate, formatTime, formatTimeRange, todayStr } from '../utils';
@@ -36,7 +37,16 @@ import { ORG } from '../../org';
  *     shows a player their own chair's (partIsMine).
  * In a fixture build the same projection runs over the fixture roster, for
  * the second flute (`?role=member`).
+ *
+ * A part opens in the in-app reader (PartReader) and is kept on this device
+ * (partStore: IndexedDB, keyed by account + path, deleted on sign-out), so it
+ * opens again with no signal. "Updated" = the kept copy's sha256 is not the
+ * card's, and opening it fetches the new one.
  */
+
+const PartReader = lazy(() => import('./PartReader'));
+
+type Reading = { bytes: Uint8Array; title: string; note?: string };
 
 function endpoint(): string {
   const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
@@ -91,6 +101,11 @@ export default function MemberApp({ user, signOut }: { user: User; signOut: () =
   const { pieces } = useRepertoire();
   const [opening, setOpening] = useState('');
   const [partError, setPartError] = useState('');
+  const [reading, setReading] = useState<Reading | null>(null);
+  const uid = user.uid || (FIXTURES_ON ? 'fixtures' : '');
+  const [saved, setSaved] = useState<StoredPart[]>([]);
+  const refreshSaved = useCallback(() => { if (uid) listParts(uid).then(setSaved).catch(() => {}); }, [uid]);
+  useEffect(refreshSaved, [refreshSaved]);
 
   const person = (view?.person ?? null) as Partial<Personnel> | null;
   const contracts = useMemo(() => (view?.contracts ?? []) as unknown as Contract[], [view]);
@@ -113,18 +128,49 @@ export default function MemberApp({ user, signOut }: { user: User; signOut: () =
       .filter(x => x.parts.length);
   }, [calls, pieces, person]);
 
-  async function openPart(path: string) {
-    setPartError('');
-    if (!storage) { setPartError('Parts open on the live Hub, not in this preview.'); return; }
-    setOpening(path);
-    try {
-      const blob = await getBlob(storageRef(storage, path));
-      window.open(URL.createObjectURL(blob), '_blank', 'noopener');
-    } catch {
-      setPartError('That part did not open. Check your internet, or tell the librarian.');
+  async function download(path: string, label: string, pieceTitle: string): Promise<Uint8Array> {
+    if (storage) return new Uint8Array(await (await getBlob(storageRef(storage, path))).arrayBuffer());
+    if (import.meta.env.VITE_FIXTURES) {
+      // The fixture's sample stands in for Storage, so it needs "the network" too.
+      if (!navigator.onLine) throw new Error('offline');
+      const { fixturePartPdf } = await import('../hooks/fixturePartPdf');
+      return fixturePartPdf(label, pieceTitle);
     }
-    setOpening('');
+    throw new Error('no storage');
   }
+
+  async function openPart(part: { path: string; label: string; sha256?: string }, pieceTitle: string) {
+    setPartError('');
+    setOpening(part.path);
+    const title = `${pieceTitle}: ${part.label}`;
+    try {
+      const kept = uid ? await getPart(uid, part.path).catch(() => undefined) : undefined;
+      if (kept && !isUpdated(kept, part.sha256)) { setReading({ bytes: kept.bytes, title }); return; }
+      try {
+        const bytes = await download(part.path, part.label, pieceTitle);
+        // A full or private-mode disk still lets them read it now.
+        if (uid) await putPart(uid, { path: part.path, label: part.label, pieceTitle, bytes }).catch(() => {});
+        refreshSaved();
+        setReading({ bytes, title });
+      } catch {
+        if (kept) setReading({ bytes: kept.bytes, title, note: 'Your saved copy. A newer one is up: open it again with internet.' });
+        else setPartError('That part did not open. Check your internet, or tell the librarian.');
+      }
+    } finally {
+      setOpening('');
+    }
+  }
+
+  async function leave() {
+    await clearParts(); // a signed-out device keeps no parts
+    setSaved([]);
+    signOut();
+  }
+
+  const keptByPath = new Map(saved.map(p => [p.path, p]));
+  const livePaths = new Set(myParts.flatMap(x => x.parts.map(p => p.path)));
+  const savedOnly = saved.filter(p => !livePaths.has(p.path));
+  const chip: React.CSSProperties = { fontSize: 11, fontWeight: 800, padding: '1px 6px', borderRadius: 999, marginLeft: 6 };
 
   const card: React.CSSProperties = { background: 'var(--dir-surface)', border: '1px solid var(--dir-border)', borderRadius: 'var(--dir-radius)', padding: 16, marginBottom: 12 };
   const title: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'var(--dir-text-muted)', textTransform: 'uppercase', letterSpacing: '.04em', margin: '0 0 8px' };
@@ -144,7 +190,7 @@ export default function MemberApp({ user, signOut }: { user: User; signOut: () =
             </div>
           </div>
         </div>
-        <button className="dir-header-icon-btn" onClick={signOut} aria-label="Sign out" title="Sign out">
+        <button className="dir-header-icon-btn" onClick={() => { void leave(); }} aria-label="Sign out" title="Sign out">
           <LogOut size={18} />
         </button>
       </header>
@@ -183,7 +229,7 @@ export default function MemberApp({ user, signOut }: { user: User; signOut: () =
         {/* ── My parts ── */}
         <section style={card} aria-labelledby="m-parts">
           <h2 id="m-parts" style={title}><Music size={14} /> My parts</h2>
-          {!view ? null : myParts.length === 0 ? (
+          {!view ? null : myParts.length === 0 && savedOnly.length === 0 ? (
             <p style={muted}>No parts are up for your chair yet. The librarian posts them here.</p>
           ) : (
             myParts.map(({ piece, parts }) => (
@@ -193,14 +239,32 @@ export default function MemberApp({ user, signOut }: { user: User; signOut: () =
                   <div style={muted}>{piece.composer}</div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {parts.map(part => (
-                    <button key={part.path} className="dir-tool-btn" style={{ minHeight: 44 }} onClick={() => { void openPart(part.path); }} disabled={opening === part.path}>
-                      <FileDown size={14} /> {opening === part.path ? 'Opening…' : part.label}
-                    </button>
-                  ))}
+                  {parts.map(part => {
+                    const kept = keptByPath.get(part.path);
+                    return (
+                      <button key={part.path} className="dir-tool-btn" style={{ minHeight: 44 }} onClick={() => { void openPart(part, piece.title); }} disabled={opening === part.path}>
+                        <FileDown size={14} /> {opening === part.path ? 'Opening…' : part.label}
+                        {isUpdated(kept, part.sha256) ? <span style={{ ...chip, background: '#b45309', color: '#fff' }}>Updated</span>
+                          : kept ? <span style={{ ...chip, border: '1px solid var(--dir-border)', color: 'var(--dir-text-muted)' }}>Saved</span> : null}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             ))
+          )}
+          {savedOnly.length > 0 && (
+            <div style={{ marginTop: 8 }}>
+              <div style={muted}>Saved on this phone</div>
+              {savedOnly.map(p => (
+                <div key={p.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--dir-border)' }}>
+                  <div style={{ fontWeight: 700, fontSize: 15 }}>{p.pieceTitle}</div>
+                  <button className="dir-tool-btn" style={{ minHeight: 44 }} onClick={() => { void openPart(p, p.pieceTitle); }} disabled={opening === p.path}>
+                    <FileDown size={14} /> {opening === p.path ? 'Opening…' : p.label}
+                  </button>
+                </div>
+              ))}
+            </div>
           )}
           {partError && <p role="alert" style={{ ...muted, color: '#b91c1c', marginTop: 8 }}>{partError}</p>}
         </section>
@@ -245,6 +309,11 @@ export default function MemberApp({ user, signOut }: { user: User; signOut: () =
           ) : null}
         </section>
       </main>
+      {reading && (
+        <Suspense fallback={null}>
+          <PartReader bytes={reading.bytes} title={reading.title} note={reading.note} onClose={() => setReading(null)} />
+        </Suspense>
+      )}
     </div>
   );
 }

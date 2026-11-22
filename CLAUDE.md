@@ -1399,6 +1399,24 @@ keep Google. PR #244's staff password work, ported to MEMBERS only.
   no client writes. Not per chair in the rule (two-document limit, and label
   matching is word work); the app shows each player their chair's parts
   (`partIsMine`).
+- **Parts open in the in-app reader, and a part a player has opened stays on
+  the device until sign-out** (#parts-reader). `member/PartReader.tsx`
+  (pdf.js legacy, tap thirds / swipe / arrow keys, wake lock taken while open
+  and dropped on close, refusals swallowed). Never a link or `window.open` to
+  the PDF: a Home Screen app on iPhone can lose its way back (WebKit 290847).
+  The bytes live ONLY in IndexedDB `hub-member-parts` (`member/partStore.ts`),
+  keyed `<uid>|members/parts/...`; never Cache Storage, never the SW.
+  `clearParts()` deletes the whole database on Sign out AND whenever auth
+  goes null (AuthGate, personnel builds only). "Updated" = the kept copy's
+  sha256 is not the card's `memberParts[].sha256`; online it refetches,
+  offline it opens the kept copy and says so. The SW caches pdf.js's chunk and
+  worker at runtime (`parts-reader-code`, personnel builds only) so the reader
+  itself opens offline; `worker-src 'self'` is in the CSP for personnel builds
+  only. Both are conditional so the school's sw.js and index.html stay
+  byte-identical. `partStore.selfcheck.ts` pins the key and the clear;
+  `csp.selfcheck.mjs` pins worker-src when a `PartReader-*` chunk is built.
+  Fixtures: the Flute 2 sample is drawn by `hooks/fixturePartPdf.ts` (pdf-lib,
+  deterministic, its sha256 is on the fixture card).
 - **Functions per org**: the school builds `functions/src/index.ts` with
   `npm run build`, exactly as before. A personnel org builds
   `functions/src/personnelIndex.ts` with `node functions/build-org.mjs <org>`

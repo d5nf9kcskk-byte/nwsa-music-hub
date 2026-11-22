@@ -34,7 +34,7 @@ const BASE = ORG.basePath;
 /** App Check's reCAPTCHA (Fraud Defense) script origins (see script-src below). */
 const RECAPTCHA = ['https://www.google.com/recaptcha/', 'https://www.gstatic.com/recaptcha/'];
 
-function cspPlugin(authDomain: string | undefined, functionsOrigin: string | undefined): Plugin {
+function cspPlugin(authDomain: string | undefined, functionsOrigin: string | undefined, partsReader: boolean): Plugin {
   return {
     name: 'nwsa-csp',
     apply: 'build',
@@ -112,6 +112,12 @@ function cspPlugin(authDomain: string | undefined, functionsOrigin: string | und
             'https://www.google.com/recaptcha/',
             'https://recaptcha.google.com/recaptcha/',
           ].join(' '),
+          // The parts reader (#parts-reader, personnel orgs only) runs pdf.js in
+          // a worker from the app's own assets/ and nothing else: no blob:, no
+          // data:. Named outright rather than left to fall back to script-src,
+          // which would also let a worker load from Google's script hosts.
+          // School orgs: no directive, so their policy is byte-identical.
+          ...(partsReader ? ["worker-src 'self'"] : []),
           "object-src 'none'",
           "base-uri 'self'",
           "form-action 'self'",
@@ -365,10 +371,21 @@ export default defineConfig(({ mode }) => {
           urlPattern: ({ sameOrigin, url }) => sameOrigin && /\/assets\/[^/]+\.woff2$/.test(url.pathname),
           handler: 'CacheFirst',
           options: { cacheName: 'hub2-fonts', expiration: { maxEntries: 24 } },
-        }],
+        },
+        // Personnel orgs: pdf.js (its chunk and its worker, kept out of the
+        // precache above) cached the first time a player opens a part, so the
+        // reader opens offline afterwards. Public app CODE only, same-origin,
+        // hashed names; a member's part itself never touches the SW
+        // (src/director/member/partStore.ts). School orgs: no entry, so their
+        // sw.js is byte-identical.
+        ...(ORG.features.personnel ? [{
+          urlPattern: ({ sameOrigin, url }: { sameOrigin: boolean; url: URL }) => sameOrigin && /\/assets\/pdf\.worker\.min-[^/]+\.m?js$/.test(url.pathname),
+          handler: 'CacheFirst' as const,
+          options: { cacheName: 'parts-reader-code', expiration: { maxEntries: 4 } },
+        }] : [])],
       },
     }),
-    cspPlugin(authDomain, functionsOrigin),
+    cspPlugin(authDomain, functionsOrigin, ORG.features.personnel),
     swStamp(),
   ],
   };
