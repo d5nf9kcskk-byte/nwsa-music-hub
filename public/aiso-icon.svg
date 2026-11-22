@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" fill="#0B1830"/><g transform="translate(51.2 51.2) scale(0.8)" fill="none" color="#F4EFE4" style="--accent:#E2B257">
+  <circle cx="256" cy="256" r="150" stroke="currentColor" stroke-width="28"/>
+  <circle cx="256" cy="106" r="26" fill="var(--accent, #C8922E)"/>
+</g></svg>
