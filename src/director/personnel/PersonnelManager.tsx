@@ -325,7 +325,6 @@ export default function PersonnelManager({ initialPersonId, initialEventId }: {
           }}
           inviteCount={toInvite.length}
           onInvite={async () => {
-            if (!window.confirm(`Email a Hub invitation to ${toInvite.length} ${toInvite.length === 1 ? 'person' : 'people'}? Each gets a link to choose a password.`)) return '';
             let sent = 0; const failed: string[] = [];
             // One at a time: the server's mailbox cap is per hour, and a tally beats 80 parallel calls.
             for (const p of toInvite) {

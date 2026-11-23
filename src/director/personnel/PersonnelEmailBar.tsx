@@ -29,6 +29,8 @@ export function PersonnelEmailBar({ people, contacts, draftCount, onMarkSent, in
   const [message, setMessage] = useState('');
   const [inviting, setInviting] = useState(false);
   const [inviteNote, setInviteNote] = useState('');
+  // In-page confirm: window.confirm returns Cancel unseen in embedded browsers (see 4ef872e).
+  const [confirming, setConfirming] = useState(false);
   const [copied, setCopied] = useState('');
   const dedupe = (xs: string[], key: (x: string) => string) => {
     const seen = new Set<string>();
@@ -69,7 +71,7 @@ export function PersonnelEmailBar({ people, contacts, draftCount, onMarkSent, in
           <button className="dir-tool-btn" onClick={() => void copy('emails', copyList(emails))}><Copy size={14} /> {copied === 'emails' ? 'Copied' : 'Copy emails'}</button>
         )}
         {inviteCount > 0 && (
-          <button className="dir-tool-btn" disabled={inviting} onClick={() => { setInviting(true); void onInvite().then(setInviteNote).finally(() => setInviting(false)); }}>
+          <button className="dir-tool-btn" disabled={inviting || confirming} onClick={() => { setInviteNote(''); setConfirming(true); }}>
             <UserPlus size={14} /> {inviting ? 'Inviting…' : `Invite ${inviteCount} to the Hub`}
           </button>
         )}
@@ -77,6 +79,13 @@ export function PersonnelEmailBar({ people, contacts, draftCount, onMarkSent, in
           <button className="dir-tool-btn" onClick={onMarkSent}><Send size={14} /> Mark {draftCount} sent</button>
         )}
       </div>
+      {confirming && (
+        <div role="alertdialog" aria-label="Confirm invitations" className="pers-bar-actions">
+          <span className="dir-field-hint">Email a Hub invitation to {inviteCount} {inviteCount === 1 ? 'person' : 'people'}? Each gets a link to choose a password.</span>
+          <button className="dir-tool-btn" onClick={() => { setConfirming(false); setInviting(true); void onInvite().then(setInviteNote).finally(() => setInviting(false)); }}>Send invitations</button>
+          <button className="dir-tool-btn" onClick={() => setConfirming(false)}>Cancel</button>
+        </div>
+      )}
       {inviteNote && <p className="dir-field-hint" role="status">{inviteNote}</p>}
       {draftCount > 0 && <p className="dir-field-hint">Mark sent records that you sent the contract. It sends nothing itself.</p>}
     </div>
