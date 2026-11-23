@@ -31,7 +31,7 @@ import {
 
 export type ComposeFailure =
   | 'bad-request' | 'unknown-assignment' | 'unknown-student'
-  | 'too-large' | 'chunks-missing' | 'size-mismatch';
+  | 'too-large' | 'chunks-missing' | 'size-mismatch' | 'closed';
 
 interface FailureOutcome { ok: false; failure: ComposeFailure; message: string }
 interface SuccessOutcome { ok: true; submissionId: string; videoUrl: string }
@@ -44,6 +44,7 @@ const MESSAGES: Record<ComposeFailure, string> = {
   'too-large': 'That video is larger than this assignment allows.',
   'chunks-missing': 'Part of that upload did not arrive. Try sending it again.',
   'size-mismatch': 'That upload did not come through correctly. Try sending it again.',
+  'closed': 'This assignment is closed. Your teacher is no longer taking videos for it.',
 };
 
 function fail(failure: ComposeFailure): FailureOutcome {
@@ -219,6 +220,7 @@ export async function composeSubmission(body: unknown, deps: ComposeDeps): Promi
     deps.db.doc(`students/${req.studentId}`).get(),
   ]);
   if (!assignmentSnap.exists || assignmentSnap.data()?.acceptsVideoSubmissions !== true) return fail('unknown-assignment');
+  if (assignmentSnap.data()?.closed === true) return fail('closed');
   if (!studentSnap.exists) return fail('unknown-student');
 
   const rawMax = assignmentSnap.data()?.maxVideoSizeMB;

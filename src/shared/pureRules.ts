@@ -61,10 +61,13 @@ export function isPublished(item: { publishAt?: number }, now: number = Date.now
  * is a real toggle with a real Close button (`setQuizOpen`).
  */
 export function isAssignmentOpen(
-  a: { publishAt?: number; dueDate: string; acceptsQuizSubmissions?: boolean },
+  a: { publishAt?: number; dueDate: string; acceptsQuizSubmissions?: boolean; closed?: boolean },
   today: string,
   now: number = Date.now(),
 ): boolean {
+  // A director's Close outranks everything: a closed assignment leaves the
+  // browse lists even before its due date. Its own page still opens.
+  if (a.closed) return false;
   return isPublished(a, now) && (a.dueDate >= today || !!a.acceptsQuizSubmissions);
 }
 

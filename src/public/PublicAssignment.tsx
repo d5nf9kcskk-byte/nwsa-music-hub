@@ -141,7 +141,9 @@ export function PublicAssignment() {
           <h2 className="pub-assign-section-title">
             <FileText size={15} /> Take the test
           </h2>
-          {assignment.acceptsQuizSubmissions
+          {assignment.closed
+            ? <p className="pub-quiz-closed">{t('assign.closed')}</p>
+            : assignment.acceptsQuizSubmissions
             ? (loadingStudents
               ? <div className="pub-muted" style={{ padding: '8px 0' }}>{t('misc.loading')}</div>
               : <QuizForm assignment={assignment} quiz={selectedQuiz(assignment.quiz, assignment.quizSelection)} students={students} />)
@@ -205,7 +207,9 @@ export function PublicAssignment() {
           {/* The section itself always renders — it is the #assign-submit
               scroll target — but the form waits for the roster, or it would
               briefly claim nobody is assigned to the exam. */}
-          {loadingStudents
+          {assignment.closed
+            ? <p className="pub-quiz-closed">{t('assign.closed')}</p>
+            : loadingStudents
             ? <div className="pub-muted" style={{ padding: '8px 0' }}>{t('misc.loading')}</div>
             : <SubmissionForm assignment={assignment} students={students} onSubmitted={() => {}} />}
         </section>

@@ -225,6 +225,12 @@ const STUDENT_DOC = { 'students/stu-1': { name: 'Maya Ruiz' } };
   assert(!out.ok && out.failure === 'unknown-assignment', 'an assignment that does not accept video is refused the same way');
 }
 {
+  const db = fakeDb({ 'assignments/asg-exam-1': { acceptsVideoSubmissions: true, closed: true, maxVideoSizeMB: 10 }, 'students/stu-1': { name: 'x' } });
+  const bucket = fakeBucket(chunkNamesFor(3, 100));
+  const out = await composeSubmission(baseRequest(), { db, bucket, now: () => 1 });
+  assert(!out.ok && out.failure === 'closed', 'a closed assignment takes no more videos');
+}
+{
   const db = fakeDb({ ...ASSIGNMENT_DOC });
   const bucket = fakeBucket(chunkNamesFor(3, 100));
   const out = await composeSubmission(baseRequest(), { db, bucket, now: () => 1 });
