@@ -165,7 +165,12 @@ export function GradeMailBar({ plan, onClose, onSendAll, missing, top }: {
               <a
                 className="dir-tool-btn"
                 href={items[opened].href}
-                onClick={() => setOpened(n => n + 1)}
+                // AFTER the browser follows this href, never during the click.
+                // React re-renders in a microtask, which runs before the
+                // link's default action: advancing here swapped the href to
+                // the NEXT student first, so "Open 1 · Noah" mailed Damian
+                // and Noah got nothing (director, 2026-11-23).
+                onClick={() => { setTimeout(() => setOpened(n => n + 1), 0); }}
               >
                 <Mail size={15} /> Open {opened + 1} of {items.length} · {items[opened].studentName}
               </a>
