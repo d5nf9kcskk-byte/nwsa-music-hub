@@ -51,12 +51,24 @@ interface Props {
   member?: MemberEntry;
   /** Invite (or invite again) at the contact email. Answers what to tell staff. */
   onInvite: () => Promise<string>;
-  onRemoveSignIn: () => void;
+  /** Answers what to tell staff. */
+  onRemoveSignIn: () => Promise<string>;
 }
 
 export function PersonnelDetail({ person, contact, contracts, ensembles, onEdit, onArchive, onRestore, onNewContract, onOpenContract, onClose, member, onInvite, onRemoveSignIn }: Props) {
   const [inviteNote, setInviteNote] = useState('');
   const [inviting, setInviting] = useState(false);
+  // In-page confirm, not window.confirm: embedded browsers (the Claude app's
+  // pane, some in-app webviews) answer window.confirm with Cancel and show
+  // nothing, so the tap silently did nothing.
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  async function removeSignIn() {
+    setRemoving(true);
+    setInviteNote(await onRemoveSignIn());
+    setRemoving(false);
+    setConfirmRemove(false);
+  }
   async function invite() {
     setInviting(true);
     setInviteNote(await onInvite());
@@ -218,10 +230,17 @@ export function PersonnelDetail({ person, contact, contracts, ensembles, onEdit,
               ) : !member && (
                 <button className="dir-tool-btn" onClick={onEdit}><Pencil size={13} /> Add their email to invite them</button>
               )}
-              {member && (
-                <button className="dir-tool-btn" onClick={() => { if (window.confirm(`Remove ${member.email}'s sign-in? Their roster row and contracts stay.`)) onRemoveSignIn(); }}>
+              {member && !confirmRemove && (
+                <button className="dir-tool-btn" onClick={() => setConfirmRemove(true)}>
                   Remove sign-in
                 </button>
+              )}
+              {member && confirmRemove && (
+                <>
+                  <span style={{ fontSize: 13, alignSelf: 'center' }}>Remove {member.email}'s sign-in? Their roster row and contracts stay.</span>
+                  <button className="dir-tool-btn" onClick={() => { void removeSignIn(); }} disabled={removing}>{removing ? 'Removing…' : 'Remove'}</button>
+                  <button className="dir-tool-btn" onClick={() => setConfirmRemove(false)} disabled={removing}>Cancel</button>
+                </>
               )}
             </div>
             {inviteNote && <div className="dir-field-hint" role="status" style={{ marginTop: 6 }}>{inviteNote}</div>}

@@ -52,11 +52,12 @@ export function useMemberEntries() {
     return answer.ok ? `Invitation sent to ${email}. The link works for three days.` : (answer.message ?? 'The invitation did not send.');
   }
 
-  /** Take away a player's sign-in. Their roster row and contracts stay. */
-  async function remove(email: string) {
-    if (!db) return;
+  /** Take away a player's sign-in. Their roster row and contracts stay. Answers what to tell staff. */
+  async function remove(email: string): Promise<string> {
+    if (!db) return 'Sign-ins are removed from the live Hub, not this preview.';
     const dbRef = db;
-    await trackWrite('Sign-in removed', () => deleteDoc(doc(dbRef, 'directors', email)));
+    const done = await trackWrite('Sign-in removed', () => deleteDoc(doc(dbRef, 'directors', email)).then(() => true));
+    return done ? `Sign-in removed. ${email} can no longer get in.` : 'The sign-in was not removed. Try again.';
   }
 
   return { members, invite, remove };

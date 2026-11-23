@@ -358,7 +358,7 @@ export default function PersonnelManager({ initialPersonId, initialEventId }: {
           onClose={() => setViewing(null)}
           member={members.find(m => m.personnelId === viewing.id)}
           onInvite={() => invite(viewing.id, viewing.preferredName || viewing.name, contacts[viewing.id]?.email ?? '')}
-          onRemoveSignIn={() => { const m = members.find(x => x.personnelId === viewing.id); if (m) void removeSignIn(m.email); }}
+          onRemoveSignIn={async () => { const m = members.find(x => x.personnelId === viewing.id); return m ? removeSignIn(m.email) : 'They have no sign-in to remove.'; }}
         />
       )}
 
