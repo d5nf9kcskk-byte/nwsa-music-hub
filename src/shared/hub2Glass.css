@@ -1295,4 +1295,16 @@
   background: var(--hub2-surface) !important;
 }
 
+/* ── THE FLOATING EMAIL BAR IS SOLID ──
+   `.dir-roster-mailbar` (roster email, grade email, "Email missing") floats
+   over the page with no blur, so the glass tint of --dir-surface let the
+   assignment text underneath read straight through the message box
+   (director, 2026-11-23: "how am I supposed to read this??"). A bar you type
+   into gets the opaque surface, like a drawer's copy does. */
+  :root[data-hub2="on"] .dir-app .dir-roster-mailbar {
+    background: var(--hub2-surface);
+    border-color: var(--dir-border);
+  }
+
 } /* @media screen */
+
