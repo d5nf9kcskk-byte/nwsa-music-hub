@@ -1,6 +1,6 @@
 name: Seed AISO
 
-# Writes the first docs into the aiso-hub Firebase project — the
+# Writes the first docs into the aisymphony-hub Firebase project — the
 # browser-clickable version of `node scripts/seed-aiso-org.mjs`, so the Hub
 # can be started without a local checkout, Node, or a service account key
 # sitting on someone's laptop. Mirrors seed-as.yml.
@@ -15,7 +15,7 @@ name: Seed AISO
 # ensemble and no event yet.
 #
 # SAFETY: seed-aiso-org.mjs hard-aborts unless the service account's own
-# project is exactly `aiso-hub`, so this workflow is physically unable to
+# project is exactly `aisymphony-hub`, so this workflow is physically unable to
 # write to the NWSA project — or to either demo — no matter what secret it is
 # handed.
 

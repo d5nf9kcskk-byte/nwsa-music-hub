@@ -67,7 +67,7 @@ knows the files are `deploy-demo.yml` / `seed-demo.yml` /
 `seed-demo-org.mjs`.)
 
 A real org is the one exception to `<org>-hub-demo`. `aiso` uses the project
-`aiso-hub`, pinned in the script's `REAL_PROJECT_IDS` table (a table in the
+`aisymphony-hub`, pinned in the script's `REAL_PROJECT_IDS` table (a table in the
 file, still not a flag); its seeder writes no people; and `--owner-email` is
 required, because its seed workflow has no default owner. See
 `docs/aiso-setup.md`.

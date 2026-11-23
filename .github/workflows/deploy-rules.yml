@@ -158,7 +158,7 @@ jobs:
 
       # ── AISO (#org-config) ─────────────────────────────────────────────
       # Fourth project, same pattern as AS above, and the first that is a
-      # real org rather than a demo, which is why its project is `aiso-hub`
+      # real org rather than a demo, which is why its project is `aisymphony-hub`
       # (docs/aiso-setup.md). Skips cleanly until that project and its secret
       # exist. Like AS it holds the paid-roster tier, so this is here BEFORE
       # the project is.
@@ -182,7 +182,7 @@ jobs:
         run: |
           npx --yes firebase-tools@13 deploy \
             --only firestore:rules \
-            --project aiso-hub \
+            --project aisymphony-hub \
             --non-interactive
 
       # Storage (#member-sign-in): AISO is on Blaze with a bucket, and its
@@ -196,7 +196,7 @@ jobs:
         run: |
           npx --yes firebase-tools@13 deploy \
             --only storage \
-            --project aiso-hub \
+            --project aisymphony-hub \
             --non-interactive
 
       - name: Clean up credentials

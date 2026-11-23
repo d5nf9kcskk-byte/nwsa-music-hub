@@ -4,7 +4,7 @@
  * (Design A, `~/Documents/Hub App/research/bottega.md` §4).
  *
  *   node scripts/ingest-bottega-set.mjs "<piece>/final" --dry-run
- *   FIREBASE_SERVICE_ACCOUNT_JSON="$(cat aiso-hub-key.json)" \
+ *   FIREBASE_SERVICE_ACCOUNT_JSON="$(cat aisymphony-hub-key.json)" \
  *     node scripts/ingest-bottega-set.mjs "<piece>/final" [--licensed]
  *   node scripts/ingest-bottega-set.mjs --selfcheck
  *
@@ -46,7 +46,7 @@ import { join, basename } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 /** Tenant → its one Hub project. A tenant not listed has no ingest. */
-export const PROJECTS = { aiso: 'aiso-hub' };
+export const PROJECTS = { aiso: 'aisymphony-hub' };
 const OK_LICENCE = ['public-domain', 'own'];
 const NEVER = ['rental', 'cc-by-nc'];
 
@@ -212,7 +212,7 @@ function selfcheck() {
   }
   // Tenant pins the project.
   assert(has(refusals({ manifest: { ...m, tenant: 'nwsa' }, hashes: ok }), 'no Hub project'), 'unknown tenant refuses');
-  assert(PROJECTS.aiso === 'aiso-hub', 'aiso ingests into aiso-hub only');
+  assert(PROJECTS.aiso === 'aisymphony-hub', 'aiso ingests into aisymphony-hub only');
   // The plan writes only owned fields, to the members path.
   const p = plan(m);
   assert(JSON.stringify(Object.keys(p.fields)) === JSON.stringify(['memberParts', 'partsLicence', 'partsProof', 'updatedBy']), 'owned fields only');

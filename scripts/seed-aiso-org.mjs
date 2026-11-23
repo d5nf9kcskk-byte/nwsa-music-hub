@@ -14,7 +14,7 @@
  *   events/new-years-concert-2027   the New Year's Concert, 2027-01-03
  *
  * SAFETY: hard-aborts unless the service account's project is exactly
- * `aiso-hub`, and unless DEMO_OWNER_EMAIL names the owner. There is no default
+ * `aisymphony-hub`, and unless DEMO_OWNER_EMAIL names the owner. There is no default
  * owner. Google is the only way in and the owner is the only role that can
  * add anyone else, so a wrong address locks everyone out (it happened to the
  * ASYO demo: see the note in scripts/seed-as-org.mjs).
@@ -35,7 +35,7 @@
  * Actions logs are public, and it is a real person's sign-in address.
  *
  * Run:
- *   FIREBASE_SERVICE_ACCOUNT_JSON="$(cat aiso-hub-key.json)" \
+ *   FIREBASE_SERVICE_ACCOUNT_JSON="$(cat aisymphony-hub-key.json)" \
  *     DEMO_OWNER_EMAIL=owner@gmail.com node scripts/seed-aiso-org.mjs
  */
 
@@ -44,7 +44,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { fail, projectMismatch } from './lib/hubTool.mjs';
 import { maskEmail } from './lib/driveAuth.mjs';
 
-const PROJECT_ID = 'aiso-hub';
+const PROJECT_ID = 'aisymphony-hub';
 
 // Both aborts come before anything is read or written.
 const OWNER_EMAIL = (process.env.DEMO_OWNER_EMAIL ?? '').trim().toLowerCase();

@@ -16,8 +16,8 @@ the ones in `docs/new-org-setup.md` (the script) and `docs/demo-as-setup.md`
   Re-running is safe: an existing owner is left alone, an address listed
   with another role is promoted to owner in place (its name and roles kept),
   and the ensemble and the concert go only into a Hub that has neither.
-- **The project id is `aiso-hub`**, not `aiso-hub-demo`. People see it, as
-  `aiso-hub.firebaseapp.com` in Google's sign-in window and in account
+- **The project id is `aisymphony-hub`**, not a `-demo` id. People see it, as
+  `aisymphony-hub.firebaseapp.com` in Google's sign-in window and in account
   emails, and a project id can never be changed. It is pinned in
   `REAL_PROJECT_IDS` in `scripts/setup-new-org.mjs`, in the seeder, in
   `deploy-rules.yml` and as the `.firebaserc` alias `aiso`.
@@ -69,8 +69,8 @@ setup script's) still goes red at the publish step, on purpose.
       `us-central1`; Email/Password on (email link off, enumeration
       protection on); App Check with its key in `AISO_RECAPTCHA_SITE_KEY`;
       the Trigger Email extension with an
-      `extensions/firestore-send-email.env.aiso-hub` of AISO's own sender;
-      then `firebase deploy --config firebase.aiso.json --project aiso-hub
+      `extensions/firestore-send-email.env.aisymphony-hub` of AISO's own sender;
+      then `firebase deploy --config firebase.aiso.json --project aisymphony-hub
       --only functions` (never the default firebase.json, whose predeploy
       builds the school's functions); then `features.googleConfirm: true` in
       `config/orgs/aiso.json`. Phone alerts are still the school's only.

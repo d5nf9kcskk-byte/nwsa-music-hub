@@ -2,7 +2,7 @@
 /**
  * Build the Cloud Functions for ANOTHER org's project (#functions-per-org).
  *
- *   node build-org.mjs aiso        -> lib/index.js for aiso-hub
+ *   node build-org.mjs aiso        -> lib/index.js for aisymphony-hub
  *
  * The school's build is `npm run build` (index.ts, config/orgs/nwsa.json) and
  * stays exactly that: this file is not on its path, and deploy-functions.yml
@@ -12,7 +12,7 @@
  * the CORS origin are that org's. Same esbuild options as `npm run build`.
  *
  * Deploy (the predeploy in firebase.aiso.json runs this build):
- *   firebase deploy --config firebase.aiso.json --project aiso-hub --only functions
+ *   firebase deploy --config firebase.aiso.json --project aisymphony-hub --only functions
  * firebase.json's predeploy runs `npm run build`, the SCHOOL's bundle, so a
  * personnel org must always deploy with its own config file.
  *

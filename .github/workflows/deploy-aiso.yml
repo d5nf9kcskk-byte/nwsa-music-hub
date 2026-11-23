@@ -1,7 +1,7 @@
 name: Deploy AISO
 
 # Fourth-org deployment (#org-config, #personnel): builds this same codebase
-# with VITE_ORG=aiso against the aiso-hub Firebase project and pushes the
+# with VITE_ORG=aiso against the aisymphony-hub Firebase project and pushes the
 # built site to the thin `aiso-music-hub` repo's gh-pages branch (GitHub Pages
 # ties one site to one repo; that repo holds zero source). Mirrors
 # deploy-as.yml and is kept fully separate from deploy.yml so a failure here

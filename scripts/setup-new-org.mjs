@@ -7,7 +7,7 @@
  * docs/demo-as-setup.md walk through by hand (~45 minutes each):
  *
  *   1. Firebase project  `<org>-hub-demo`  (Spark, no Analytics) — or the
- *      id pinned in REAL_PROJECT_IDS below for a real org (`aiso-hub`)
+ *      id pinned in REAL_PROJECT_IDS below for a real org (`aisymphony-hub`)
  *   2. Firestore database (nam5, production mode)
  *   3. Web app `<project>-web` + its six SDK config values
  *   4. Service-account key (the Admin SDK account the console button uses)
@@ -60,7 +60,7 @@ const FORBIDDEN_REPOS = new Set(['nwsa-music-hub']);
 // its account emails, and a project id can never be changed afterwards. The
 // id is pinned HERE, in the file, so there is still no flag that could point
 // this script anywhere else. Every org not listed keeps the derived id.
-const REAL_PROJECT_IDS = new Map([['aiso', 'aiso-hub']]);
+const REAL_PROJECT_IDS = new Map([['aiso', 'aisymphony-hub']]);
 
 // The first two orgs predate the <org>-suffixed naming convention.
 const WORKFLOW_NAMES = {
