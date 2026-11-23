@@ -43,6 +43,17 @@ export const WHATS_NEW: WhatsNewEntry[] = [
     expires: '2026-12-13',
   },
   {
+    id: '2026-11-22-close-assignment',
+    date: '2026-11-22',
+    title: 'Close an assignment',
+    audience: 'staff' as const,
+    expires: '2026-12-06',
+    bullets: [
+      'Open an assignment and press Close. Students can no longer send videos or test answers, and it leaves their lists.',
+      'Press Reopen to take submissions again.',
+    ],
+  },
+  {
     id: '2026-11-16-chaperones',
     date: '2026-11-16',
     title: 'Chaperones can sign in now',

@@ -513,6 +513,7 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   'vid.alreadySubmitted': { en: 'Submitted {date}.',               es: 'Enviado el {date}.' },
   'vid.uploadAnother':  { en: 'Upload another version?',           es: '¿Subir otra versión?' },
   'vid.submittedBadge': { en: 'Submitted',                         es: 'Enviado' },
+  'assign.closed':      { en: 'This assignment is closed. Your teacher is no longer taking submissions.', es: 'Esta tarea está cerrada. Tu maestro ya no recibe entregas.' },
   'vid.noSubmissions':  { en: 'No submissions yet.',           es: 'Aún no hay entregas.' },
   'vid.reviewed':       { en: 'Reviewed',                      es: 'Revisado' },
   'vid.markReviewed':   { en: 'Mark reviewed',                 es: 'Marcar como revisado' },

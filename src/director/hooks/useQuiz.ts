@@ -171,6 +171,9 @@ export async function setQuizOpen(assignmentId: string, open: boolean): Promise<
   if (!db) return;
   await updateDoc(doc(db, 'assignments', assignmentId), {
     acceptsQuizSubmissions: open,
+    // Opening the test reopens a closed assignment, or the rules would refuse
+    // every answer while the screen said "Open".
+    ...(open ? { closed: false } : {}),
     updatedAt: Date.now(),
     updatedBy: currentDirectorName(),
   });

@@ -12,6 +12,19 @@ import { currentDirectorName } from '../currentDirector';
 import type { Assignment, AssignmentResult, AssignmentResultStatus } from '../types';
 import type { RubricScore } from '../examRubric';
 
+/** Close or reopen an assignment for submissions (Assignment.closed).
+ *  Closing also closes an online test; reopening leaves the test for its own
+ *  Open button, so a test never starts taking answers by surprise. */
+export async function setAssignmentClosed(a: Pick<Assignment, 'id' | 'quiz'>, closed: boolean): Promise<void> {
+  if (!db) return;
+  await updateDoc(doc(db, 'assignments', a.id), {
+    closed,
+    ...(closed && a.quiz ? { acceptsQuizSubmissions: false } : {}),
+    updatedAt: Date.now(),
+    updatedBy: currentDirectorName(),
+  });
+}
+
 export function useAssignments() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);

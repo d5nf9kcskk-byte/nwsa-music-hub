@@ -977,6 +977,10 @@ export interface Assignment {
    *  existed keep doing. Empty = nothing chosen yet, and the student form says
    *  so — it is a real state, not a missing one. */
   quizSelection?: string[];
+  /** The director closed this assignment: no more videos and no more test
+   *  answers. firestore.rules and composeSubmission both refuse a submission
+   *  while it is true; Reopen sets it back to false. Absent = open. */
+  closed?: boolean;
   createdAt: number;
   attachments?: Attachment[];
   /** Scheduled publishing (mirrors Announcement.publishAt): epoch ms. If set

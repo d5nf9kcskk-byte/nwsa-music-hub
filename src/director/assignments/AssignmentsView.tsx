@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Download, Mail, Plus, Clock, Video, Music } from 'lucide-react';
-import { useAssignments, useAssignmentResults } from '../hooks/useAssignments';
+import { useAssignments, useAssignmentResults, setAssignmentClosed } from '../hooks/useAssignments';
 import { useMyDirector, saveMyExamRubric } from '../hooks/useDirectors';
 import { useCurrentDirector } from '../currentDirector';
 import { useRepertoire } from '../hooks/useRepertoire';
@@ -503,6 +503,14 @@ interface GradeSheetProps {
 
 function GradeSheet({ assignment, students, ensembles, onEdit, onClose }: GradeSheetProps) {
   const { resultMap, saveResult, clearResult } = useAssignmentResults(assignment.id);
+  const [closing, setClosing] = useState(false);
+  const [closeError, setCloseError] = useState('');
+  async function toggleClosed() {
+    setClosing(true); setCloseError('');
+    try { await setAssignmentClosed(assignment, !assignment.closed); }
+    catch (e) { setCloseError(e instanceof Error ? e.message : 'Could not change that.'); }
+    finally { setClosing(false); }
+  }
   const { pieces } = useRepertoire();
   const me = useCurrentDirector();
   const { director } = useMyDirector(me?.email);
@@ -840,6 +848,15 @@ function GradeSheet({ assignment, students, ensembles, onEdit, onClose }: GradeS
               <Mail size={15} /> {missingBarOpen ? 'Done emailing' : 'Email missing'}
             </button>
           )}
+          <button
+            type="button"
+            className="dir-tool-btn"
+            disabled={closing}
+            onClick={toggleClosed}
+            title={assignment.closed ? 'Let students submit again' : 'Stop taking videos and test answers'}
+          >
+            {assignment.closed ? 'Reopen' : 'Close'}
+          </button>
           <button type="button" className="dir-tool-btn" onClick={onEdit}>Edit</button>
         </div>
       </div>
@@ -852,9 +869,11 @@ function GradeSheet({ assignment, students, ensembles, onEdit, onClose }: GradeS
             <> · {submittedCount} of {relevant.length} submitted</>
           )}
           {' · '}{gradedCount} of {relevant.length} graded
+          {assignment.closed && <> · <strong>Closed</strong></>}
         </div>
       </header>
 
+      {closeError && <div className="dir-assign-page-error">⚠ {closeError}</div>}
       {gradeError && (
         <div className="dir-assign-page-error">⚠ {gradeError}</div>
       )}
@@ -1242,6 +1261,7 @@ export function AssignmentsView({ initialAssignmentId, initialEnsembleId, allowe
                 </span>
               </div>
               <div className="dir-assign-card-title">{a.title}</div>
+              {a.closed && <div className="dir-ann-scheduled">Closed</div>}
               {a.publishAt && a.publishAt > now && (
                 <div className="dir-ann-scheduled">
                   <Clock size={11} style={{ verticalAlign: '-1.5px' }} /> Scheduled · posts{' '}
