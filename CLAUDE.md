@@ -1367,6 +1367,82 @@ for them), `boundUid` (the one Hub sign-in account that goes with it),
   modes show what a rules change moved against `main`; use them for the
   next rules change too.
 
+## Email and password sign-in (Nov 2026, #password-sign-in) — built, switched OFF
+
+Staff can sign in with an email and a password beside Google, behind
+`features.passwordSignIn` (false in every org). It is the second arm of the
+SAME test as the Google tie above, on the SAME record: one account per
+person, made afresh by the server, named on their entry.
+
+- **`honouredSignIn()` has two arms and nothing else** (all three copies). A
+  password is honoured only on the account the entry names (`boundUid`),
+  only when the entry says the server set a password on it (`passwordSet`),
+  and, when the entry also names a Google identity, only while the account
+  still has it. There is no switch on this arm. `passwordSet` is one of the
+  record's fields: no browser may set or alter it; the Owner may remove it
+  from someone else's entry ("Remove password" on the Directors screen).
+- **Nothing about anyone's account changes without their inbox.**
+  `passwordSetup` (one function, three actions) is the only thing that sets
+  a password. `request` only emails a one-time link and answers the same,
+  in the same time, whether or not the address is listed; a newer link
+  retires the older ones. (The token is stored only as a hash in
+  `passwordSetup`; the outgoing `mail` document does carry the link itself
+  until it is used or expires, and no client can read `mail`.) `owner-send`
+  is the Owner having the Hub email
+  one listed person that same link (Directors screen): it goes through the
+  same staff test as every other function, then the Owner role, and it does
+  not count against that inbox's own caps, which anyone asking in the
+  person's name can use up. `complete` looks up whose link it is without
+  using it, takes the same per-person claim the Google step takes
+  (`entryLock.ts`), and only then uses the token up (32 random bytes, one
+  transaction, before anything else is looked at), so a link is never spent
+  waiting on a claim. Under that claim it re-checks the person is still
+  listed, makes the FRESH account through `freshAccount.ts` (the same step
+  the Google tie uses), attaches the Google identity the ENTRY names and no
+  other, and records it. Then it emails the person that a password was
+  set. Every failure after the link is looked at gets one and the same
+  answer. It signs nobody in.
+- **A record made with a password alone is not replaced by a Google
+  sign-in.** `bindGoogle` answers `other-account` for an entry with
+  `passwordSet` true and no `googleSub`, whoever's Google account it is;
+  the Owner's Reset is how such a person adds Google. Do not "helpfully"
+  confirm them instead: Google is not the authority for every address.
+- **A Google tie made afterwards clears `passwordSet`**, because a tie
+  always makes the account afresh and a fresh account has no password. A
+  person who adds Google (after the Owner's Reset) sets their password
+  again by link.
+  The same happens when a Google identity the entry does not name turns up
+  on the recorded account and asks: the account is made afresh for the
+  identity the entry names, with no password on it.
+- **The choose-your-password screen shows no address.** What a link claims
+  about whose it is is only a hint (a hidden field for the phone's password
+  manager); the address shown afterwards is the one the SERVER answers
+  with.
+- **The Hub's link is not the only way to a password once Email/Password is
+  enabled in the console.** The sign-in service has its own reset email,
+  which also needs the inbox but does not apply the Hub's 10-character rule.
+  Never say "one way to a password" or "10 characters enforced" without that
+  caveat. Email LINK sign-in must stay off, and email enumeration protection
+  on (`docs/password-sign-in.md`).
+- **The limits are numbers pinned by the self-check**: per caller and per
+  step, per inbox per hour and per day, and for the Hub's whole mailbox. A
+  caller is counted by the LAST forwarded address, never one it sent.
+- **The app never creates an account, sets a password, or sends a
+  verification email, and keeps no password anywhere.** `AuthGate.tsx` signs
+  in and nothing else; `passwordSetup.selfcheck.ts` fails if any of those
+  calls appears there, or if anything but a count, a "later" and an address
+  goes into browser storage.
+- **A password session the rules refuse gets its own screen** (`refused`),
+  never "not authorized" and never the break-glass list, and is never
+  offered the Google confirm note.
+- **`useGoogleDrive` runs its pop-up on a throwaway second sign-in** for an
+  account with no Google on it, so "Connect Google Drive" cannot change who is
+  signed in. An account that has Google on it takes the old path, unchanged.
+- `scripts/password-sign-in.emulator-proof.mjs` is the emulator proof for
+  this arm; `rules-checks.yml` runs it with the others. Turning the feature
+  on is `docs/password-sign-in.md`, and it comes after the Google tie is
+  required (step 4 above), never before.
+
 ## Playing-exam grading — one line, one rubric (Sept 2026, #exam-rubric)
 
 The grade sheet used to be two lists of the SAME people: a roster row that

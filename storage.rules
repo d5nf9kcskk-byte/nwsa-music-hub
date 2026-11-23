@@ -29,11 +29,13 @@ service firebase.storage {
       return firestore.get(/databases/(default)/documents/directors/$(request.auth.token.email)).data;
     }
 
-    // WHICH account signed in (#google-binding): the SAME test as
+    // WHICH account signed in (#google-binding, #password-sign-in): the SAME test as
     // honouredSignIn() in firestore.rules, and it must stay the same. A
     // Google sign-in is honoured only when the session is on the account the
     // person's Directors entry names (`boundUid`) and that account has the
-    // entry's Google identity (`googleSub`). The server alone writes both.
+    // entry's Google identity (`googleSub`). An email-and-password sign-in is
+    // honoured on that same account, only when the server has set a password
+    // on it (`passwordSet`). The server alone writes all of it.
     // Every staff helper in this file calls it, so being on the list opens
     // nothing here by itself either.
     //
@@ -47,8 +49,10 @@ service firebase.storage {
     // neither upload nor open staff-only files until the app has had the
     // record made, which it does by itself on opening.
     function honouredSignIn() {
-      return request.auth.token.firebase.sign_in_provider == 'google.com'
-        && boundGoogleSignIn();
+      return (request.auth.token.firebase.sign_in_provider == 'google.com'
+              && boundGoogleSignIn())
+        || (request.auth.token.firebase.sign_in_provider == 'password'
+            && boundPasswordSignIn());
     }
 
     // Every caller has already checked that the directors doc exists.
@@ -58,6 +62,14 @@ service firebase.storage {
     function isBoundGoogleAccount(d) {
       return isBoundAccount(d.get('boundUid', ''))
         && isTiedGoogleId(d.get('googleSub', ''));
+    }
+    function boundPasswordSignIn() {
+      return isBoundPasswordAccount(directorDoc());
+    }
+    function isBoundPasswordAccount(d) {
+      return isBoundAccount(d.get('boundUid', ''))
+        && d.get('passwordSet', false) == true
+        && (d.get('googleSub', '') == '' || isTiedGoogleId(d.get('googleSub', '')));
     }
     function isBoundAccount(boundUid) {
       return boundUid is string

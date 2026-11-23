@@ -1,7 +1,39 @@
 import { useState, useCallback } from 'react';
-import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { getApps, initializeApp } from 'firebase/app';
+import {
+  signInWithPopup, GoogleAuthProvider, getAuth, initializeAuth, inMemoryPersistence,
+  browserPopupRedirectResolver, signOut,
+} from 'firebase/auth';
+import type { Auth } from 'firebase/auth';
 import { auth } from '../firebaseAuth';
 import { ORG } from '../../org';
+
+/**
+ * Where the Drive pop-up signs in (#password-sign-in).
+ *
+ * The pop-up is a Google SIGN-IN that also asks for Drive access. On the
+ * Hub's own sign-in, picking a Google account there makes that account the
+ * signed-in one. For someone whose account has Google on it that is the same
+ * person, and it is left exactly as it always was. For someone whose account
+ * has NO Google on it (they came in by email and password), it would swap
+ * them out for whatever Google account they picked, usually one that is not
+ * on the Directors list, mid-edit.
+ *
+ * So those people get the pop-up on a second, throwaway sign-in that lives
+ * in memory only: it hands back the Drive token and is signed out again, and
+ * the Hub's own sign-in never changes. Everything here is synchronous on
+ * purpose: nothing may be awaited before the pop-up opens.
+ */
+const DRIVE_APP = 'drive-connect';
+function popupAuthFor(main: Auth): Auth {
+  if (main.currentUser?.providerData.some(p => p.providerId === 'google.com')) return main;
+  const existing = getApps().find(a => a.name === DRIVE_APP);
+  if (existing) return getAuth(existing);
+  return initializeAuth(initializeApp(main.app.options, DRIVE_APP), {
+    persistence: inMemoryPersistence,
+    popupRedirectResolver: browserPopupRedirectResolver,
+  });
+}
 
 const DRIVE_FILE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 // ponytail: hardcoded NWSA fallback until we know the Firebase SA
@@ -46,8 +78,11 @@ export function useGoogleDrive() {
     provider.addScope(DRIVE_FILE_SCOPE);
     let token: string | null = null;
     try {
-      const result = await signInWithPopup(auth, provider);
+      const popupAuth = popupAuthFor(auth);
+      const result = await signInWithPopup(popupAuth, provider);
       token = GoogleAuthProvider.credentialFromResult(result)?.accessToken ?? null;
+      // The throwaway sign-in has done its job; the token is what we keep.
+      if (popupAuth !== auth) void signOut(popupAuth).catch(() => {});
     } catch (e) {
       const code = (e as { code?: string }).code ?? '';
       if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {

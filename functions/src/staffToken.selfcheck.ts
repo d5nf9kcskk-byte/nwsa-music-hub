@@ -1,11 +1,13 @@
 /**
- * The staff sign-in test (#google-binding). Run:
+ * The staff sign-in test (#google-binding, #password-sign-in). Run:
  *   node --experimental-strip-types functions/src/staffToken.selfcheck.ts
  *
  * Pins signInHonoured / staffFromToken, and reads the two rules files and
  * index.ts to keep the three copies of the test telling the same story:
  *   • a Google sign-in is honoured only on the account the entry names, and
  *     only when that account has the entry's Google identity;
+ *   • a password is honoured only on that same account, and only when the
+ *     server has set one on it;
  *   • every other way in is refused;
  *   • every staff gate in firestore.rules and storage.rules applies the
  *     test, and every role helper goes through the gate;
@@ -56,9 +58,29 @@ check(!signInHonoured(claims('google.com', 'g-pat'), TIED), 'a Google identity t
 check(!signInHonoured(claims('google.com'), undefined), 'no directors doc: refused');
 check(!signInHonoured({ uid: 'acct-1', email: 'pat@school.test', email_verified: true }, TIED), 'a token with no firebase claim is refused');
 
+// ── Password: the same account, with a password the server set ──────────────
+{
+  const PW = { role: 'director', boundUid: 'acct-1', boundAt: 1, passwordSet: true }; // never used Google
+  const BOTH = { ...TIED, passwordSet: true };
+  const pw = (ids: unknown = ['g-pat'], over: Partial<StaffClaims> = {}) => claims('password', ids, over);
+  const noGoogle: StaffClaims = { uid: 'acct-1', email: 'pat@school.test', email_verified: true, firebase: { sign_in_provider: 'password', identities: { email: ['pat@school.test'] } } };
+  check(signInHonoured(noGoogle, PW), 'the entry\'s own account, with a password the server set, is honoured');
+  check(signInHonoured(pw(), BOTH), 'and so it is for a person who is tied to Google as well');
+  check(!signInHonoured(noGoogle, { ...PW, passwordSet: undefined }), 'no password mark: refused');
+  check(!signInHonoured(noGoogle, { ...PW, passwordSet: 'true' }), 'a password mark that is not exactly true: refused');
+  check(!signInHonoured(pw(), TIED), 'a person tied to Google with no password mark is refused by password, even on the right account');
+  check(!signInHonoured({ ...noGoogle, uid: 'acct-2' }, PW), 'any other account on the same address is refused');
+  check(!signInHonoured(noGoogle, { role: 'director', passwordSet: true }), 'a password mark with no account on record: refused');
+  check(!signInHonoured(pw(['g-someone-else']), BOTH), 'tied to Google, but the account now has a different Google identity: refused');
+  check(!signInHonoured(noGoogle, BOTH), 'tied to Google, but the account has no Google identity any more: refused');
+  check(!signInHonoured(pw([]), BOTH), 'tied to Google, but the token lists no Google identity: refused');
+  check(!signInHonoured(claims('google.com', ['g-someone-else']), BOTH), 'a password mark does nothing for a Google sign-in with the wrong Google identity');
+  check(!signInHonoured(noGoogle, undefined), 'no directors doc: refused');
+}
+
 // ── Every other way in ──────────────────────────────────────────────────────
-for (const provider of ['password', 'anonymous', 'custom', 'phone', 'microsoft.com', 'apple.com', '', undefined]) {
-  check(!signInHonoured(claims(provider), TIED), `"${provider}" is refused even on the right account with the right Google identity`);
+for (const provider of ['anonymous', 'custom', 'phone', 'microsoft.com', 'apple.com', '', undefined]) {
+  check(!signInHonoured(claims(provider), { ...TIED, passwordSet: true }), `"${provider}" is refused even on the right account with the right Google identity and a password`);
 }
 
 // ── staffFromToken ──────────────────────────────────────────────────────────
@@ -72,7 +94,11 @@ for (const provider of ['password', 'anonymous', 'custom', 'phone', 'microsoft.c
   check(g?.email === 'pat@school.test' && g.director === TIED, 'the entry\'s own account: the email and the directors doc come back');
   check(await staffFromToken(claims('google.com', ['g-pat'], { uid: 'other' }), load) === null, 'another account on a listed address: null');
   check(await staffFromToken(claims('google.com', ['g-someone-else']), load) === null, 'another Google identity on a listed address: null');
-  check(await staffFromToken(claims('password'), load) === null, 'a password sign-in on a listed address: null');
+  check(await staffFromToken(claims('password'), load) === null, 'a password sign-in on a listed address with no password mark: null');
+  const loadPw = async (email: string) => (email === 'pat@school.test' ? { ...TIED, passwordSet: true } : undefined);
+  check((await staffFromToken(claims('password'), loadPw))?.email === 'pat@school.test', 'the entry\'s own account by password, with the mark: honoured');
+  const strangerPw = await staffFromToken(claims('password', [], { email: 'x@elsewhere.test' }), load);
+  check(strangerPw !== null && strangerPw.director === undefined, 'an unlisted password caller also comes back with NO doc');
   const stranger = await staffFromToken(claims('google.com', ['g-x'], { email: 'x@elsewhere.test' }), load);
   check(stranger !== null && stranger.director === undefined, 'an address that is not listed comes back with NO doc, for the role check to refuse as it always did');
 }
@@ -92,20 +118,21 @@ for (const provider of ['password', 'anonymous', 'custom', 'phone', 'microsoft.c
   const fsFn = fnIn(fsRules);
   const stFn = fnIn(stRules);
 
-  // Firestore: bound, or (only while the server-only switch is off) no
-  // record yet. The bound clause first, so a bound person never costs a
-  // switch read.
-  check(fsFn('honouredSignIn') === "function honouredSignIn() { return request.auth.token.firebase.sign_in_provider == 'google.com' && (boundGoogleSignIn() || !googleTieRequired());",
-    'firestore.rules honouredSignIn: Google, and bound or the requirement not yet on');
+  // Firestore: Google and bound, or (only while the server-only switch is
+  // off) no record yet; or a bound password. The bound clause first, so a
+  // bound person never costs a switch read. The password arm has no switch.
+  check(fsFn('honouredSignIn') === "function honouredSignIn() { return (request.auth.token.firebase.sign_in_provider == 'google.com' && (boundGoogleSignIn() || !googleTieRequired())) || (request.auth.token.firebase.sign_in_provider == 'password' && boundPasswordSignIn());",
+    'firestore.rules honouredSignIn: Google, and bound or the requirement not yet on; or a bound password');
   check(fsFn('googleTieRequired') === "function googleTieRequired() { return exists(/databases/$(database)/documents/serverConfig/signIn) && get(/databases/$(database)/documents/serverConfig/signIn).data.get('googleTieRequired', false) == true;",
     'the switch is serverConfig/signIn.googleTieRequired, and a missing document means "not required"');
   // Storage: always bound. No switch (a Storage rule may read two Firestore
   // documents and these already use both).
-  check(stFn('honouredSignIn') === "function honouredSignIn() { return request.auth.token.firebase.sign_in_provider == 'google.com' && boundGoogleSignIn();",
-    'storage.rules honouredSignIn: Google and bound, always');
+  check(stFn('honouredSignIn') === "function honouredSignIn() { return (request.auth.token.firebase.sign_in_provider == 'google.com' && boundGoogleSignIn()) || (request.auth.token.firebase.sign_in_provider == 'password' && boundPasswordSignIn());",
+    'storage.rules honouredSignIn: Google and bound, or a bound password, always');
   check(!/serverConfig/.test(stRules), 'storage.rules reads no switch');
   const same: [string, string][] = [
     ['isBoundGoogleAccount', "function isBoundGoogleAccount(d) { return isBoundAccount(d.get('boundUid', '')) && isTiedGoogleId(d.get('googleSub', ''));"],
+    ['isBoundPasswordAccount', "function isBoundPasswordAccount(d) { return isBoundAccount(d.get('boundUid', '')) && d.get('passwordSet', false) == true && (d.get('googleSub', '') == '' || isTiedGoogleId(d.get('googleSub', '')));"],
     ['isBoundAccount', "function isBoundAccount(boundUid) { return boundUid is string && boundUid != '' && boundUid == request.auth.uid;"],
     ['isTiedGoogleId', "function isTiedGoogleId(googleSub) { return googleSub is string && googleSub != '' && 'google.com' in request.auth.token.firebase.identities && googleSub in request.auth.token.firebase.identities['google.com'];"],
   ];
@@ -117,6 +144,14 @@ for (const provider of ['password', 'anonymous', 'custom', 'phone', 'microsoft.c
     'firestore.rules reads the record off the caller\'s own directors doc, and a missing doc is a plain no');
   check(stFn('boundGoogleSignIn') === 'function boundGoogleSignIn() { return isBoundGoogleAccount(directorDoc());',
     'storage.rules reads the record off the caller\'s own directors doc');
+  check(fsFn('boundPasswordSignIn') === 'function boundPasswordSignIn() { return exists(/databases/$(database)/documents/directors/$(request.auth.token.email)) && isBoundPasswordAccount(myDirectorDoc());',
+    'firestore.rules reads the password mark off the caller\'s own directors doc, and a missing doc is a plain no');
+  check(stFn('boundPasswordSignIn') === 'function boundPasswordSignIn() { return isBoundPasswordAccount(directorDoc());',
+    'storage.rules reads the password mark off the caller\'s own directors doc');
+  for (const server of ['passwordSetup', 'passwordSetupLimits']) {
+    check(!new RegExp(`match /${server}/`).test(fsRules), `firestore.rules has no match for ${server}: it is the server's alone`);
+  }
+  check(/match \/mail\/\{doc\}\s*\{ allow read, write: if false; \}/.test(fsRules), 'mail (where the link email is queued) is denied to every client');
   for (const g of [...stRules.matchAll(/function (\w+)\([^)]*\) \{[^}]*honouredSignIn\(\)[^}]*\}/g)]) {
     check(g[0].indexOf('firestore.exists(') >= 0 && g[0].indexOf('firestore.exists(') < g[0].indexOf('honouredSignIn()'), `storage.rules: ${g[1]}() checks the directors doc exists before reading the record off it`);
   }
@@ -143,7 +178,7 @@ for (const provider of ['password', 'anonymous', 'custom', 'phone', 'microsoft.c
   const readers = [...fsRules.matchAll(/function (\w+)\([^)]*\) \{([\s\S]*?)\n    \}/g)].filter(m => /myDirectorDoc\(\)/.test(m[2]));
   check(readers.length >= 5, 'found the functions that read the caller\'s directors doc');
   for (const [, name, body] of readers) {
-    if (name === 'hasRole' || name === 'boundGoogleSignIn' || name === 'roleClaimValid') continue;
+    if (name === 'hasRole' || name === 'boundGoogleSignIn' || name === 'boundPasswordSignIn' || name === 'roleClaimValid') continue;
     check(/\b(is\w+Role|hasRole)\(/.test(body), `${name}() reads the caller's directors doc only behind a role helper`);
   }
   // roleClaimValid only compares a label; each rule that uses it asks a

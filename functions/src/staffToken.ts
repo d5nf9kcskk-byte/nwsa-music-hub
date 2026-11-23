@@ -1,5 +1,5 @@
 /**
- * Is this sign-in token a staff member's? (#google-binding)
+ * Is this sign-in token a staff member's? (#google-binding, #password-sign-in)
  *
  * The same test as honouredSignIn() in storage.rules, for the Cloud
  * Functions that check a caller's token themselves. (firestore.rules applies
@@ -13,6 +13,9 @@
  *   • A Google sign-in is honoured only when the session is on the account
  *     the entry names (`boundUid`) and that account has the entry's Google
  *     identity (`googleSub`).
+ *   • An email-and-password sign-in is honoured on that same account, and
+ *     only when the server has set a password on it (`passwordSet`). When
+ *     the entry also names a Google identity, the account must still have it.
  *   • Anything else is refused. A new way of signing in gets a clause here,
  *     and in both rules files, on purpose, or it gets nothing.
  *
@@ -49,9 +52,21 @@ function boundGoogleSignIn(claims: StaffClaims, director: DirectorData | undefin
     && Array.isArray(ids) && ids.includes(googleSub);
 }
 
+/** boundPasswordSignIn() from the rules files. */
+function boundPasswordSignIn(claims: StaffClaims, director: DirectorData | undefined): boolean {
+  if (!isBoundAccount(claims, director) || director?.passwordSet !== true) return false;
+  const googleSub = director.googleSub ?? '';
+  if (googleSub === '') return true;
+  const ids = claims.firebase?.identities?.['google.com'];
+  return typeof googleSub === 'string' && Array.isArray(ids) && ids.includes(googleSub);
+}
+
 /** honouredSignIn() from the rules files. */
 export function signInHonoured(claims: StaffClaims, director: DirectorData | undefined): boolean {
-  return claims.firebase?.sign_in_provider === 'google.com' && boundGoogleSignIn(claims, director);
+  const provider = claims.firebase?.sign_in_provider;
+  if (provider === 'google.com') return boundGoogleSignIn(claims, director);
+  if (provider === 'password') return boundPasswordSignIn(claims, director);
+  return false;
 }
 
 /**
