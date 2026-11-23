@@ -103,4 +103,8 @@ jobs:
           deploy_key: ${{ secrets.AISO_DEPLOY_KEY }}
           # GitHub Pages must not run Jekyll over the built site.
           enable_jekyll: false
+          # The site lives at the root of AISO's own domain (www redirects to
+          # it). Without this every deploy would drop the CNAME file and Pages
+          # would forget the custom domain.
+          cname: aisymphonyorchestra.org
           commit_message: 'Deploy AISO from ${{ github.sha }}'
