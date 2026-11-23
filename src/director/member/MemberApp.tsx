@@ -21,6 +21,7 @@ import { formatDate, formatTime, formatTimeRange, todayStr } from '../utils';
 import { PAY_METHOD_LABEL, type CalendarEvent, type Contract, type Payment, type Personnel } from '../types';
 import { ORG } from '../../org';
 import { MemberMessages } from '../office/MemberMessages';
+import { InstallCoach } from './InstallCoach';
 
 /**
  * A player's own home (#member-sign-in, personnel orgs only): the next call,
@@ -199,6 +200,7 @@ export default function MemberApp({ user, signOut }: { user: User; signOut: () =
       <main className="dir-content" style={{ padding: '12px 16px 32px', maxWidth: 640, margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
         {error && <p role="alert" style={{ ...muted, color: '#b91c1c' }}>{error}</p>}
         {!view && !error && <p style={muted}>Loading your details…</p>}
+        <InstallCoach />
 
         {/* ── Next call ── */}
         <section style={card} aria-labelledby="m-next">

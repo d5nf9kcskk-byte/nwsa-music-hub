@@ -426,6 +426,7 @@ for (const [label, existing] of [
   check(rec && rec.expiresAt - h.deps.now() === INVITE_LIFETIME_MS && INVITE_LIFETIME_MS === 3 * 24 * 3600 * 1000, 'an invitation works for three days');
   const mail = h.mails[h.mails.length - 1];
   check(/invited/.test(mail.message.subject) && /three days/.test(mail.message.text) && /Set up or reset my password/.test(mail.message.text), 'it says it is an invitation, how long it lasts, and what to do after');
+  check(/Add to Home Screen/.test(mail.message.text) && /Install app/.test(mail.message.html) && !/Home Screen/.test(buildSetupMail(PAT, 'x', 'H').message.text), 'an invitation coaches the Home Screen install; a reset does not');
   check(await staffSendLink(h.deps, 'nobody@school.test') === 'not-listed', 'an address that is not listed is not sent anything');
   await requestSetup(h.deps, PAT, '1.1.1.1');
   check(h.tokens.size === 1 && [...h.tokens.values()][0].expiresAt - h.deps.now() <= LINK_LIFETIME_MS, 'a link the player asks for still lasts one hour, and retires the invitation');

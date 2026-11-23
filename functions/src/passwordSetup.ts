@@ -150,10 +150,13 @@ export function buildSetupMail(email: string, link: string, appName: string, inv
     : `Someone asked to set or reset the password for ${email} on ${appName}.`;
   const lasts = invite ? 'The link works once, for three days. After that, open the Hub and tap "Set up or reset my password".' : 'The link works once, for one hour.';
   const ignore = invite ? 'If you did not expect this, ignore this email.' : 'If it was not you, ignore this email. Nothing has changed, and nothing will unless the link is used.';
-  const text = [opening, '', invite ? 'Open this link and choose your password:' : 'If that was you, open this link and choose your password:', link, '', lasts, ignore].join('\n');
+  // Install coaching (#member-sign-in): the Home Screen app keeps its own sign-in.
+  const install = invite ? 'Then put the Hub on your Home Screen so it stays signed in. iPhone: in Safari tap Share, then Add to Home Screen. Android: in Chrome tap ⋮, then Install app.' : '';
+  const text = [opening, '', invite ? 'Open this link and choose your password:' : 'If that was you, open this link and choose your password:', link, '', ...(install ? [install, ''] : []), lasts, ignore].join('\n');
   const html = `<p>${escapeHtml(opening)}</p>`
     + `<p>${invite ? 'Open this link and choose your password:' : 'If that was you, open this link and choose your password:'}</p>`
     + `<p><a href="${escapeHtml(link)}">Choose my password</a></p>`
+    + (install ? `<p>${escapeHtml(install)}</p>` : '')
     + `<p style="color:#52525b">${escapeHtml(lasts)} ${escapeHtml(ignore)}</p>`;
   return { to: [email], message: { subject, text, html } };
 }
