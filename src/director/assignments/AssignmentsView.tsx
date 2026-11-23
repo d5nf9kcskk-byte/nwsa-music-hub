@@ -41,7 +41,7 @@ import { GroupPicker } from '../components/GroupPicker';
 import { useContacts } from '../hooks/useContacts';
 import { personalMailto } from '../rosterEmail';
 import { gradeEmailBody, gradeEmailSubject, gradeRecipients, hasGradeToSend } from './gradeEmail';
-import { gradeMailPlan } from './gradeMailLinks';
+import { gradeMailPlan, missingWorkPlan, MISSING_WORK_TEMPLATE } from './gradeMailLinks';
 import { enqueueGradeMail } from '../hooks/useGradeMail';
 import { isAdultStudent } from '../groupKind';
 import { GradeMailBar } from './GradeMailBar';
@@ -536,6 +536,16 @@ function GradeSheet({ assignment, students, ensembles, onEdit, onClose }: GradeS
   const [openId, setOpenId] = useState<string | null>(null);
   const [showStrays, setShowStrays] = useState(false);
   const [mailBarOpen, setMailBarOpen] = useState(false);
+  // "Email students who have not submitted" (#missing-work). The wording is
+  // the director's own and is remembered on this device once edited.
+  const [missingBarOpen, setMissingBarOpen] = useState(false);
+  const [missingText, setMissingText] = useState(() => {
+    try { return localStorage.getItem('dir.missingWorkText') || MISSING_WORK_TEMPLATE; } catch { return MISSING_WORK_TEMPLATE; }
+  });
+  function saveMissingText(v: string) {
+    setMissingText(v);
+    try { localStorage.setItem('dir.missingWorkText', v); } catch { /* private mode: keep it for this visit */ }
+  }
 
   // The rubric this exam grades with. An exam that never chose one falls back
   // to THIS director's default, which is what lets every playing exam that
@@ -620,6 +630,19 @@ function GradeSheet({ assignment, students, ensembles, onEdit, onClose }: GradeS
       assignment,
       groupName: mailGroupName || undefined,
       fromName: director?.name || me?.name,
+    })
+    : null;
+
+  const collects = !!(assignment.acceptsVideoSubmissions || assignment.quiz);
+  const pastDue = !!assignment.dueDate && assignment.dueDate < todayStr();
+  const missingPlan = missingBarOpen
+    ? missingWorkPlan({
+      students: relevant,
+      submittedIds: new Set([...takesByStudent.keys(), ...testByStudent.keys()]),
+      resultMap,
+      contacts,
+      assignmentTitle: assignment.title,
+      template: missingText,
     })
     : null;
 
@@ -799,10 +822,22 @@ function GradeSheet({ assignment, students, ensembles, onEdit, onClose }: GradeS
             <button
               type="button"
               className="dir-tool-btn"
-              onClick={() => setMailBarOpen(v => !v)}
+              onClick={() => { setMissingBarOpen(false); setMailBarOpen(v => !v); }}
               title="Fill in one email per graded student, in your own mail app"
             >
               <Mail size={15} /> {mailBarOpen ? 'Done emailing' : 'Email grades'}
+            </button>
+          )}
+          {/* Only once the due date has passed, and only on work the Hub
+              collects: an exam graded in the room has nothing to be missing. */}
+          {collects && pastDue && submittedCount < relevant.length && (
+            <button
+              type="button"
+              className="dir-tool-btn"
+              onClick={() => { setMailBarOpen(false); setMissingBarOpen(v => !v); }}
+              title="Email each student who has not submitted"
+            >
+              <Mail size={15} /> {missingBarOpen ? 'Done emailing' : 'Email missing'}
             </button>
           )}
           <button type="button" className="dir-tool-btn" onClick={onEdit}>Edit</button>
@@ -978,6 +1013,26 @@ function GradeSheet({ assignment, students, ensembles, onEdit, onClose }: GradeS
             </div>
           )}
         </section>
+      )}
+
+      {missingPlan && (
+        <GradeMailBar
+          missing
+          plan={missingPlan}
+          onClose={() => setMissingBarOpen(false)}
+          top={(
+            <label className="dir-roster-mailbar-note" style={{ display: 'block' }}>
+              Message ({'{name}'} and {'{assignment}'} are filled in for each student)
+              <textarea
+                className="dir-textarea"
+                rows={4}
+                value={missingText}
+                onChange={e => saveMissingText(e.target.value)}
+                style={{ width: '100%', marginTop: 4 }}
+              />
+            </label>
+          )}
+        />
       )}
 
       {mailPlan && (

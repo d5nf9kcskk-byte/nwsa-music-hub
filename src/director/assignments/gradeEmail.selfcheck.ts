@@ -7,7 +7,7 @@
  * that silently never opens.
  */
 import { gradeEmailBody, gradeEmailSubject, gradeRecipients, hasGradeToSend } from './gradeEmail.ts';
-import { gradeMailDigest, gradeMailPlan } from './gradeMailLinks.ts';
+import { gradeMailDigest, gradeMailPlan, missingWorkPlan, MISSING_WORK_TEMPLATE } from './gradeMailLinks.ts';
 import { personalMailto, MAILTO_MAX } from '../rosterEmail.ts';
 
 function assert(cond: unknown, msg: string): void {
@@ -207,5 +207,31 @@ const nobody = gradeMailPlan({
 });
 assert(nobody.items.length === 0 && nobody.noAddress.length === 0 && nobody.ungraded === 1,
   'nobody graded is not the same as nobody reachable, and the bar says which');
+
+// ── "you have not submitted" (#missing-work) ──
+const miss = missingWorkPlan({
+  students: [stu('s1', 'Rose, William'), stu('s2', 'Ana Pérez'), stu('s3', 'Sent It'),
+    stu('s4', 'Passed Inroom'), stu('s5', 'Excused One'), stu('s6', 'Failed Already'), stu('s7', 'No Email')],
+  submittedIds: new Set(['s3']),
+  resultMap: {
+    s4: { status: 'Pass' } as never, s5: { status: 'Exempt' } as never, s6: { status: 'Fail', score: '0' } as never,
+  },
+  contacts: {
+    s1: { email: 'will@example.com', parentEmail: 'mum@example.com' } as never,
+    s2: { email: 'ana@example.com' } as never,
+    s3: { email: 'sent@example.com' } as never,
+    s4: { email: 'p@example.com' } as never,
+    s5: { email: 'e@example.com' } as never,
+    s6: { email: 'f@example.com' } as never,
+  },
+  assignmentTitle: 'Scales Exam',
+  template: MISSING_WORK_TEMPLATE,
+});
+assert(miss.items.map(i => i.studentId).join() === 's1,s2,s6',
+  'missing = sent nothing, not passed in the room, not excused; a Fail still gets it');
+assert(miss.noAddress.length === 1 && miss.noAddress[0].id === 's7', 'nobody to write to is reported');
+assert(miss.items[0].to.join() === 'will@example.com', 'it goes to the student, not the guardian');
+assert(miss.items[0].body.startsWith('You, William Rose, have not submitted an assignment for Scales Exam.'),
+  'the name reads first-last and the assignment is named: ' + miss.items[0].body);
 
 console.log('grade email self-check: ok');

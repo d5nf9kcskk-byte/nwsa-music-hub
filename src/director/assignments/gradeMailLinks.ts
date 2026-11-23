@@ -14,6 +14,7 @@ import {
 } from './gradeEmail';
 import { personalMailto } from '../rosterEmail';
 import { isAdultStudent } from '../groupKind';
+import { displayName } from '../../shared/personName';
 import type { AssignmentResult, Ensemble, Student, StudentContact } from '../types';
 
 export interface GradeMailItem {
@@ -107,4 +108,47 @@ export function gradeMailDigest(items: GradeMailItem[]): string {
   return items
     .map(i => `To: ${i.to.join(', ')}\nSubject: ${i.subject}\n\n${i.body}`)
     .join('\n\n' + '─'.repeat(60) + '\n\n');
+}
+
+/* ───────────────────── "you have not submitted" (#missing-work) ───────────── */
+
+/** The director's wording (2026-11-22). `{name}` and `{assignment}` are filled
+ *  per student; the rest is edited in the bar and remembered on the device. */
+export const MISSING_WORK_TEMPLATE =
+  'You, {name}, have not submitted an assignment for {assignment}. Because the due date has passed, '
+  + 'you will receive a zero, and it will affect your grade. Please contact me if you have any further questions.';
+
+export function fillMissingWork(template: string, name: string, assignment: string): string {
+  return template.replaceAll('{name}', name).replaceAll('{assignment}', assignment);
+}
+
+/**
+ * One notice per student on the sheet who sent NOTHING and has not been
+ * passed or excused by hand (a Pass with no upload was graded in the room; an
+ * Exempt owes nothing). A Fail or a Pending row still gets it. Addressed to the
+ * STUDENT only, which is who the message speaks to ("You, …").
+ */
+export function missingWorkPlan(args: {
+  students: Student[];
+  submittedIds: Set<string>;
+  resultMap: Record<string, AssignmentResult | undefined>;
+  contacts: Record<string, StudentContact>;
+  assignmentTitle: string;
+  template: string;
+}): GradeMailPlan {
+  const { students, submittedIds, resultMap, contacts, assignmentTitle, template } = args;
+  const items: GradeMailItem[] = [];
+  const noAddress: { id: string; name: string }[] = [];
+  for (const student of students) {
+    if (submittedIds.has(student.id)) continue;
+    const st = resultMap[student.id]?.status;
+    if (st === 'Pass' || st === 'Exempt') continue;
+    const to = gradeRecipients(contacts[student.id], true);
+    const subject = `${assignmentTitle}: not submitted`;
+    const body = fillMissingWork(template, displayName(student.name), assignmentTitle);
+    const link = personalMailto(to, subject, body);
+    if (!link) { noAddress.push({ id: student.id, name: student.name }); continue; }
+    items.push({ studentId: student.id, studentName: student.name, to, subject, body, ...link });
+  }
+  return { items, noAddress, ungraded: 0 };
 }

@@ -33,6 +33,16 @@ export interface WhatsNewEntry {
 
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    id: '2026-11-22-email-missing',
+    date: '2026-11-22',
+    title: 'Email students who did not submit',
+    audience: 'staff' as const,
+    bullets: [
+      'On an assignment’s grade sheet, once the due date has passed, “Email missing” writes one email to each student who sent nothing, with their name and the assignment in it. You can change the wording first.',
+    ],
+    expires: '2026-12-13',
+  },
+  {
     id: '2026-11-16-chaperones',
     date: '2026-11-16',
     title: 'Chaperones can sign in now',

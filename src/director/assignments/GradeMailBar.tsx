@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Copy, Mail, Send, X } from 'lucide-react';
 import { gradeMailDigest, type GradeMailPlan } from './gradeMailLinks';
 import { lastFirst } from '../../shared/personName';
@@ -30,8 +30,13 @@ import { lastFirst } from '../../shared/personName';
  * account, which is not incidental — a grade arriving from an address nobody
  * recognises is a different thing entirely.
  */
-export function GradeMailBar({ plan, onClose, onSendAll }: {
+export function GradeMailBar({ plan, onClose, onSendAll, missing, top }: {
   plan: GradeMailPlan;
+  /** The "you have not submitted" notices (#missing-work) rather than grades:
+   *  the same stepping, different words. */
+  missing?: boolean;
+  /** Shown at the top of the bar (the editable message, in missing mode). */
+  top?: ReactNode;
   onClose: () => void;
   /** Hand the whole list to the Hub's own mail pipeline. Absent when the
    *  director has no signed-in address to attribute the send to. */
@@ -84,7 +89,7 @@ export function GradeMailBar({ plan, onClose, onSendAll }: {
   return (
     <>
       <div className="dir-roster-mailbar-spacer" aria-hidden="true" />
-      <div className="dir-roster-mailbar" role="region" aria-label="Email graded students">
+      <div className="dir-roster-mailbar" role="region" aria-label={missing ? 'Email students who have not submitted' : 'Email graded students'}>
         <div className="dir-roster-mailbar-head">
           <strong>{items.length} to send</strong>
           <span className="dir-roster-mailbar-count">
@@ -95,6 +100,8 @@ export function GradeMailBar({ plan, onClose, onSendAll }: {
             <X size={15} /> Close
           </button>
         </div>
+
+        {top}
 
         {/* The Hub's own pipeline — the Trigger Email extension, the same one
             behind the lesson log and the sign-up confirmation. It goes out AS
@@ -182,8 +189,10 @@ export function GradeMailBar({ plan, onClose, onSendAll }: {
         )}
 
         <p className="dir-roster-mailbar-note">
-          One message per student — each carries their own marks, so they cannot go out
-          together. {onSendAll ? 'Send from the Hub, or open each in your own mail app to edit it first.'
+          {missing
+            ? 'One message per student, to the student, with their own name in it.'
+            : 'One message per student — each carries their own marks, so they cannot go out together.'}{' '}
+          {onSendAll ? 'Send from the Hub, or open each in your own mail app to edit it first.'
             : 'Opening one fills in your mail app; nothing is sent until you send it.'}
         </p>
 
@@ -196,14 +205,16 @@ export function GradeMailBar({ plan, onClose, onSendAll }: {
 
         {noAddress.length > 0 && (
           <p className="dir-roster-mailbar-note">
-            No email on file for {noAddress.length} graded student{noAddress.length === 1 ? '' : 's'}:{' '}
+            No email on file for {noAddress.length}{missing ? '' : ' graded'} student{noAddress.length === 1 ? '' : 's'}:{' '}
             {names(noAddress)}. They are not in this list.
           </p>
         )}
 
         {items.length === 0 && (
           <p className="dir-roster-mailbar-note">
-            {ungraded > 0 && noAddress.length === 0
+            {missing
+              ? (noAddress.length === 0 ? 'Everyone on this sheet has submitted.' : 'Nobody missing has a student email on file.')
+              : ungraded > 0 && noAddress.length === 0
               ? 'Nobody on this sheet has a grade yet.'
               : 'Nobody with a grade has an email on file. Add contacts on each student.'}
           </p>
