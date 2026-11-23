@@ -42,7 +42,7 @@
     "absenceReport": false,
     "personnel": true,
     "bannerDrafter": false,
-    "googleConfirm": false
+    "googleConfirm": true
   },
   "program": {
     "missionStatement": "",

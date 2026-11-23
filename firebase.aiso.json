@@ -15,5 +15,8 @@
       "node --experimental-strip-types \"$RESOURCE_DIR/src/passwordSetup.selfcheck.ts\"",
       "node \"$RESOURCE_DIR/build-org.mjs\" aiso"
     ]
+  },
+  "extensions": {
+    "firestore-send-email": "firebase/firestore-send-email@0.2.10"
   }
 }
