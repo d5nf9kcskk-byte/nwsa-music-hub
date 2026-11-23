@@ -146,6 +146,11 @@ export default function PersonnelManager({ initialPersonId, initialEventId }: {
 
   // Newest contract is a Draft, for the ticked people: what "Mark sent" acts on.
   const selectedDrafts = [...selected].map(id => newestContract(contractsByPerson[id] ?? [])).filter((c): c is Contract => c?.status === 'Draft');
+  const invitedEmails = new Set(members.map(m => m.email));
+  const toInvite = personnel.filter(p => {
+    const email = (contacts[p.id]?.email ?? '').trim().toLowerCase();
+    return selected.has(p.id) && email.includes('@') && !invitedEmails.has(email);
+  });
 
   const isEmpty = !loading && personnel.length === 0;
 
@@ -317,6 +322,17 @@ export default function PersonnelManager({ initialPersonId, initialEventId }: {
           onMarkSent={() => {
             if (!window.confirm(`Mark ${selectedDrafts.length} draft contract${selectedDrafts.length === 1 ? '' : 's'} as sent? This only records it. Send them from your own email first.`)) return;
             selectedDrafts.forEach(c => void updateContract(c.id, { status: 'Sent' }));
+          }}
+          inviteCount={toInvite.length}
+          onInvite={async () => {
+            if (!window.confirm(`Email a Hub invitation to ${toInvite.length} ${toInvite.length === 1 ? 'person' : 'people'}? Each gets a link to choose a password.`)) return '';
+            let sent = 0; const failed: string[] = [];
+            // One at a time: the server's mailbox cap is per hour, and a tally beats 80 parallel calls.
+            for (const p of toInvite) {
+              const note = await invite(p.id, p.preferredName || p.name, contacts[p.id]?.email ?? '').catch(() => 'failed');
+              if (note.startsWith('Invitation sent')) sent++; else failed.push(`${p.name}: ${note}`);
+            }
+            return failed.length ? `${sent} sent. Not sent: ${failed.join('; ')}` : `${sent} invitations sent. Each link works for three days.`;
           }}
           onClear={() => setSelected(new Set())}
         />

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Mail, MessageSquare, Copy, Send, X } from 'lucide-react';
+import { Mail, MessageSquare, Copy, Send, X, UserPlus } from 'lucide-react';
 import { mailtoBatches, smsLink, copyList, isPhonish } from '../rosterEmail';
 import type { Personnel, PersonnelContact } from '../types';
 
@@ -18,11 +18,17 @@ interface Props {
   /** Selected people whose newest contract is a Draft. */
   draftCount: number;
   onMarkSent: () => void;
+  /** Ticked people with an email and no Hub sign-in yet (#member-sign-in). */
+  inviteCount: number;
+  /** Invite them; answers a line for the bar. */
+  onInvite: () => Promise<string>;
   onClear: () => void;
 }
 
-export function PersonnelEmailBar({ people, contacts, draftCount, onMarkSent, onClear }: Props) {
+export function PersonnelEmailBar({ people, contacts, draftCount, onMarkSent, inviteCount, onInvite, onClear }: Props) {
   const [message, setMessage] = useState('');
+  const [inviting, setInviting] = useState(false);
+  const [inviteNote, setInviteNote] = useState('');
   const [copied, setCopied] = useState('');
   const dedupe = (xs: string[], key: (x: string) => string) => {
     const seen = new Set<string>();
@@ -62,10 +68,16 @@ export function PersonnelEmailBar({ people, contacts, draftCount, onMarkSent, on
         {emails.length > 0 && (
           <button className="dir-tool-btn" onClick={() => void copy('emails', copyList(emails))}><Copy size={14} /> {copied === 'emails' ? 'Copied' : 'Copy emails'}</button>
         )}
+        {inviteCount > 0 && (
+          <button className="dir-tool-btn" disabled={inviting} onClick={() => { setInviting(true); void onInvite().then(setInviteNote).finally(() => setInviting(false)); }}>
+            <UserPlus size={14} /> {inviting ? 'Inviting…' : `Invite ${inviteCount} to the Hub`}
+          </button>
+        )}
         {draftCount > 0 && (
           <button className="dir-tool-btn" onClick={onMarkSent}><Send size={14} /> Mark {draftCount} sent</button>
         )}
       </div>
+      {inviteNote && <p className="dir-field-hint" role="status">{inviteNote}</p>}
       {draftCount > 0 && <p className="dir-field-hint">Mark sent records that you sent the contract. It sends nothing itself.</p>}
     </div>
   );
