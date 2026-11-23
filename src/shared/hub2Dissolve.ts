@@ -264,8 +264,20 @@ export function finish() {
 export function dissolve(swap?: () => void): void {
   if (!dissolveOn()) { finish(); swap?.(); return; }
   if (S.phase === 'up' || S.phase === 'hold') {
-    if (S.phase === 'hold') S.holdUntil = performance.now() + clock().holdMs;
+    const held = S.phase === 'hold';
     swap?.();
+    // RE-ARM THE HOLD, never just push its deadline out. `hold()` arms ONE
+    // `setTimeout`; moving `S.holdUntil` on its own leaves that timer to fire
+    // at the original deadline, find the clock short of the new one, do
+    // nothing, and never reschedule. From there only a DOM mutation can end
+    // the hold, so a second navigation onto a page whose placeholders stop
+    // mutating — an unresolved listener, a dead zone (#37) — leaves the melted
+    // copy frozen on screen over a live page that is `visibility: hidden`,
+    // with nothing thrown and no load-error strip. The same silent-hang shape
+    // as the iPad incident in #firestore-cache.
+    // `hold()` is idempotent at one generation: it re-observes, clears and
+    // re-arms the timer, sets `holdUntil` itself, and re-checks at once.
+    if (held) hold();
     return;
   }
   const live = scroller();
