@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
-import { X } from 'lucide-react';
+import { X, Download, Printer } from 'lucide-react';
 import { getDocument, GlobalWorkerOptions, type PDFDocumentProxy, type RenderTask } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import workerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url';
 
@@ -21,9 +21,48 @@ GlobalWorkerOptions.workerSrc = workerUrl;
 const MAX_CANVAS_EDGE = 4096;
 const SWIPE_PX = 50;
 
-export default function PartReader({ bytes, title, note, onClose }: {
+/**
+ * Save and Print work from the bytes already on the device (offline too):
+ * never a download URL or token, the part stays members-only.
+ * Phones and tablets get the share sheet (Save to Files, forScore, Print on
+ * iOS); `<a download>` on a blob is unreliable in an iPhone Home Screen app.
+ * A computer downloads the file, and prints the PDF itself from a hidden frame.
+ * ponytail: Android's share sheet has no Print; they print from Files/Drive.
+ */
+const isTouch = () => typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+
+async function sharePart(file: File): Promise<boolean> {
+  if (!isTouch() || !navigator.canShare?.({ files: [file] })) return false;
+  try { await navigator.share({ files: [file] }); } catch { /* closed the sheet */ }
+  return true;
+}
+
+function downloadPart(file: File) {
+  const url = URL.createObjectURL(file);
+  const a = Object.assign(document.createElement('a'), { href: url, download: file.name });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+function printPart(file: File) {
+  const url = URL.createObjectURL(file);
+  const frame = Object.assign(document.createElement('iframe'), { src: url, title: file.name });
+  frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
+  frame.onload = () => {
+    try { frame.contentWindow?.focus(); frame.contentWindow?.print(); }
+    catch { window.open(url, '_blank'); } // a browser that will not print a framed PDF: its own tab
+  };
+  document.body.append(frame);
+  setTimeout(() => { frame.remove(); URL.revokeObjectURL(url); }, 10 * 60_000);
+}
+
+export default function PartReader({ bytes, title, fileName, note, onClose }: {
   bytes: Uint8Array;
   title: string;
+  /** What Save calls it, e.g. "Czardas - Violin 1.pdf" (partFileName). */
+  fileName: string;
   /** One line under the title, e.g. "Saved copy: a newer one is up". */
   note?: string;
   onClose: () => void;
@@ -115,6 +154,11 @@ export default function PartReader({ bytes, title, note, onClose }: {
   // A swipe that ends over a tap zone must not turn twice.
   const tap = (by: number) => () => { if (!swiped.current) turn(by); swiped.current = false; };
 
+  const file = () => new File([bytes as BlobPart], fileName, { type: 'application/pdf' });
+  const save = async () => { const f = file(); if (!(await sharePart(f))) downloadPart(f); };
+  const print = async () => { const f = file(); if (!(await sharePart(f))) printPart(f); };
+  const action: React.CSSProperties = { minHeight: 44, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '0 12px', fontSize: 15, fontWeight: 700 };
+
   const zone: React.CSSProperties = { position: 'absolute', top: 0, bottom: 0, width: '33.34%', background: 'transparent', border: 0, padding: 0, cursor: 'pointer' };
 
   return (
@@ -125,10 +169,16 @@ export default function PartReader({ bytes, title, note, onClose }: {
           style={{ minWidth: 44, minHeight: 44, display: 'grid', placeItems: 'center', background: 'transparent', border: 0, borderRadius: 8, color: 'inherit', cursor: 'pointer' }}>
           <X size={22} />
         </button>
-        <div style={{ minWidth: 0 }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
           <div style={{ fontWeight: 700, fontSize: 15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
           {note && <div style={{ fontSize: 12, fontWeight: 700, color: '#b45309' }}>{note}</div>}
         </div>
+        <button className="dir-tool-btn" style={action} onClick={() => { void save(); }} title="Save to this device, Files or forScore">
+          <Download size={18} /> Save
+        </button>
+        <button className="dir-tool-btn" style={action} onClick={() => { void print(); }} title="Print">
+          <Printer size={18} /> Print
+        </button>
       </header>
       <div ref={areaRef} onPointerDown={down} onPointerUp={up} onPointerCancel={() => { swipe.current = null; }}
         style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'none', userSelect: 'none', overflow: 'hidden' }}>

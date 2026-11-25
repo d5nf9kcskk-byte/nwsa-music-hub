@@ -14,7 +14,7 @@ import {
   FIXTURE_CONTRACTS, FIXTURE_MEMBER_PERSONNEL_ID, FIXTURE_PAYMENTS, FIXTURE_PERSONNEL, FIXTURE_PERSONNEL_CONTACTS,
 } from '../hooks/fixturesAdult';
 import { memberView, partIsMine, type MemberView } from '../../shared/memberView';
-import { clearParts, getPart, isUpdated, listParts, putPart, type StoredPart } from './partStore';
+import { clearParts, getPart, isUpdated, partFileName, listParts, putPart, type StoredPart } from './partStore';
 import { calledIds, seatLabel } from '../personnel/personnelOrder';
 import { contractTotalCents, formatCents, paidCents, payState } from '../personnel/contractMoney';
 import { formatDate, formatTime, formatTimeRange, todayStr } from '../utils';
@@ -48,7 +48,7 @@ import { InstallCoach } from './InstallCoach';
 
 const PartReader = lazy(() => import('./PartReader'));
 
-type Reading = { bytes: Uint8Array; title: string; note?: string };
+type Reading = { bytes: Uint8Array; title: string; fileName: string; note?: string };
 
 function endpoint(): string {
   const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
@@ -145,17 +145,18 @@ export default function MemberApp({ user, signOut }: { user: User; signOut: () =
     setPartError('');
     setOpening(part.path);
     const title = `${pieceTitle}: ${part.label}`;
+    const fileName = partFileName(pieceTitle, part.label);
     try {
       const kept = uid ? await getPart(uid, part.path).catch(() => undefined) : undefined;
-      if (kept && !isUpdated(kept, part.sha256)) { setReading({ bytes: kept.bytes, title }); return; }
+      if (kept && !isUpdated(kept, part.sha256)) { setReading({ bytes: kept.bytes, title, fileName }); return; }
       try {
         const bytes = await download(part.path, part.label, pieceTitle);
         // A full or private-mode disk still lets them read it now.
         if (uid) await putPart(uid, { path: part.path, label: part.label, pieceTitle, bytes }).catch(() => {});
         refreshSaved();
-        setReading({ bytes, title });
+        setReading({ bytes, title, fileName });
       } catch {
-        if (kept) setReading({ bytes: kept.bytes, title, note: 'Your saved copy. A newer one is up: open it again with internet.' });
+        if (kept) setReading({ bytes: kept.bytes, title, fileName, note: 'Your saved copy. A newer one is up: open it again with internet.' });
         else setPartError('That part did not open. Check your internet, or tell the librarian.');
       }
     } finally {
@@ -319,7 +320,7 @@ export default function MemberApp({ user, signOut }: { user: User; signOut: () =
       </main>
       {reading && (
         <Suspense fallback={null}>
-          <PartReader bytes={reading.bytes} title={reading.title} note={reading.note} onClose={() => setReading(null)} />
+          <PartReader bytes={reading.bytes} title={reading.title} fileName={reading.fileName} note={reading.note} onClose={() => setReading(null)} />
         </Suspense>
       )}
     </div>

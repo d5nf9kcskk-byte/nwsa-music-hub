@@ -5,7 +5,7 @@
  * IndexedDB is a ~30-line in-memory stand-in below (Node has none); it keeps
  * databases by name, so deleteDatabase really drops what put wrote.
  */
-import { PARTS_DB, partKey, isUpdated, getPart, listParts, putPart, clearParts, sha256Hex } from './partStore.ts';
+import { PARTS_DB, partFileName, partKey, isUpdated, getPart, listParts, putPart, clearParts, sha256Hex } from './partStore.ts';
 
 let failures = 0;
 const check = (c: unknown, m: string) => { if (!c) { failures++; console.error(`  ✗ ${m}`); } };
@@ -49,6 +49,11 @@ check(isUpdated({ sha256: 'aa' }, 'AA') === false, 'hash compare ignores case');
 check(!isUpdated(undefined, 'bb'), 'nothing stored is not updated');
 check(!isUpdated({ sha256: 'aa' }, ''), 'unknown current hash is not updated');
 check(!isUpdated({ sha256: 'aa' }, 'aa'), 'same hash is not updated');
+
+// ── Save file name ──
+check(partFileName('Czardas', 'Violin 1') === 'Czardas - Violin 1.pdf', 'file name is "Piece - Part.pdf"');
+check(partFileName('A Fifth: of / Beethoven', 'Vln 1?') === 'A Fifth of Beethoven - Vln 1.pdf', 'no path or colon characters');
+check(partFileName('', '') === 'Part.pdf', 'never an empty name');
 
 // ── Store, then sign-out ──
 const bytes = new TextEncoder().encode('%PDF-1.7 sample');

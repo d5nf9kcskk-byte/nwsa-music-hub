@@ -35,6 +35,10 @@ export function partKey(uid: string, path: string): string {
 export const isUpdated = (stored: { sha256: string } | undefined, currentSha: string | undefined): boolean =>
   !!stored && !!currentSha && !!stored.sha256 && stored.sha256 !== currentSha.toLowerCase();
 
+/** "Czardas - Violin 1.pdf": what Save calls the file. No characters Files, Windows or forScore choke on. */
+export const partFileName = (pieceTitle: string, label: string): string =>
+  `${[pieceTitle, label].map(s => s.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim()).filter(Boolean).join(' - ') || 'Part'}.pdf`;
+
 export async function sha256Hex(bytes: Uint8Array): Promise<string> {
   const d = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes as BufferSource));
   return Array.from(d, b => b.toString(16).padStart(2, '0')).join('');
