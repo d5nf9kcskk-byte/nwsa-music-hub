@@ -6,6 +6,8 @@ import { LazyLinkPicker } from './LinkPickerLazy';
 import type { RichFont } from '../../shared/richTextParse';
 import { RichText } from '../../shared/richText';
 
+declare const __ORG_PERSONNEL__: boolean;
+
 interface Props {
   value: string;
   onChange: (v: string) => void;

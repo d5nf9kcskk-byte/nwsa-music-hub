@@ -13,6 +13,8 @@ import { backdropClose } from '../../shared/backdropClose';
 import type { PushScope } from '../../shared/pushAlerts';
 import type * as PushClient from '../../shared/pushClient';
 
+declare const __ORG_PERSONNEL__: boolean;
+
 // Build-time literal (vite.config.ts `define`).
 declare const __ORG_SERVER_FUNCTIONS__: boolean;
 

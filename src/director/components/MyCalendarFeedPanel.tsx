@@ -10,6 +10,8 @@ import { webcalUrl } from '../../public/feedUrl';
 import { useFeedReady } from '../../public/feedReady';
 import { ORG } from '../../org';
 
+declare const __ORG_PERSONNEL__: boolean;
+
 /**
  * "Just my things, on my phone" (#my-calendar).
  *

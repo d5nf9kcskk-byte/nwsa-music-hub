@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Clock } from 'lucide-react';
 import { toDateStr } from '../utils';
 
+declare const __ORG_PERSONNEL__: boolean;
+
 interface Props {
   publishAt: number | undefined;
   onChange: (publishAt: number | undefined) => void;

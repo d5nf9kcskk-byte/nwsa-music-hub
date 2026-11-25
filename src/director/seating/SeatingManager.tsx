@@ -15,6 +15,8 @@ import { seatingChartPath, seatingChartUrl } from './seatingLink';
 import { chartPieceIds } from '../../shared/concertRosters';
 import { backdropClose } from '../../shared/backdropClose';
 
+declare const __ORG_PERSONNEL__: boolean;
+
 /** Director seating editor for one ensemble. Charts are per-piece playing-exam
  *  seating: seat 1 = principal. Published charts show on the public ensemble page. */
 export function SeatingManager({ ensembleId, ensembleName, onClose }: {

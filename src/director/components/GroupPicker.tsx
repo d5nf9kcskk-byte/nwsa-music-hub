@@ -2,6 +2,8 @@ import { useState, type ReactNode } from 'react';
 import type { Ensemble } from '../types';
 import { groupBuckets } from '../groupBuckets';
 
+declare const __ORG_PERSONNEL__: boolean;
+
 /**
  * Pick any number of groups — a dropdown list, not a wall of pills.
  *

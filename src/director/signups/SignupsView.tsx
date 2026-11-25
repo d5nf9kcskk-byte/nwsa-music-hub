@@ -53,6 +53,8 @@ import type {
 import type { Director } from '../hooks/useDirectors';
 import './signups.css';
 
+declare const __ORG_PERSONNEL__: boolean;
+
 /**
  * Sign-ups (#signups) — the director side.
  *

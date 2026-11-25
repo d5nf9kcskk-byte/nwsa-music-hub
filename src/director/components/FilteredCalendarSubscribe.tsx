@@ -10,6 +10,8 @@ import { describeView, isAutoView, viewLabel, type CalendarViewSpec } from '../.
 import { icsAssignment, icsCalendar, icsEvent } from '../../shared/ics';
 import { ORG } from '../../org';
 
+declare const __ORG_PERSONNEL__: boolean;
+
 type SheetMode = 'filter' | 'changes';
 /** Registration state for a filter mix that has no pre-built feed yet. */
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';

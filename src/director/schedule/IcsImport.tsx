@@ -4,6 +4,8 @@ import { useEvents } from '../hooks/useEvents';
 import type { CalendarEvent } from '../types';
 import { backdropClose } from '../../shared/backdropClose';
 
+declare const __ORG_PERSONNEL__: boolean;
+
 interface Props { onClose: () => void; }
 
 /** Very lightweight ICS parser — handles the subset Apple/Google export. */
