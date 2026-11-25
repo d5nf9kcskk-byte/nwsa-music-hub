@@ -252,8 +252,14 @@ export function AuthGate({ children }: Props) {
             setAccess('error');
           }
         };
-        // (#member-sign-in) A refused PASSWORD sign-in is not fixed by
-        // confirming Google: it gets the plain retry / sign-out screen.
+        // (#member-sign-in) A refused PASSWORD sign-in is a player whose
+        // entry is gone (staff removed it) or never existed: say so, instead
+        // of blaming the connection. Confirming Google cannot fix it.
+        if (__ORG_PERSONNEL__ && err.code === 'permission-denied'
+          && user.providerData.some(p => p.providerId === 'password')) {
+          if (!resolved) { resolved = true; setAccess('denied'); }
+          return;
+        }
         if (__ORG_PERSONNEL__
           ? (err.code !== 'permission-denied' || !ASKS_SERVER || user.providerData.some(p => p.providerId === 'password'))
           : (err.code !== 'permission-denied' || !ASKS_SERVER)) { fallBack(); return; }
@@ -590,11 +596,18 @@ export function AuthGate({ children }: Props) {
       <div className="dir-auth">
         <img src={`${import.meta.env.BASE_URL}${ORG.logoFile}`} className="dir-auth-logo" alt={ORG.orgShortName} />
         <h1>This account isn’t authorized</h1>
+        {__ORG_PERSONNEL__ && user.providerData.some(p => p.providerId === 'password') ? (
+          <p>
+            <strong>{user.email}</strong> no longer has a sign-in for {ORG.appName}.
+            If you think that’s a mistake, contact the office.
+          </p>
+        ) : (
         <p>
           You’re signed in as <strong>{user.email}</strong>, which isn’t on the
           director list for {ORG.appName}. If you should have access, ask a
           current director to add your Google email from the Directors screen.
         </p>
+        )}
         <button className="dir-google-btn" onClick={handleSignOut}>Sign in with a different account</button>
         <p><Link to="/">← Back to the public site</Link></p>
       </div>
