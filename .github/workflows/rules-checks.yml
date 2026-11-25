@@ -38,6 +38,9 @@ on:
       - 'scripts/google-binding.emulator-proof.mjs'
       - 'scripts/rules-verdicts.emulator-check.mjs'
       - 'scripts/personnel-rules.emulator-check.mjs'
+      - 'scripts/personnel-import.emulator-check.mjs'
+      - 'src/director/personnel/importWrite.ts'
+      - 'src/director/personnel/importPlan.ts'
       - 'scripts/member-sign-in.emulator-proof.mjs'
       - 'scripts/messages-rules.emulator-check.mjs'
       - 'scripts/member-messages.emulator-proof.mjs'
@@ -110,6 +113,14 @@ jobs:
           --config firebase.emulators.json --only auth,firestore
           --project demo-personnel-rules
           "node scripts/personnel-rules.emulator-check.mjs"
+
+      # The roster importer's real batched write, under the real rules.
+      - name: Check the roster importer's write path (personnel)
+        run: >
+          npx --yes firebase-tools@15.28.1 emulators:exec
+          --config firebase.emulators.json --only auth,firestore
+          --project demo-personnel-import
+          "npx tsx --tsconfig tsconfig.app.json scripts/personnel-import.emulator-check.mjs"
 
       # Players sign in by invitation (#member-sign-in): staff invite, the
       # player sets a password, and a signed-in player reads their own entry

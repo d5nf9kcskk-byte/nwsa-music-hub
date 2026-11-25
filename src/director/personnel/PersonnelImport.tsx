@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import { Upload } from 'lucide-react';
-import { collection, doc, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
 import { currentDirectorName, currentDirectorRole } from '../currentDirector';
 import { trackWrite } from '../writeStatus';
@@ -9,7 +8,8 @@ import { backdropClose } from '../../shared/backdropClose';
 import { looksBinary } from '../roster/rosterCsv';
 import { musicEnsembles } from '../utils';
 import type { Ensemble } from '../types';
-import { planPersonnelImport, draftContractFor } from './importPlan';
+import { planPersonnelImport } from './importPlan';
+import { writeImport } from './importWrite';
 import { formatCents } from './contractMoney';
 
 /**
@@ -21,8 +21,6 @@ import { formatCents } from './contractMoney';
  * Writes go in batches of 150 people (three docs each, under the 500-write
  * cap) so 85 players are one round trip, not 255.
  */
-
-const PER_BATCH = 150;
 
 interface Props {
   ensembles: Ensemble[];
@@ -58,37 +56,7 @@ export function PersonnelImport({ ensembles, existingNames, onClose }: Props) {
     setError('');
     const stamp = { updatedAt: Date.now(), updatedBy: currentDirectorName(), updatedByRole: currentDirectorRole() };
     try {
-      for (let i = 0; i < plan.people.length; i += PER_BATCH) {
-        const batch = writeBatch(dbRef);
-        for (const p of plan.people.slice(i, i + PER_BATCH)) {
-          const ref = doc(collection(dbRef, 'personnel'));
-          const section = p.section ?? p.instrument;
-          const ensembleIds = ensembleId ? [ensembleId] : [];
-          batch.set(ref, {
-            name: p.name, status: p.status, ensembleIds, ...stamp,
-            ...(p.instrument ? { instrument: p.instrument } : {}),
-            ...(section ? { section } : {}),
-            ...(p.seat ? { seat: p.seat } : {}),
-          });
-          const contact = {
-            ...(p.email ? { email: p.email } : {}), ...(p.phone ? { phone: p.phone } : {}),
-            ...(p.address ? { address: p.address } : {}), ...(p.payMethod ? { payMethod: p.payMethod } : {}),
-            ...(p.payHandle ? { payHandle: p.payHandle } : {}), ...(p.w9Status ? { w9Status: p.w9Status } : {}),
-            ...(Object.keys(p.extra).length ? { extra: p.extra } : {}),
-          };
-          if (Object.keys(contact).length) batch.set(doc(dbRef, 'personnelContacts', ref.id), contact);
-          const d = draftContractFor(p);
-          if (d) {
-            batch.set(doc(collection(dbRef, 'contracts')), {
-              personnelId: ref.id, personnelName: p.name, ...d, status: 'Draft',
-              ...(section && d.category === 'chair' ? { section } : {}),
-              ...(p.seat && d.category === 'chair' ? { seat: p.seat } : {}),
-              ensembleIds, createdAt: Date.now(), ...stamp,
-            });
-          }
-        }
-        await trackWrite('Roster import', () => batch.commit());
-      }
+      await writeImport(dbRef, plan.people, ensembleId, stamp, batch => trackWrite('Roster import', () => batch.commit()));
       setDone(`Imported ${plan.people.length} ${plan.people.length === 1 ? 'person' : 'people'}${drafts ? ` and ${drafts} draft contracts` : ''}.`);
       setText('');
     } catch (e) {
