@@ -138,6 +138,22 @@ re-plans its own tab, unless it only stamped the status line.
   a renamed tab still syncs, the unregistered tab is never touched). Rules
   cases for the registry in `personnel-rules.emulator-check.mjs`.
 
+## Tab-per-area decisions (Grant, 2026-11-25: "Yes, A + defaults")
+
+- **A**: tabs are linked through the `sheetLinks` registry, by tab id, with
+  one engine and one adapter per area (built in step 3).
+- **Next areas**, after the concert roster is live (steps 4 and 5) and nothing
+  else until Grant asks: Musicians (master roster and sub list, one tab for
+  the orchestra) and Schedule (calendar, one tab per season).
+- **Who may connect a tab**: anyone who can edit the workbook.
+- **Payments** are edited only through the roster's Paid column. A Payments
+  ledger tab, if one is ever built, is Hub → sheet only.
+- **"Sheet1"** stays unconnected and ignored (the registry already does this).
+- **Step 4 in the sheet**: an "AISO Hub → Connect this tab…" menu with two
+  dropdowns (what the tab is; which concert or season), and a locked "Hub"
+  status tab listing each connected tab, its last sync, and rows with
+  problems. "Change tab" in Personnel stays as the staff-side way to connect.
+
 ## Not here, on purpose
 
 The sheet link itself, a players-see-"said yes" change (decision 1 keeps
