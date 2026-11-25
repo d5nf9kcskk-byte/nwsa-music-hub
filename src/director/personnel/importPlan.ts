@@ -47,6 +47,13 @@ const REFUSED_HEADER = /\b(ssn|social\s*sec\w*|tin|ein|tax\s*(payer)?\s*(id|no|n
 const SSN_SHAPE = /^\d{3}-?\d{2}-?\d{4}$/;
 const EIN_SHAPE = /^\d{2}-\d{7}$/;
 
+/** A value shaped like a Social Security or employer id: never stored. The
+ *  importer refuses a file holding one; the Personnel card refuses the field. */
+export function refusedCell(v: string): boolean {
+  const t = v.trim();
+  return SSN_SHAPE.test(t) || EIN_SHAPE.test(t);
+}
+
 type Field =
   | 'name' | 'first' | 'last' | 'instrument' | 'section' | 'seat' | 'status' | 'email' | 'phone'
   | 'address' | 'payMethod' | 'payHandle' | 'w9' | 'position' | 'fee' | 'services' | 'extra';
@@ -101,7 +108,7 @@ export function planPersonnelImport(text: string, existingNames: string[]): Impo
     out.refused = `The column “${bad}” looks like a taxpayer id or bank number. The Hub never stores those. Remove the column and import again.`;
     return out;
   }
-  const cellBad = rows.slice(1).flat().find(c => SSN_SHAPE.test(c.trim()) || EIN_SHAPE.test(c.trim()));
+  const cellBad = rows.slice(1).flat().find(refusedCell);
   if (cellBad !== undefined) {
     out.refused = 'A cell is shaped like a Social Security or employer id number. The Hub never stores those. Remove it and import again.';
     return out;

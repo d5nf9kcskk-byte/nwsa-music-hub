@@ -99,6 +99,12 @@ runs:
       run: npx tsx --tsconfig tsconfig.app.json src/director/personnel/importPlan.selfcheck.ts
       shell: bash
 
+    # The concert screen (docs/aiso-personnel-screen.md): section order and
+    # chair counts, this concert's contract, usable emails, parts by chair.
+    - name: Personnel concert screen self-check (sections, chairs, parts)
+      run: npx tsx --tsconfig tsconfig.app.json src/director/personnel/concertRoster.selfcheck.ts
+      shell: bash
+
     - name: Personnel CSV self-check (payroll arithmetic, formula-safe cells, stands)
       run: npx tsx --tsconfig tsconfig.app.json src/director/personnel/personnelCsv.selfcheck.ts
       shell: bash

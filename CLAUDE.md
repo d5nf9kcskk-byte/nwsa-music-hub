@@ -1429,6 +1429,29 @@ keep Google. PR #244's staff password work, ported to MEMBERS only.
 - Proof: `scripts/member-sign-in.emulator-proof.mjs` (real rules, the real
   invitation and password steps), in rules-checks.yml.
 
+## Personnel by concert (Nov 2026, #aiso-personnel, personnel orgs)
+
+Steps 1 and 2 of the plan to keep AISO's Personnel in step with the
+personnel manager's Google Sheet: `docs/aiso-personnel-screen.md`. The sheet
+link itself (steps 3 to 5) is not built yet.
+
+- **Who is on a concert is the contracts that call them** (`calledIds()` in
+  `personnel/personnelOrder.ts`, the service roll's own answer). Taking a
+  player off voids that contract (a Draft is deleted); the roster keeps them.
+- **`concertPersonnel/{eventId}` holds only what a contract cannot**: the
+  sections in the sheet's order with the chairs each needs, and `saidYes` (a
+  booking flag, never a signature). Owner/Director only, exact key list, the
+  event must exist; `personnel-rules.emulator-check.mjs` asks every field.
+  Seated counts are always counted, never stored.
+- `personnel/concertRoster.ts` is the screen's arithmetic (section order,
+  chairs, this concert's contract, parts by `partIsMine`), pinned by its
+  self-check. Typed values pass `refusedCell()` from `importPlan.ts`, the
+  importer's own tax-id guard.
+- `personnel/fixtureWrites.ts` makes the fixture build's edits stick in
+  memory. It lives in the screen's chunk ON PURPOSE: the shared paid-roster
+  hooks are also in the school's bundle (staff search), and putting it there
+  moved the NWSA build.
+
 ## Messages to players (Nov 2026, #messages, personnel orgs)
 
 "Accountable messages, no chat room." Three things, all personnel-org only

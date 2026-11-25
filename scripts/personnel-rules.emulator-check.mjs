@@ -2,7 +2,8 @@
 /**
  * The pay tier's rules, asked on the Firestore emulator (#personnel).
  * Covers what the paid-roster collections added for pay: `payMethod` and
- * `payHandle` on personnelContacts, and the /payments collection. It asserts
+ * `payHandle` on personnelContacts, the /payments collection, and the concert
+ * link (/concertPersonnel: sections with chairs needed, and who said yes). It asserts
  * (unlike rules-verdicts.emulator-check.mjs, which only records): a wrong
  * answer exits 1.
  *
@@ -43,7 +44,11 @@ for (const who of Object.keys(PEOPLE)) {
 }
 
 // Firestore REST value encoding: integers and doubles are different types, which is the point.
-const enc = v => typeof v === 'number' ? (Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v }) : { stringValue: v };
+const enc = v => typeof v === 'number' ? (Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v })
+  : typeof v === 'boolean' ? { booleanValue: v }
+  : Array.isArray(v) ? { arrayValue: { values: v.map(enc) } }
+  : v && typeof v === 'object' ? { mapValue: { fields: Object.fromEntries(Object.entries(v).map(([k, x]) => [k, enc(x)])) } }
+  : { stringValue: v };
 const body = o => ({ fields: Object.fromEntries(Object.entries(o).map(([k, v]) => [k, enc(v)])) });
 const base = `http://${FS_HOST}/v1/projects/${PROJECT}/databases/(default)/documents`;
 const call = (who, method, path, o) => fetch(`${base}${path}`, {
@@ -62,6 +67,9 @@ const expect = async (label, want, got) => {
 
 const contact = { email: 'a@example.org', phone: '555-0100', w9Status: 'on-file', payMethod: 'zelle', payHandle: 'a@example.org' };
 const pay = { contractId: 'c1', personnelId: 'p1', amountCents: 11000, paidOn: '2027-01-03', method: 'venmo' };
+// The concert link (docs/aiso-personnel-screen.md): its doc id must be a real event.
+await adminDb.doc('events/concert-1').set({ type: 'Concert', title: 'Sample concert', date: '2027-01-03', ensembleIds: [] });
+const concert = { sections: [{ name: 'Violin 1', needed: 12 }, { name: 'Flute' }], saidYes: ['p1', 'p2'] };
 
 for (const who of ['owner', 'director']) {
   await expect(`${who} saves a contact with a pay method and handle`, 'allow', call(who, 'PATCH', '/personnelContacts/p1', contact));
@@ -79,12 +87,27 @@ for (const who of ['owner', 'director']) {
   await expect(`${who} cannot write a payment dated in words`, 'deny', call(who, 'PATCH', `/payments/${who}-6`, { ...pay, paidOn: 'January 3' }));
   await expect(`${who} reads payments`, 'allow', call(who, 'GET', `/payments/${who}-1`));
   await expect(`${who} deletes a payment`, 'allow', call(who, 'DELETE', `/payments/${who}-1`));
+  await expect(`${who} saves a concert's sections and who said yes`, 'allow', call(who, 'PATCH', '/concertPersonnel/concert-1', { ...concert, updatedAt: 1, updatedBy: who, updatedByRole: 'director' }));
+  await expect(`${who} changes the chairs needed`, 'allow', call(who, 'PATCH', '/concertPersonnel/concert-1', { sections: [{ name: 'Violin 1', needed: 10 }] }));
+  await expect(`${who} clears who said yes`, 'allow', call(who, 'PATCH', '/concertPersonnel/concert-1', { saidYes: [] }));
+  await expect(`${who} reads a concert's link`, 'allow', call(who, 'GET', '/concertPersonnel/concert-1'));
+  await expect(`${who} cannot link a concert that does not exist`, 'deny', call(who, 'PATCH', '/concertPersonnel/no-such-event', concert));
+  await expect(`${who} cannot put a fee on the concert link`, 'deny', call(who, 'PATCH', '/concertPersonnel/concert-1', { ...concert, feeCents: 25000 }));
+  await expect(`${who} cannot store sections as text`, 'deny', call(who, 'PATCH', '/concertPersonnel/concert-1', { sections: 'Violin 1 12/12' }));
+  await expect(`${who} cannot store 41 sections`, 'deny', call(who, 'PATCH', '/concertPersonnel/concert-1', { sections: Array.from({ length: 41 }, (_, i) => ({ name: `S${i}` })) }));
+  await expect(`${who} cannot store said-yes as a flag`, 'deny', call(who, 'PATCH', '/concertPersonnel/concert-1', { saidYes: true }));
+  await expect(`${who} cannot store 301 said-yes ids`, 'deny', call(who, 'PATCH', '/concertPersonnel/concert-1', { saidYes: Array.from({ length: 301 }, (_, i) => `p${i}`) }));
 }
+await expect('director deletes a concert link', 'allow', call('director', 'DELETE', '/concertPersonnel/concert-1'));
+await adminDb.doc('concertPersonnel/concert-1').set(concert);
 for (const who of ['teacher', 'unlisted', 'nobody']) {
   await expect(`${who} cannot read a payment`, 'deny', call(who, 'GET', '/payments/owner-1'));
   await expect(`${who} cannot record a payment`, 'deny', call(who, 'PATCH', `/payments/${who}-1`, pay));
   await expect(`${who} cannot read a contact`, 'deny', call(who, 'GET', '/personnelContacts/p1'));
   await expect(`${who} cannot save a pay method`, 'deny', call(who, 'PATCH', '/personnelContacts/p9', contact));
+  await expect(`${who} cannot read a concert's link`, 'deny', call(who, 'GET', '/concertPersonnel/concert-1'));
+  await expect(`${who} cannot change who said yes`, 'deny', call(who, 'PATCH', '/concertPersonnel/concert-1', { saidYes: ['p9'] }));
+  await expect(`${who} cannot delete a concert link`, 'deny', call(who, 'DELETE', '/concertPersonnel/concert-1'));
 }
 
 for (const a of apps) await deleteApp(a);

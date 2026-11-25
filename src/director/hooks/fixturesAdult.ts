@@ -1,6 +1,6 @@
 import { addDays, todayStr } from '../utils';
 import type {
-  Announcement, CalendarEvent, Contract, ContractLineItem, ContractStatus, ContractTemplate, Ensemble,
+  Announcement, CalendarEvent, ConcertPersonnel, Contract, ContractLineItem, ContractStatus, ContractTemplate, Ensemble,
   LibraryDocument, Payment, Personnel, PersonnelContact, RepertoirePiece, ServiceAttendance, SignupForm,
 } from '../types';
 
@@ -230,6 +230,9 @@ const CONTACT_DIFFERS: Record<string, Partial<PersonnelContact>> = {
   'fx-p17': { emergencyName: 'Chidi Okwuosa', emergencyPhone: '555-0190' },
   'fx-p22': { w9Status: 'requested' },
   'fx-p23': { w9Status: 'not-requested', phone: '' },
+  // A name typed where the email goes, as happens on a real sheet: the
+  // Personnel screen lists it under "No usable email".
+  'fx-p24': { email: 'Dario Santangelo' },
 };
 
 /** How each person is paid, in rotation. Handles are made up: the reserved
@@ -326,6 +329,21 @@ export const FIXTURE_CONTRACTS: Contract[] = __ORG_PERSONNEL__ && import.meta.en
     notes: 'Replaced when the dress rehearsal was added: three services became four.',
   },
 ] : [];
+
+/** The concert link (docs/aiso-personnel-screen.md): sections in the order a
+ *  personnel sheet lists them, strings first, with the chairs each needs.
+ *  Flute has no count, as on the real sheet. Three players have not said yes. */
+export const FIXTURE_CONCERT_PERSONNEL: ConcertPersonnel[] = __ORG_PERSONNEL__ && import.meta.env.VITE_FIXTURES ? [{
+  id: 'fx-new-years-concert',
+  sections: [
+    { name: 'Violin I', needed: 4 }, { name: 'Violin II', needed: 4 }, { name: 'Viola', needed: 3 },
+    { name: 'Cello', needed: 2 }, { name: 'Bass', needed: 1 }, { name: 'Flute' }, { name: 'Oboe', needed: 2 },
+    { name: 'Clarinet', needed: 2 }, { name: 'Bassoon', needed: 2 }, { name: 'Horn', needed: 4 },
+    { name: 'Trumpet', needed: 2 }, { name: 'Trombone', needed: 1 }, { name: 'Timpani', needed: 1 },
+    { name: 'Percussion', needed: 1 }, { name: 'Harp', needed: 1 },
+  ],
+  saidYes: FIXTURE_PERSONNEL.filter(p => p.section && !['fx-p10', 'fx-p15', 'fx-p23'].includes(p.id)).map(p => p.id),
+}] : [];
 
 // Roll at tonight's rehearsal, part way through: winds, brass and percussion
 // are marked and the strings are not, so the sheet shows every state at once.

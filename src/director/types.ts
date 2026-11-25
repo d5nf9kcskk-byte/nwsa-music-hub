@@ -2022,3 +2022,22 @@ export interface Payment {
   updatedBy?: string;
   updatedByRole?: StaffRole;
 }
+
+/**
+ * What one concert needs from the personnel manager that no contract holds
+ * (#aiso-personnel, docs/aiso-personnel-screen.md). Doc id === the concert's
+ * `CalendarEvent.id`; one sheet tab is one concert. WHO plays is not here: it
+ * is the contracts that call them (`calledIds()` in personnel/personnelOrder).
+ * Owner/Director only, exact key allowlist in firestore.rules.
+ */
+export interface ConcertPersonnel {
+  id: string;
+  /** Sections in the sheet's order. `needed` is the "/12" in "Violin 1 · 12/12";
+   *  the seated number is always counted, never stored. */
+  sections?: { name: string; needed?: number }[];
+  /** Personnel ids who said yes to this concert: a booking, not a signature. */
+  saidYes?: string[];
+  updatedAt?: number;
+  updatedBy?: string;
+  updatedByRole?: StaffRole;
+}

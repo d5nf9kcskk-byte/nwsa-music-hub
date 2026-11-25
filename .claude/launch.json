@@ -16,6 +16,13 @@
       "runtimeExecutable": "sh",
       "runtimeArgs": ["-c", "VITE_ORG=as VITE_FIXTURES=1 npm run dev -- --port \"${PORT:-5174}\" --strictPort"],
       "autoPort": true
+    },
+    {
+      "// hub-fixtures-aiso": "The adult-orchestra fixtures in AISO's own look (VITE_ORG=aiso). Personnel is /director/personnel (AISO's base path is /). Edits on the Personnel screen stick in memory until a reload (personnel/fixtureWrites.ts); every other screen is read-only.",
+      "name": "hub-fixtures-aiso",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "VITE_ORG=aiso VITE_FIXTURES=1 npm run dev -- --port \"${PORT:-5175}\" --strictPort"],
+      "autoPort": true
     }
   ]
 }

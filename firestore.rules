@@ -1756,6 +1756,28 @@ service cloud.firestore {
       allow delete: if isStaff();
     }
 
+    // What a concert needs from the personnel manager that no contract holds
+    // (`ConcertPersonnel` in types.ts; docs/aiso-personnel-screen.md): the
+    // sections in the sheet's order with the chairs each needs, and who said
+    // yes to the date (a booking flag, not a signature). Doc id = the event
+    // id, and the event must exist. Who PLAYS is the contracts, never a list
+    // here. Owner/Director only like every #personnel sibling; no public
+    // mirror, no member read. Rules cannot reach inside a list's maps, so
+    // `sections` is bounded by size and the app writes its shape.
+    match /concertPersonnel/{eventId} {
+      allow read: if isStaff();
+      allow create, update: if isStaff()
+        && exists(/databases/$(database)/documents/events/$(eventId))
+        && request.resource.data.keys().hasOnly([
+             'sections', 'saidYes', 'updatedAt', 'updatedBy', 'updatedByRole',
+           ])
+        && (!('sections' in request.resource.data)
+            || (request.resource.data.sections is list && request.resource.data.sections.size() <= 40))
+        && (!('saidYes' in request.resource.data)
+            || (request.resource.data.saidYes is list && request.resource.data.saidYes.size() <= 300));
+      allow delete: if isStaff();
+    }
+
     // ── Director allowlist (stored as data) ─────────────
     // Owner-only management (#roles): only the Owner may add/remove a
     // director, change a role, or even list the roster — closes the gap
