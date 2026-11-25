@@ -589,7 +589,8 @@ function SheetLink({ link, onLink }: {
   const [open, setOpen] = useState(false);
   const [url, setUrl] = useState('');
   const spreadsheetId = /\/spreadsheets\/d\/([A-Za-z0-9_-]{20,100})/.exec(url)?.[1] ?? '';
-  const gid = /[#&?]gid=(\d+)/.exec(url)?.[1];
+  // The tab on screen is the one after '#'; '?gid=' can still name the tab the sheet opened on.
+  const gid = (/#(?:.*&)?gid=(\d+)/.exec(url) ?? /[?&]gid=(\d+)/.exec(url))?.[1];
   const status = link?.sync;
   const when = status ? new Date(status.at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
   if (link && !open) return (
