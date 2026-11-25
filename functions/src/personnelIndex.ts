@@ -16,13 +16,16 @@
  *   memberMailSend / memberMailStatus / officeMessageSent
  *                   tracked broadcasts, their delivery status, and the office
  *                   threads (memberMessages.ts, #messages).
+ *   sheetPush*      the Hub's roster changes, written into a concert's linked
+ *                   Google Sheet (sheetPush.ts, #aiso-personnel).
  *
  * Mail the Hub sends (the invitation, "a password was just set") is a `mail`
  * doc; the Trigger Email extension (firebase.json "extensions") sends it.
  * Nothing else in index.ts is exported here: the feeds, check-in, tallies,
  * student mail, push and the drafter are the school's.
  */
-import { https } from 'firebase-functions/v1';
+import { https, firestore } from 'firebase-functions/v1';
+import { pushLinked, onlyStatusChanged } from './sheetPush.ts';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { getAppCheck } from 'firebase-admin/app-check';
@@ -38,6 +41,17 @@ import { memberView } from '../../src/shared/memberView.ts';
 export { bindGoogle } from './index.ts';
 // Messages to players (#messages): tracked broadcasts, office threads.
 export { memberMailSend, memberMailStatus, officeMessageSent } from './memberMessages.ts';
+
+// Hub → personnel sheet (#aiso-personnel step 3, sheetPush.ts): any write to
+// the paid roster re-plans each concert that has a sheet linked. A concert
+// doc write that only stamps the status line is ours and starts nothing.
+const rosterWrite = (path: string) => firestore.document(path).onWrite(() => pushLinked(getFirestore()));
+export const sheetPushPersonnel = rosterWrite('personnel/{id}');
+export const sheetPushContacts = rosterWrite('personnelContacts/{id}');
+export const sheetPushContracts = rosterWrite('contracts/{id}');
+export const sheetPushPayments = rosterWrite('payments/{id}');
+export const sheetPushConcert = firestore.document('concertPersonnel/{id}').onWrite(change =>
+  onlyStatusChanged(change.before.data(), change.after.data()) ? null : pushLinked(getFirestore()));
 
 type Req = Parameters<Parameters<typeof https.onRequest>[0]>[0];
 type Res = Parameters<Parameters<typeof https.onRequest>[0]>[1];

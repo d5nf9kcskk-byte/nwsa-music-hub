@@ -2037,6 +2037,12 @@ export interface ConcertPersonnel {
   sections?: { name: string; needed?: number }[];
   /** Personnel ids who said yes to this concert: a booking, not a signature. */
   saidYes?: string[];
+  /** The personnel manager's Google Sheet for this concert, and its tab
+   *  (step 3: the Hub writes its changes there, functions/src/sheetPush.ts). */
+  sheetId?: string;
+  sheetTab?: string;
+  /** The function's last pass, in counts only. Written by the server. */
+  sheetSync?: { at: number; ok: boolean; note: string };
   updatedAt?: number;
   updatedBy?: string;
   updatedByRole?: StaffRole;

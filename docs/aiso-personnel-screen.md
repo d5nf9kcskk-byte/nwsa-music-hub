@@ -85,6 +85,42 @@ whole roster.
 The old tools stay: Attendance, Reports, Import, Contract templates, and the
 tick-and-email bar (invite to sign in, mark sent).
 
+## Step 3: the Hub writes the sheet
+
+A concert links to its sheet on the Personnel screen ("Link the personnel
+sheet": the sheet's address and the tab). That sets `sheetId` and `sheetTab`
+on its `concertPersonnel` doc. From then on any write to the paid roster
+re-plans every linked concert (`functions/src/sheetPush.ts`, triggers in
+`personnelIndex.ts`) and sends only the cells that differ.
+
+- **The layout it expects** (checked against the copy, structure only): row 1
+  headings Part/Seat, Name, Email, Phone, Confirmed, Payment, Extra, Paid,
+  Email 1, Category 2; then a block per section, its header row holding the
+  section in column A and "seated/needed" under Part/Seat. Columns are found
+  by heading, not by letter.
+- **Hub ID** goes in the first free column after the headings (L), hidden,
+  with a warning-only protection. A row carrying one follows the Hub.
+- **First meeting**: a row with no Hub ID is matched once, inside its own
+  section, by email or name. The sheet fills what the Hub does not hold yet
+  (email as typed, phone, seat, said yes), then the ID is written. A row the
+  Hub cannot match is never touched.
+- Written per player: seat, name (only when it is a different name, not just
+  "Last, First" against "First Last"), email, phone, Confirmed (Y), Payment
+  (the contract's total in dollars), Paid (the date, once fully paid). Extra,
+  Email 1 and Category 2 of an existing row stay the sheet's.
+- A player taken off the concert loses their row; a new one gets a row at the
+  end of their section's block; a section with no block gets one at the end.
+- Paid is not read from the sheet: a Paid cell the Hub has no payment for is
+  cleared once its row carries a Hub ID. Step 4 decides what a typed Paid
+  means.
+- Access: the sheet is shared (Editor) with the functions' service account,
+  which takes a spreadsheets-scoped token from the metadata server. The status
+  line on the concert says what the last pass did, in counts only; nothing
+  logs the sheet id or a cell.
+- Proof: `functions/src/sheetPlan.selfcheck.ts` (the rules, incl. "a second
+  pass is empty") and `scripts/sheet-push.emulator-proof.mjs` (the real code
+  against the Firestore emulator and a fake Sheets server).
+
 ## Not here, on purpose
 
 The sheet link itself, a players-see-"said yes" change (decision 1 keeps

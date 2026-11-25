@@ -1447,6 +1447,14 @@ link itself (steps 3 to 5) is not built yet.
   chairs, this concert's contract, parts by `partIsMine`), pinned by its
   self-check. Typed values pass `refusedCell()` from `importPlan.ts`, the
   importer's own tax-id guard.
+- **Step 3, the Hub writes the sheet** (`functions/src/sheetPush.ts`, pure
+  planner `sheetPlan.ts`): a concert's `sheetId` + `sheetTab` link it; any
+  paid-roster write re-plans each linked concert and sends only differing
+  cells. A row without a Hub ID is matched once and FILLS the Hub before its
+  ID is written, so the Hub never blanks what it had not heard; an unmatched
+  row is never touched. Never log the sheet id or a cell (the sheet holds
+  pay). `firestore.aiso.rules` is GENERATED: after any `firestore.rules`
+  change run `node scripts/gate-rules.mjs`, or AISO deploys the old rules.
 - `personnel/fixtureWrites.ts` makes the fixture build's edits stick in
   memory. It lives in the screen's chunk ON PURPOSE: the shared paid-roster
   hooks are also in the school's bundle (staff search), and putting it there

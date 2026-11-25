@@ -105,6 +105,12 @@ runs:
       run: npx tsx --tsconfig tsconfig.app.json src/director/personnel/concertRoster.selfcheck.ts
       shell: bash
 
+    # Hub → personnel sheet (#aiso-personnel step 3): first meetings never
+    # blank the sheet, unknown rows are never touched, a second pass is empty.
+    - name: Personnel sheet planner self-check (Hub to sheet)
+      run: node --experimental-strip-types functions/src/sheetPlan.selfcheck.ts
+      shell: bash
+
     - name: Personnel CSV self-check (payroll arithmetic, formula-safe cells, stands)
       run: npx tsx --tsconfig tsconfig.app.json src/director/personnel/personnelCsv.selfcheck.ts
       shell: bash

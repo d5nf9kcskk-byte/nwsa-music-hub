@@ -96,6 +96,11 @@ for (const who of ['owner', 'director']) {
   await expect(`${who} cannot store sections as text`, 'deny', call(who, 'PATCH', '/concertPersonnel/concert-1', { sections: 'Violin 1 12/12' }));
   await expect(`${who} cannot store 41 sections`, 'deny', call(who, 'PATCH', '/concertPersonnel/concert-1', { sections: Array.from({ length: 41 }, (_, i) => ({ name: `S${i}` })) }));
   await expect(`${who} cannot store said-yes as a flag`, 'deny', call(who, 'PATCH', '/concertPersonnel/concert-1', { saidYes: true }));
+  await expect(`${who} links the concert to a sheet and tab`, 'allow', call(who, 'PATCH', '/concertPersonnel/concert-1', { ...concert, sheetId: 'a'.repeat(44), sheetTab: 'Sheet1' }));
+  await expect(`${who} unlinks it with ''`, 'allow', call(who, 'PATCH', '/concertPersonnel/concert-1', { sheetId: '', sheetTab: '' }));
+  await expect(`${who} keeps the server's status line on a save`, 'allow', call(who, 'PATCH', '/concertPersonnel/concert-1', { ...concert, sheetSync: { at: 1, ok: true, note: 'Up to date.' } }));
+  await expect(`${who} cannot store a 101-character sheet id`, 'deny', call(who, 'PATCH', '/concertPersonnel/concert-1', { sheetId: 'a'.repeat(101) }));
+  await expect(`${who} cannot store a tab that is not text`, 'deny', call(who, 'PATCH', '/concertPersonnel/concert-1', { sheetTab: 3 }));
   await expect(`${who} cannot store 301 said-yes ids`, 'deny', call(who, 'PATCH', '/concertPersonnel/concert-1', { saidYes: Array.from({ length: 301 }, (_, i) => `p${i}`) }));
 }
 await expect('director deletes a concert link', 'allow', call('director', 'DELETE', '/concertPersonnel/concert-1'));
@@ -106,6 +111,7 @@ for (const who of ['teacher', 'unlisted', 'nobody']) {
   await expect(`${who} cannot read a contact`, 'deny', call(who, 'GET', '/personnelContacts/p1'));
   await expect(`${who} cannot save a pay method`, 'deny', call(who, 'PATCH', '/personnelContacts/p9', contact));
   await expect(`${who} cannot read a concert's link`, 'deny', call(who, 'GET', '/concertPersonnel/concert-1'));
+  await expect(`${who} cannot link a sheet`, 'deny', call(who, 'PATCH', '/concertPersonnel/concert-1', { sheetId: 'x', sheetTab: 'Sheet1' }));
   await expect(`${who} cannot change who said yes`, 'deny', call(who, 'PATCH', '/concertPersonnel/concert-1', { saidYes: ['p9'] }));
   await expect(`${who} cannot delete a concert link`, 'deny', call(who, 'DELETE', '/concertPersonnel/concert-1'));
 }

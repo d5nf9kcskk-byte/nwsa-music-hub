@@ -13,6 +13,7 @@
       "npm --prefix \"$RESOURCE_DIR\" run selfcheck",
       "node --experimental-strip-types \"$RESOURCE_DIR/src/memberToken.selfcheck.ts\"",
       "node --experimental-strip-types \"$RESOURCE_DIR/src/passwordSetup.selfcheck.ts\"",
+      "node --experimental-strip-types \"$RESOURCE_DIR/src/sheetPlan.selfcheck.ts\"",
       "node \"$RESOURCE_DIR/build-org.mjs\" aiso"
     ]
   },

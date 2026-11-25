@@ -368,3 +368,9 @@ span.pm-fill { cursor: default; }
 .pc-saved { margin: 0; padding: 8px 16px 12px; font-size: 12px; color: var(--dir-text-muted); }
 .pc-field .dir-input, .pc-field .dir-select { width: 100%; min-width: 0; box-sizing: border-box; }
 .pc-block .dir-btn, .pm-addrow .dir-btn { flex: 0 0 auto; }
+.pm-sheet { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13.5px; }
+.pm-sheet-bad { color: var(--dir-absent); }
+.pm-sheet-form .dir-input { flex: 1 1 260px; min-width: 0; }
+.pm-sheet-form .pm-sheet-tab { flex: 0 1 140px; }
+.pm-sheet-form .dir-btn { flex: 0 0 auto; }
+.pm-sheet-form .pc-note { flex-basis: 100%; }

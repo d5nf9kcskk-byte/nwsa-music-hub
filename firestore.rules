@@ -1761,16 +1761,24 @@ service cloud.firestore {
     // sections in the sheet's order with the chairs each needs, and who said
     // yes to the date (a booking flag, not a signature). Doc id = the event
     // id, and the event must exist. Who PLAYS is the contracts, never a list
-    // here. Owner/Director only like every #personnel sibling; no public
-    // mirror, no member read. Rules cannot reach inside a list's maps, so
+    // here. `sheetId` + `sheetTab` link the concert to the personnel
+    // manager's Google Sheet (step 3, functions/src/sheetPush.ts), and
+    // `sheetSync` is the function's status line, in counts only. Owner/
+    // Director only like every #personnel sibling; no public mirror, no
+    // member read. Rules cannot reach inside a list's maps, so
     // `sections` is bounded by size and the app writes its shape.
     match /concertPersonnel/{eventId} {
       allow read: if isStaff();
       allow create, update: if isStaff()
         && exists(/databases/$(database)/documents/events/$(eventId))
         && request.resource.data.keys().hasOnly([
-             'sections', 'saidYes', 'updatedAt', 'updatedBy', 'updatedByRole',
+             'sections', 'saidYes', 'sheetId', 'sheetTab', 'sheetSync',
+             'updatedAt', 'updatedBy', 'updatedByRole',
            ])
+        && (!('sheetId' in request.resource.data)
+            || (request.resource.data.sheetId is string && request.resource.data.sheetId.size() <= 100))
+        && (!('sheetTab' in request.resource.data)
+            || (request.resource.data.sheetTab is string && request.resource.data.sheetTab.size() <= 100))
         && (!('sections' in request.resource.data)
             || (request.resource.data.sections is list && request.resource.data.sections.size() <= 40))
         && (!('saidYes' in request.resource.data)

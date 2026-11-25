@@ -54,5 +54,12 @@ export function useConcertPersonnel() {
       { saidYes: yes ? arrayUnion(personnelId) : arrayRemove(personnelId), ...stamps() }, { merge: true }));
   }
 
-  return { concertDocs: all, saveSections, setSaidYes };
+  /** Link (or, with '', unlink) the personnel manager's sheet for this concert. */
+  async function linkSheet(eventId: string, sheetId: string, sheetTab: string) {
+    if (!db) { if (fixtures) fxPatch('concertPersonnel', eventId, { sheetId, sheetTab }); return; }
+    const dbRef = db;
+    await trackWrite('Sheet link', () => setDoc(doc(dbRef, 'concertPersonnel', eventId), { sheetId, sheetTab, ...stamps() }, { merge: true }));
+  }
+
+  return { concertDocs: all, saveSections, setSaidYes, linkSheet };
 }

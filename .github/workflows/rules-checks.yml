@@ -39,6 +39,9 @@ on:
       - 'scripts/rules-verdicts.emulator-check.mjs'
       - 'scripts/personnel-rules.emulator-check.mjs'
       - 'scripts/personnel-import.emulator-check.mjs'
+      - 'scripts/sheet-push.emulator-proof.mjs'
+      - 'functions/src/sheetPush.ts'
+      - 'functions/src/sheetPlan.ts'
       - 'src/director/personnel/importWrite.ts'
       - 'src/director/personnel/importPlan.ts'
       - 'scripts/member-sign-in.emulator-proof.mjs'
@@ -121,6 +124,16 @@ jobs:
           --config firebase.emulators.json --only auth,firestore
           --project demo-personnel-import
           "npx tsx --tsconfig tsconfig.app.json scripts/personnel-import.emulator-check.mjs"
+
+      # Hub → personnel sheet (#aiso-personnel step 3): the real sheetPush.ts
+      # against a fake Google Sheets server. Needs functions/node_modules.
+      - name: Prove the Hub writes the personnel sheet (personnel)
+        run: >
+          npm --prefix functions ci &&
+          npx --yes firebase-tools@15.28.1 emulators:exec
+          --config firebase.emulators.json --only firestore
+          --project demo-sheet-push
+          "node --experimental-strip-types scripts/sheet-push.emulator-proof.mjs"
 
       # Players sign in by invitation (#member-sign-in): staff invite, the
       # player sets a password, and a signed-in player reads their own entry
