@@ -1,0 +1,28 @@
+{
+  "name": "send-email-kit",
+  "description": "Fork of firebase/extensions firestore-send-email 0.2.11 (490b13b) as a self-created function kit. See ../README.md.",
+  "private": true,
+  "license": "Apache-2.0",
+  "main": "lib/index.js",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "build": "node -e \"require('fs').rmSync('lib', { recursive: true, force: true })\" && tsc",
+    "proof": "npm run build && printf 'SMTP_PASSWORD=emulator-pass\\n' > .secret.local && PROOF_SMTP_PASSWORD=emulator-pass npx -y firebase-tools@15.37.0 emulators:exec --config ../../../firebase.mailkit-proof.json --project demo-mailkit --only firestore,functions 'node proof/mail-proof.mjs'"
+  },
+  "dependencies": {
+    "@sendgrid/mail": "^8.1.4",
+    "firebase-admin": "^14.2.0",
+    "firebase-functions": "^7.4.0",
+    "handlebars": "^4.5.3",
+    "nodemailer": "^9.0.1",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/nodemailer": "^8.0.0",
+    "smtp-server": "^3.13.4",
+    "typescript": "^5.7.3"
+  }
+}

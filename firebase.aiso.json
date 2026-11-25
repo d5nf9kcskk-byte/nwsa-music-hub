@@ -5,17 +5,31 @@
   "storage": {
     "rules": "storage.aiso.rules"
   },
-  "functions": {
-    "source": "functions",
-    "runtime": "nodejs22",
-    "predeploy": [
-      "npm --prefix \"$RESOURCE_DIR\" ci",
-      "npm --prefix \"$RESOURCE_DIR\" run selfcheck",
-      "node --experimental-strip-types \"$RESOURCE_DIR/src/memberToken.selfcheck.ts\"",
-      "node --experimental-strip-types \"$RESOURCE_DIR/src/passwordSetup.selfcheck.ts\"",
-      "node \"$RESOURCE_DIR/build-org.mjs\" aiso"
-    ]
-  },
+  "functions": [
+    {
+      "source": "functions",
+      "runtime": "nodejs22",
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" ci",
+        "npm --prefix \"$RESOURCE_DIR\" run selfcheck",
+        "node --experimental-strip-types \"$RESOURCE_DIR/src/memberToken.selfcheck.ts\"",
+        "node --experimental-strip-types \"$RESOURCE_DIR/src/passwordSetup.selfcheck.ts\"",
+        "node \"$RESOURCE_DIR/build-org.mjs\" aiso"
+      ]
+    },
+    {
+      "kit": "send-email",
+      "source": "function-kits/send-email/source",
+      "runtime": "nodejs22",
+      "instances": {
+        "mail": "function-kits/send-email/config-mail"
+      },
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" ci",
+        "npm --prefix \"$RESOURCE_DIR\" run build"
+      ]
+    }
+  ],
   "extensions": {
     "firestore-send-email": "firebase/firestore-send-email@0.2.10"
   }

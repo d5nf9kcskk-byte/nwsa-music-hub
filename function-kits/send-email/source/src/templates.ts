@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import * as admin from "firebase-admin";
+import type * as firestore from "firebase-admin/firestore";
 import { create } from "handlebars";
 
 import { TemplateGroup, TemplateData, Attachment } from "./types";
@@ -34,12 +34,12 @@ const ampHandlebars = create();
 const attachmentsHandlebars = create();
 
 export default class Templates {
-  collection: admin.firestore.CollectionReference;
+  collection: firestore.CollectionReference;
   templateMap: { [name: string]: TemplateGroup };
   private ready: boolean;
   private waits: (() => void)[];
 
-  constructor(collection: admin.firestore.CollectionReference) {
+  constructor(collection: firestore.CollectionReference) {
     this.collection = collection;
     this.collection.onSnapshot(this.updateTemplates.bind(this));
     this.templateMap = {};
@@ -57,7 +57,7 @@ export default class Templates {
     });
   }
 
-  private updateTemplates(snap: admin.firestore.QuerySnapshot) {
+  private updateTemplates(snap: firestore.QuerySnapshot) {
     const all: TemplateData[] = snap.docs.map((doc) =>
       Object.assign({ name: doc.id }, doc.data())
     );

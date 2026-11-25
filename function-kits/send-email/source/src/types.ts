@@ -15,7 +15,7 @@
  */
 
 import * as nodemailer from "nodemailer";
-import * as admin from "firebase-admin";
+import type * as firestore from "firebase-admin/firestore";
 import * as Handlebars from "handlebars";
 
 type HandlebarsTemplateDelegate = Handlebars.TemplateDelegate;
@@ -76,13 +76,13 @@ export interface TemplateData {
 }
 
 export interface Delivery {
-  startTime: admin.firestore.Timestamp;
-  endTime: admin.firestore.Timestamp;
-  leaseExpireTime: admin.firestore.Timestamp;
+  startTime: firestore.Timestamp;
+  endTime: firestore.Timestamp;
+  leaseExpireTime: firestore.Timestamp;
   state: "PENDING" | "PROCESSING" | "RETRY" | "SUCCESS" | "ERROR";
   attempts: number;
   error?: string;
-  expireAt?: admin.firestore.Timestamp;
+  expireAt?: firestore.Timestamp;
   info?: {
     messageId: string;
     accepted: string[];

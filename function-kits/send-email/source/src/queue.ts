@@ -24,6 +24,7 @@ import {
   getFirestore,
 } from "firebase-admin/firestore";
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
+import { defineSecret } from "firebase-functions/params";
 import * as functions from "firebase-functions";
 import * as nodemailer from "nodemailer";
 
@@ -352,8 +353,16 @@ async function processWrite(
   }
 }
 
+// Kit: the extension mounted SMTP_PASSWORD itself; a kit must declare it.
+// The .env binds it to the existing secret (FIREBASE_SECRET_REF_SMTP_PASSWORD).
+const smtpPassword = defineSecret("SMTP_PASSWORD");
+
 export const processQueue = onDocumentWritten(
-  `${config.mailCollection}/{documentId}`,
+  {
+    document: `${config.mailCollection}/{documentId}`,
+    database: config.database,
+    secrets: [smtpPassword],
+  },
   async (event) => {
     await initialize();
     logs.start();

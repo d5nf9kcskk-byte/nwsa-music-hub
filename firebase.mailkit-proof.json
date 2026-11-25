@@ -1,0 +1,36 @@
+{
+  "firestore": {
+    "rules": "firestore.aiso.rules"
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "runtime": "nodejs22"
+    },
+    {
+      "kit": "send-email",
+      "source": "function-kits/send-email/source",
+      "runtime": "nodejs22",
+      "instances": {
+        "mail": "function-kits/send-email/config-mail"
+      }
+    }
+  ],
+  "emulators": {
+    "firestore": {
+      "port": 8181
+    },
+    "functions": {
+      "port": 5055
+    },
+    "hub": {
+      "port": 4411
+    },
+    "logging": {
+      "port": 4511
+    },
+    "ui": {
+      "enabled": false
+    }
+  }
+}

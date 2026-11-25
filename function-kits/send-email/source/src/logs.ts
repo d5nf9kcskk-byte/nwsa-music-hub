@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import * as admin from "firebase-admin";
+import type * as firestore from "firebase-admin/firestore";
 import config from "./config";
 import { logger } from "firebase-functions";
 
@@ -45,12 +45,12 @@ export function complete() {
   logger.log("Completed execution of extension");
 }
 
-export function attemptingDelivery(ref: admin.firestore.DocumentReference) {
+export function attemptingDelivery(ref: firestore.DocumentReference) {
   logger.log(`Attempting delivery for message: ${ref.path}`);
 }
 
 export function delivered(
-  ref: admin.firestore.DocumentReference,
+  ref: firestore.DocumentReference,
   info: {
     messageId: string;
     accepted: string[];
@@ -64,7 +64,7 @@ export function delivered(
 }
 
 export function deliveryError(
-  ref: admin.firestore.DocumentReference,
+  ref: firestore.DocumentReference,
   e: Error
 ) {
   logger.error(`Error when delivering message=${ref.path}: ${e.toString()}`);
