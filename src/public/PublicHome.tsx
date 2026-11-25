@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect, useReducer, useRef } from 'react';
 import { firstName } from '../shared/personName';
 import { Link } from 'react-router';
-import { CalendarDays, UserSearch, Megaphone, Music, ChevronRight, Ticket, HelpCircle, Music2, AlertTriangle } from 'lucide-react';
+import { CalendarDays, UserSearch, Megaphone, Music, ChevronRight, Ticket, HelpCircle, Music2, AlertTriangle, LogIn } from 'lucide-react';
 import { useEnsembles } from '../director/hooks/useEnsembles';
 import { usePublicEvents } from './hooks/usePublicEvents';
 import { useAnnouncements, visibleAnnouncements, useMinuteTick, homeAnnouncementOrder } from '../director/hooks/useAnnouncements';
@@ -197,7 +197,11 @@ export function PublicHome() {
 
       {/* Find my schedule — the #1 student action, front and center.
           Returning visitors get a direct link to their own schedule instead. */}
-      {__ORG_PERSONNEL__ ? null : savedStudents.length > 0 ? (
+      {__ORG_PERSONNEL__ ? (
+        <Link to="/director" className="pub-cta-btn">
+          <LogIn size={22} /> {t('nav.musicianLogin')}
+        </Link>
+      ) : savedStudents.length > 0 ? (
         <>
         <div className="pub-quick">
           {savedStudents.map(s => (

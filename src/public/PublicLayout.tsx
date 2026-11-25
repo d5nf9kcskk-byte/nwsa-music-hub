@@ -36,6 +36,9 @@ declare const __ORG_PERSONNEL__: boolean;
  *  by the directors/{email} doc, not by whether the link is shown. An adult
  *  orchestra has one staff panel, so one door: no assistant or teacher shells. */
 const STAFF_LOGINS: readonly { to: string; label: string }[] = __ORG_PERSONNEL__ ? [
+  // Players and staff share one sign-in screen; the query only keeps the two
+  // links' React keys apart (#musician-signin).
+  { to: '/director?musician', label: 'nav.musicianLogin' },
   { to: '/director', label: 'nav.staffLogin' },
 ] : [
   { to: '/director', label: 'nav.directorLogin' },

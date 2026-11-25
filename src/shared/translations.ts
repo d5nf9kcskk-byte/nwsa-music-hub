@@ -924,6 +924,8 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
   // this table outside Vite, where the define does not exist.
   ...(typeof __ORG_PERSONNEL__ !== 'undefined' && __ORG_PERSONNEL__ ? {
     'nav.staffLogin':           { en: 'Staff sign-in',      es: 'Acceso para el personal' },
+    // Players sign in at the same /director screen (email + password).
+    'nav.musicianLogin':        { en: 'Musician sign-in',   es: 'Acceso para músicos' },
     'contact.officeTitle':      { en: 'Message the office', es: 'Escribe a la oficina' },
     'search.hintNoAssignments': { en: 'Find events, repertoire, announcements, and ensembles.', es: 'Encuentra eventos, repertorio, anuncios y ensambles.' },
     'home.comingUpEventsOnly':  { en: 'Coming up — events', es: 'Próximos eventos' },
