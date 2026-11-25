@@ -356,7 +356,7 @@ export function DirectorsManager({ currentEmail, currentRole, currentRoles }: Pr
 
       <div className="dir-drawer-footer">
         <button className="dir-btn dir-btn-primary" onClick={() => setMode('add')}>
-          <Plus size={16} style={{ verticalAlign: '-3px' }} />{__ORG_PERSONNEL__ ? ' Add a director' : ' Add a director, teacher, or assistant'}
+          <Plus size={16} style={{ verticalAlign: '-3px' }} />{__ORG_PERSONNEL__ ? ' Add an admin' : ' Add a director, teacher, or assistant'}
         </button>
       </div>
     </div>
@@ -649,7 +649,7 @@ function DirectorEditor({ director, onSave, onClose, existingEmails }: {
               : isOwnerRow
               ? 'Owner already has full Hub access. Extra levels unlock their scoped tools — My Lessons for applied teaching, class roll/docs for classroom sections, etc.'
               : 'Pick every level that applies — e.g. a director who also teaches private lessons gets Director and Applied Teacher. At least one is required.'}
-            {hasDirector && ' Director: full edit access everywhere except this screen.'}
+            {hasDirector && (__ORG_PERSONNEL__ ? ' Admin: full edit access everywhere except this screen.' : ' Director: full edit access everywhere except this screen.')}
             {hasTeacher && ' Applied Teacher: schedule and grade private lessons for assigned students.'}
             {hasClassroom && ' Classroom Teacher: roll, assignments, and documents for assigned class sections.'}
             {roles.includes('chaperone') && ' Chaperone: view field trip forms and who has turned them in. Nothing else, and cannot change anything.'}

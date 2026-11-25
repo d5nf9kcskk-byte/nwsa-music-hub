@@ -478,7 +478,7 @@ export function AuthGate({ children }: Props) {
     return (
       <div className="dir-auth">
         <img src={`${import.meta.env.BASE_URL}${ORG.logoFile}`} className="dir-auth-logo" alt={ORG.orgShortName} />
-        <h1>{ORG.appName} — Directors</h1>
+        <h1>{ORG.appName}{__ORG_PERSONNEL__ ? ' — Admins' : ' — Directors'}</h1>
         {/* What is behind the sign-in, per org kind: an adult orchestra's
             panel has no student roster, roll or progress notes. */}
         <p>

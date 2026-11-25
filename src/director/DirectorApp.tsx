@@ -237,7 +237,7 @@ const TAB_TITLES: Record<DirTab, string> = {
   gradebook:       'Gradebook',
   approvals:       'Approvals',
   personnel:       'Personnel',
-  directors:       'Directors',
+  directors:       __ORG_PERSONNEL__ ? 'Admins' : 'Directors',
 };
 
 const VALID_TABS: readonly DirTab[] = __ORG_PERSONNEL__ ? ADULT_TABS : [
@@ -680,7 +680,7 @@ export default function DirectorApp() {
               </button>
               {isOwner && (
                 <button className={`dir-rail-item${tab === 'directors' ? ' active' : ''}`} onClick={() => go('directors')}>
-                  <ShieldCheck size={18} /> Directors
+                  <ShieldCheck size={18} />{__ORG_PERSONNEL__ ? ' Admins' : ' Directors'}
                 </button>
               )}
               <button className="dir-rail-item" onClick={() => navigate('/')}>
@@ -898,7 +898,7 @@ export default function DirectorApp() {
 
                 {isOwner && (
                   <button className={`dir-menu-item${tab === 'directors' ? ' active' : ''}`} onClick={() => go('directors')}>
-                    <ShieldCheck size={19} /> Directors
+                    <ShieldCheck size={19} />{__ORG_PERSONNEL__ ? ' Admins' : ' Directors'}
                   </button>
                 )}
 

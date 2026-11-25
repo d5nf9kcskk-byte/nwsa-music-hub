@@ -11,6 +11,10 @@ import {
 import { FilterMenu } from '../../shared/FilterMenu';
 import { SIGNUP_SLOT_GRADES, canRemoveSlot, compactOptionGrades, trimOptionGrades } from '../../shared/signupSlots';
 import { isMdcpsSchoolDay } from '../../shared/academicCalendars.ts';
+
+declare const __ORG_PERSONNEL__: boolean;
+/** A personnel org has no school calendar: every day is open. */
+const isOpenDay = (d: string) => __ORG_PERSONNEL__ || isMdcpsSchoolDay(d);
 import type { SignupSlotDef } from '../types';
 
 type Ampm = (typeof SLOT_AMPM)[number];
@@ -86,12 +90,12 @@ export function SignupSlotBuilder({ slotDefs, manualDraft, optionGrades, bookedI
 
   const pickedList = useMemo(() => [...pickedDates].sort(), [pickedDates]);
   /** Days picked in the calendar that MDCPS is closed for. */
-  const pickedClosures = useMemo(() => pickedList.filter(d => !isMdcpsSchoolDay(d)), [pickedList]);
+  const pickedClosures = useMemo(() => pickedList.filter(d => !isOpenDay(d)), [pickedList]);
   /** Slots ALREADY on the form that sit on a closure — the ones that are
    *  wrong right now, as opposed to about to be. Without this the warning
    *  only ever catches the next mistake, never the one already saved. */
   const savedClosures = useMemo(
-    () => [...new Set(slotDefs.map(d => d.date).filter(d => d && !isMdcpsSchoolDay(d)))].sort(),
+    () => [...new Set(slotDefs.map(d => d.date).filter(d => d && !isOpenDay(d)))].sort(),
     [slotDefs],
   );
   const duration = formatSlotDuration(start, end);
@@ -341,14 +345,14 @@ export function SignupSlotBuilder({ slotDefs, manualDraft, optionGrades, bookedI
             <button
               key={i}
               type="button"
-              className={`dir-cal-cell ${pickedDates.has(d) ? 'selected' : ''} ${d === today ? 'today' : ''} ${isMdcpsSchoolDay(d) ? '' : 'no-school'}`}
+              className={`dir-cal-cell ${pickedDates.has(d) ? 'selected' : ''} ${d === today ? 'today' : ''} ${isOpenDay(d) ? '' : 'no-school'}`}
               onClick={e => toggleDate(d, e.shiftKey)}
               // Named on the button itself, not just coloured: the whole point
               // is that a closure is invisible on a bare grid of numbers, and
               // colour alone reaches neither a screen reader nor a phone in
               // sunlight.
-              title={isMdcpsSchoolDay(d) ? undefined : 'MDCPS no-school day'}
-              aria-label={isMdcpsSchoolDay(d) ? undefined : `${fmtClosure(d)} — MDCPS no-school day`}
+              title={isOpenDay(d) ? undefined : 'MDCPS no-school day'}
+              aria-label={isOpenDay(d) ? undefined : `${fmtClosure(d)} — MDCPS no-school day`}
             >
               <span className="dir-cal-day">{parseDate(d).getDate()}</span>
             </button>
@@ -437,7 +441,8 @@ export function SignupSlotBuilder({ slotDefs, manualDraft, optionGrades, bookedI
                     </button>
                   )}
                   <span>{formatSignupSlotLabel(def)}</span>
-                  <div className="dir-signup-audience-fm dir-signup-slot-grade-pick">
+                  {!__ORG_PERSONNEL__ && (
+<div className="dir-signup-audience-fm dir-signup-slot-grade-pick">
                     <FilterMenu
                       prefix="dir"
                       allLabel="Anyone"
@@ -447,6 +452,7 @@ export function SignupSlotBuilder({ slotDefs, manualDraft, optionGrades, bookedI
                       ariaLabel="Who can pick this time"
                     />
                   </div>
+)}
                   <button
                     type="button"
                     className="dir-tool-btn dir-btn-danger"
@@ -502,7 +508,8 @@ export function SignupSlotBuilder({ slotDefs, manualDraft, optionGrades, bookedI
               {manualDraft.split('\n').map(s => s.trim()).filter(Boolean).map((line, i) => (
                 <div key={`${line}-${i}`} className="dir-signup-slot-builder-row dir-signup-slot-builder-row-grades">
                   <span>{line}</span>
-                  <div className="dir-signup-audience-fm dir-signup-slot-grade-pick">
+                  {!__ORG_PERSONNEL__ && (
+<div className="dir-signup-audience-fm dir-signup-slot-grade-pick">
                     <FilterMenu
                       prefix="dir"
                       allLabel="Anyone"
@@ -512,6 +519,7 @@ export function SignupSlotBuilder({ slotDefs, manualDraft, optionGrades, bookedI
                       ariaLabel="Who can pick this time"
                     />
                   </div>
+)}
                 </div>
               ))}
             </div>

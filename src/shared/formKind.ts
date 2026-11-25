@@ -26,7 +26,16 @@ export const FORM_KIND_PLURAL: Record<FormKind, string> = {
   open: 'Open forms',
 };
 
-export const FORM_KIND_HINT: Record<FormKind, string> = {
+// `typeof` because self-checks load this file outside Vite, where the define does not exist.
+declare const __ORG_PERSONNEL__: boolean | undefined;
+const ADULT = typeof __ORG_PERSONNEL__ !== 'undefined' && __ORG_PERSONNEL__;
+
+export const FORM_KIND_HINT: Record<FormKind, string> = ADULT ? {
+  signup: 'Names, yes/no, time slots — availability, interest lists.',
+  permission: 'The official PDF, filled in, signed and dated — contracts, releases.',
+  registration: 'Your questions plus a signature — tours, special projects.',
+  open: 'Anyone with the link, roster or not — new players, guests.',
+} : {
   signup: 'Names, yes/no, time slots — auditions, interest lists.',
   permission: 'The official PDF, filled in, signed and dated — field trips.',
   registration: 'Your questions plus student and parent signatures — competitions, All-State.',

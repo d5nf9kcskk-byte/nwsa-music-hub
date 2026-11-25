@@ -72,7 +72,7 @@ function Inbox({ onWrite }: { onWrite: () => void }) {
   return (
     <div className="off-card">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-        <p className="off-hint" style={{ margin: 0 }}>Players write to the office from their home screen. Any Owner or Director can answer.</p>
+        <p className="off-hint" style={{ margin: 0 }}>Players write to the office from their home screen. Any Owner or Admin can answer.</p>
         <button className="dir-tool-btn" style={{ minHeight: 44 }} onClick={() => setPicking(p => !p)}><MessageSquarePlus size={15} /> New</button>
       </div>
       {picking && (
@@ -112,7 +112,7 @@ function Conversation({ id, name, thread, signedIn, onBack, markRead }: {
       <button className="dir-tool-btn" onClick={onBack}>‹ Inbox</button>
       <h2 style={{ fontSize: 18, margin: '10px 0 0' }}>{displayName(name)}</h2>
       {!signedIn && <p className="off-hint off-warn">{displayName(name)} has not set up sign-in yet, so will not see this. Invite them from Personnel, or email them.</p>}
-      <ThreadPanel messages={messages} mine="staff" onSend={send} placeholder="Write to the player. Any Owner or Director sees this thread." empty="No messages yet." />
+      <ThreadPanel messages={messages} mine="staff" onSend={send} placeholder="Write to the player. Any Owner or Admin sees this thread." empty="No messages yet." />
       <p className="off-hint">The player gets a short email saying the office wrote, without the message itself.</p>
     </div>
   );

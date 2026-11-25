@@ -938,5 +938,13 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
     // A personnel org is not a school: posts for no one group are for everyone.
     'search.schoolWide':        { en: 'Everyone', es: 'Todos' },
     'alert.school':             { en: 'Everyone', es: 'Todos' },
+    // Sign-up forms and Home, in an adult orchestra's words (#adult-cleanup).
+    'su.tapInvite':             { en: 'Tap your name. Only invited players can submit — if you’re not on the list, email the office.', es: 'Toca tu nombre. Solo los músicos invitados pueden enviarlo. Si no estás en la lista, escribe a la oficina.' },
+    'su.tapName':               { en: 'Tap your name. Only the players this form is for are listed.', es: 'Toca tu nombre. Solo aparecen los músicos a quienes va dirigido este formulario.' },
+    'su.pdfIdPh':               { en: 'Your ID number', es: 'Tu número de ID' },
+    'su.why.pdfQuestions':      { en: 'Answer the required questions above the form — your name, at least one phone number, and a backup contact.', es: 'Contesta las preguntas obligatorias arriba del formulario: tu nombre, al menos un teléfono y un contacto de respaldo.' },
+    'su.why.pdfId':             { en: 'Add your name and ID number above the form.', es: 'Agrega tu nombre y tu número de ID arriba del formulario.' },
+    'home.comingUpEvents':      { en: 'Coming up — events',          es: 'Próximos eventos' },
+    'home.findSomeoneElse':     { en: 'Find a different player',     es: 'Buscar a otro músico' },
   } : {}),
 };

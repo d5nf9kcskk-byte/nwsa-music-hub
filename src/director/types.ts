@@ -46,11 +46,14 @@ import type { FormKind } from '../shared/formKind';
  */
 export type StaffRole = 'owner' | 'director' | 'teacher' | 'classroom' | 'assistant' | 'chaperone';
 
+declare const __ORG_PERSONNEL__: boolean;
+
 /** The ONE place each role's user-facing words live. Anything that prints a
  *  role reads this — so a future rename is a label edit, never a data one. */
 export const STAFF_ROLE_LABEL: Record<StaffRole, string> = {
   owner: 'Owner',
-  director: 'Director',
+  // An orchestra calls this level Admin (Grant, 2026-11-25); the school keeps Director.
+  director: __ORG_PERSONNEL__ ? 'Admin' : 'Director',
   teacher: 'Applied Teacher',
   classroom: 'Classroom Teacher',
   assistant: 'Student Assistant',
