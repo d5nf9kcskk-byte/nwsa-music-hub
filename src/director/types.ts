@@ -53,7 +53,9 @@ declare const __ORG_PERSONNEL__: boolean;
 export const STAFF_ROLE_LABEL: Record<StaffRole, string> = {
   owner: 'Owner',
   // An orchestra calls this level Admin (Grant, 2026-11-25); the school keeps Director.
-  director: __ORG_PERSONNEL__ ? 'Admin' : 'Director',
+  // `typeof` first: Cloud Functions and plain-node self-checks load this file
+  // without Vite's define, and a bare read there throws on load.
+  director: typeof __ORG_PERSONNEL__ !== 'undefined' && __ORG_PERSONNEL__ ? 'Admin' : 'Director',
   teacher: 'Applied Teacher',
   classroom: 'Classroom Teacher',
   assistant: 'Student Assistant',
