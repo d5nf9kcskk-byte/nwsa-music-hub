@@ -98,6 +98,10 @@ export function partIsMine(
 ): boolean {
   if (part.role === 'score') return false;
   const label = words(part.label);
+  // A soloist's book is not the section's: "Solo Violin" goes only to a
+  // player whose section or instrument says solo (or soloist).
+  const solo = (ws: string[]) => ws.some(w => w === 'solo' || w === 'soloist');
+  if (solo(label) && !solo([...words(me.section || ''), ...words(me.instrument || '')])) return false;
   const labelNums = label.filter(w => /^\d+$/.test(w));
   const labelWords = label.filter(w => !/^\d+$/.test(w));
   const section = words(me.section || me.instrument || '');

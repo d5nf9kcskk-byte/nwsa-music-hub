@@ -39,6 +39,8 @@ check(partIsMine({ label: 'Violins I' }, me('Violin I', 5)), 'Violins I is a Vio
 check(!partIsMine({ label: 'Violins II' }, me('Violin I', 5)), 'Violins II is not');
 check(partIsMine({ label: 'Violins II' }, me('Violin II', 1)), 'Violins II is a Violin II player\'s');
 check(partIsMine({ label: 'Basses' }, me('Bass', 2)), 'Basses is a bassist\'s');
+check(!partIsMine({ label: 'Solo Violin' }, me('Violin 1', 1)), 'Solo Violin is not a section violinist\'s');
+check(partIsMine({ label: 'Solo Violin' }, me('Solo Violin', 1)), 'Solo Violin is the soloist\'s');
 check(partIsMine({ label: 'Basses' }, me('Double Bass', 2)), 'Basses is a double bassist\'s');
 check(partIsMine({ label: 'Cellos' }, me('Cello', 4)), 'Cellos');
 check(!partIsMine({ label: 'Violas' }, me('Violin I', 1)), 'Violas is not a violinist\'s');
