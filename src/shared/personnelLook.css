@@ -1,0 +1,20 @@
+/* Personnel builds only (AISO), loaded from main.tsx behind __ORG_PERSONNEL__,
+   so the school bundle never sees it.
+
+   The staff and member shells paint <html> with --dir-bg (director.css,
+   html:has(.dir-app)), but the hub2 look re-points --dir-bg only on .dir-app.
+   Under the glass, <html> is the page, so it stayed the stock slate #f1f5f9 and
+   tinted every screen cool blue-grey. Light on both switches only: that is the
+   one case where the root's --hub2-bg is the light page colour. */
+@media screen {
+  :root[data-hub2="on"]:not([data-pub-theme='dark']):has(.dir-app:not([data-dir-theme="dark"])) {
+    --dir-bg: var(--hub2-bg);
+  }
+  /* Dark staff shell: hub2.css leaves --dir-primary at the stock teal there
+     (it fills under white text AND is text on the page). This bronze keeps
+     the same trade: white on it 4.72:1, it on the dark page 3.88:1 (teal was
+     3.82:1), and it is the logo's gold instead of somebody else's teal. */
+  :root[data-hub2="on"] .dir-app[data-dir-theme="dark"] {
+    --dir-primary: #9A6A1C;
+  }
+}

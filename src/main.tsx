@@ -91,6 +91,8 @@ const DirectorApp = lazy(() => {
 
 // eslint-disable-next-line react-refresh/only-export-components
 const MembersGate = __ORG_PERSONNEL__ ? lazy(() => import('./public/MembersGate')) : null;
+// Personnel org: the staff/member shell's page colour follows the org look.
+if (__ORG_PERSONNEL__) void import('./shared/personnelLook.css');
 
 const router = createBrowserRouter(
   [

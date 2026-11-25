@@ -59,27 +59,27 @@
   "hub2": {
     "forEveryone": true,
     "light": {
-      "bg": "#F3F5F9", "surface": "#FFFFFF", "ink": "#0E1B33", "muted": "#5E6A80",
-      "line": "#DEE3EC", "accent": "#1E4FA3", "plum": "#8A2F4B", "sun": "#E7BE5A",
-      "accentFill": "#1E4FA3", "plumText": "#8A2F4B", "sunInk": "#0E1B33"
+      "bg": "#F6F3EC", "surface": "#FFFDF8", "ink": "#0E1B33", "muted": "#5A6273",
+      "line": "#E4DDCD", "accent": "#875A12", "plum": "#7E2A40", "sun": "#E2B257",
+      "accentFill": "#0E1B33", "plumText": "#7E2A40", "sunInk": "#0E1B33"
     },
     "dark": {
-      "bg": "#0A1120", "surface": "#131C2E", "ink": "#E8ECF4", "muted": "#9AA6BA",
-      "line": "#27334A", "accent": "#8DB4F2",
-      "accentFill": "#1E4FA3", "plumText": "#E8A9BE"
+      "bg": "#0B1830", "surface": "#14223D", "ink": "#F4EFE4", "muted": "#A9B1C0",
+      "line": "#26344F", "accent": "#E2B257",
+      "accentFill": "#875A12", "plumText": "#E8A9BE"
     },
     "radius": { "card": "18px", "row": "12px" },
-    "shadow": "0 1px 2px rgba(16,24,40,.06), 0 4px 12px rgba(16,24,40,.06)",
-    "concertHall": { "gold": "#C8A040" },
+    "shadow": "0 1px 2px rgba(14,27,51,.06), 0 4px 12px rgba(14,27,51,.06)",
+    "concertHall": { "gold": "#C8922E" },
     "spotlight": {
-      "bg": "#0A0F1C", "surface": "rgba(255,255,255,.06)", "ink": "#F2EEE4", "gold": "#E7C873",
-      "tealGlow": "rgba(77,128,214,.35)", "plumGlow": "rgba(138,47,75,.45)"
+      "bg": "#0B1830", "surface": "rgba(255,255,255,.06)", "ink": "#F4EFE4", "gold": "#E2B257",
+      "tealGlow": "rgba(226,178,87,.28)", "plumGlow": "rgba(126,42,64,.45)"
     },
     "fonts": {
       "body": "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
       "title": "'Newsreader', Georgia, 'Times New Roman', serif",
-      "spotlightDisplay": "'Sora', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-      "spotlightBody": "'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+      "spotlightDisplay": "'Newsreader', Georgia, 'Times New Roman', serif",
+      "spotlightBody": "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
     },
     "glass": {
       "chromeBlur": "28px",
