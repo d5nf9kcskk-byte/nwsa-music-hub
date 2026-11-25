@@ -52,8 +52,9 @@ It does run the kit's `npm ci` and build as a predeploy step.
 
 1. **Rebase** this branch onto what that project deploys from, and run `npm run proof` again.
 2. **Check the secret.** Run `gcloud secrets list --project <P>`. AISO should show
-   `firestore-send-email-SMTP_PASSWORD`. For the school, confirm it exists. Its committed env has
-   no password line. If there is no secret, stop and decide how the Gmail password is supplied.
+   `firestore-send-email-SMTP_PASSWORD`. For the school this was confirmed on 2026-11-25: the secret
+   exists with version 1 enabled, labelled `firebase-extensions-managed`. Its committed env has no
+   password line only because the export left it out.
 3. **Export the live config** (this is a live step). First run
    `mv function-kits/send-email/config-mail/.env.<P> /tmp/`, because the export refuses to
    overwrite a file. Then run
