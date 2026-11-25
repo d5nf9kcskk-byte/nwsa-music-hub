@@ -87,7 +87,7 @@ export function EnsembleHubView({ ensembleId, onNavigate }: { ensembleId: string
   if (!ensemble) return <div className="dir-loading">Loading…</div>;
   const color = ensembleColor(ensemble);
   const staff = staffForGroupPage(ensemble, null, ensembles);
-  const staffHeading = isClass ? 'Teacher' : 'Director';
+  const staffHeading = isClass ? 'Teacher' : __ORG_PERSONNEL__ ? 'Conductor' : 'Director';
 
   const fmtDay = (d: string) => parseDate(d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 
