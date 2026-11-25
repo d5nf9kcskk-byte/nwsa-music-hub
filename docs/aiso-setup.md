@@ -74,3 +74,40 @@ setup script's) still goes red at the publish step, on purpose.
       --only functions` (never the default firebase.json, whose predeploy
       builds the school's functions); then `features.googleConfirm: true` in
       `config/orgs/aiso.json`. Phone alerts are still the school's only.
+
+## Publishing the site by hand (Nov 2026)
+
+The **Deploy AISO** workflow is not on `main`, so it has never run; the live
+site (`app.aisymphonyorchestra.org`, the `aiso-music-hub` repo's `gh-pages`) is
+published by hand from a Mac. **Publish only from a tree rebased onto
+`origin/claude/aiso`.** A publish from an older checkout silently rolls back
+everything after it: on 2026-11-25 the live site carries `e4b5825` (Personnel by
+concert, the sheet link, and the fix that lets the AISO functions start), and a
+tree without it would take them away.
+
+The steps, checked by rebuilding the then-live commit (`ea7f4bd`) and matching
+the published files byte for byte:
+
+1. A clean worktree at the commit to publish, rebased onto `origin/claude/aiso`.
+2. Remove from `public/` the files a plain build would publish that AISO does
+   not: the other orgs' icons and fonts (`asyo-*`, plain `icon-*`,
+   `apple-touch-icon.png`, `favicon.svg`, `nwsa-*`) and the school's files
+   (`campus-map.jpg`, the flyers and PDFs, `hub-launch-*`, `screenshots/`). Do
+   NOT remove `manifest.json` or `404.html`: the build rewrites both for AISO.
+   Removing them BEFORE the build is what keeps them out of `sw.js`'s precache.
+3. Build with `VITE_ORG=aiso` and AISO's Firebase web config
+   (`VITE_FIREBASE_*`, the six keys in `.env.local.template`, from
+   `firebase apps:sdkconfig web --project aisymphony-hub`), plus
+   `VITE_RECAPTCHA_SITE_KEY`. Build into the DEFAULT `dist/`: the org step that
+   writes AISO's `manifest.json` and `404.html` writes there and nowhere else,
+   so `--outDir` elsewhere ships the school's.
+4. `node scripts/csp.selfcheck.mjs` against that `dist/`.
+5. Replace the `gh-pages` checkout's files with `dist/`, keep `CNAME`
+   (`app.aisymphonyorchestra.org`), commit "Deploy AISO from <sha> (...)",
+   push, and wait until the live `index.html` names the new `assets/index-*.js`.
+
+Functions and rules are separate: `firebase deploy --config firebase.aiso.json
+--project aisymphony-hub --only functions` (or `--only firestore:rules`), never
+the default `firebase.json`. After any `firestore.rules` change, run
+`node scripts/gate-rules.mjs` first: AISO deploys the generated
+`firestore.aiso.rules`.
