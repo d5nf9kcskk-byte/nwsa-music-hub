@@ -292,7 +292,7 @@ const TAB_HINTS: Partial<Record<DirTab, string>> = {
     today:         'Your day at a glance \u2014 everything happening today, and what is coming up.',
     scheduleSwap:  'Whole-ensemble changes for a day \u2014 swap blocks, combine into one room, change time or room, or cancel. Members see a red banner automatically.',
     ensembles:     'Create ensembles and open any ensemble\u2019s hub \u2014 schedule, repertoire, and documents.',
-    documents:     'Handbooks, forms, and files for members. Anything you post here shows on the public site.',
+    documents:     'Handbooks, forms, and files for members.',
     announcements: 'Post news for members \u2014 for everyone or per ensemble. Urgent posts show as a red banner.',
     messages:      'Everything the office says to players \u2014 answer their messages, write to everyone, a section or one player and see who each email reached, add a chat link for each section, and read the public Contact Us form.',
     signups:       'Sign-ups and registrations \u2014 anything members fill out. On a form open to anyone with the link they type their name, answer your questions, and sign. You get a spreadsheet and the signed forms.',
@@ -684,9 +684,12 @@ export default function DirectorApp() {
                   <ShieldCheck size={18} />{__ORG_PERSONNEL__ ? ' Admins' : ' Directors'}
                 </button>
               )}
+              {/* AISO has no public site: '/' is the members' sign-in page. */}
+              {!__ORG_PERSONNEL__ && (
               <button className="dir-rail-item" onClick={() => navigate('/')}>
                 <ExternalLink size={18} /> View public site
               </button>
+              )}
               {/* These three were in the phone drawer ONLY, and dirShell.css
                   hides the hamburger that opens it at ≥1024px — so a director
                   on a laptop could not reach the start guide, could not install
@@ -903,9 +906,12 @@ export default function DirectorApp() {
                   </button>
                 )}
 
+                {/* AISO has no public site: '/' is the members' sign-in page. */}
+                {!__ORG_PERSONNEL__ && (
                 <button className="dir-menu-item" onClick={() => navigate('/')}>
                   <ExternalLink size={19} /> View public site
                 </button>
+                )}
                 {!__ORG_PERSONNEL__ && (
                   <button className="dir-menu-item" onClick={() => navigate('/start?staff=1')}>
                     <HelpCircle size={19} /> Start guide (all audiences)

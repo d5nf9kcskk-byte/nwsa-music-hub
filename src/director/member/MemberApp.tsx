@@ -22,6 +22,7 @@ import { PAY_METHOD_LABEL, type CalendarEvent, type Contract, type Payment, type
 import { ORG } from '../../org';
 import { MemberMessages } from '../office/MemberMessages';
 import { InstallCoach } from './InstallCoach';
+import { useSystemDark } from '../../public/theme';
 
 /**
  * A player's own home (#member-sign-in, personnel orgs only): the next call,
@@ -178,11 +179,14 @@ export default function MemberApp({ user, signOut }: { user: User; signOut: () =
   const card: React.CSSProperties = { background: 'var(--dir-surface)', border: '1px solid var(--dir-border)', borderRadius: 'var(--dir-radius)', padding: 16, marginBottom: 12 };
   const title: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'var(--dir-text-muted)', textTransform: 'uppercase', letterSpacing: '.04em', margin: '0 0 8px' };
   const muted: React.CSSProperties = { fontSize: 13, color: 'var(--dir-text-muted)' };
+  const systemDark = useSystemDark();
   const name = person?.preferredName || (person?.name ? firstLast(person.name) : user.displayName ?? '');
 
   return (
     // block, not the staff shell's grid: from 1024px .dir-app saves a column for the nav rail, which a player has none of.
-    <div className="dir-app" style={{ display: 'block' }}>
+    // Follows the phone's light/dark like the staff shell; without it <html>
+    // went dark and the header took the dark gold over a light page.
+    <div className="dir-app" data-dir-theme={systemDark ? 'dark' : undefined} style={{ display: 'block' }}>
       <header className="dir-header">
         <div className="dir-header-brand">
           <img src={`${import.meta.env.BASE_URL}${ORG.markFile}`} alt={ORG.orgShortName} className="dir-header-mark" />

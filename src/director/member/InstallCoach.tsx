@@ -27,7 +27,7 @@ export function InstallCoach() {
   }
 
   return (
-    <section aria-labelledby="m-install" style={{ background: 'var(--dir-surface)', border: '1px solid var(--dir-accent, var(--dir-border))', borderRadius: 'var(--dir-radius)', padding: 16, marginBottom: 12, position: 'relative' }}>
+    <section aria-labelledby="m-install" style={{ background: 'var(--dir-surface)', border: '1px solid var(--dir-border)', borderRadius: 'var(--dir-radius)', padding: 16, marginBottom: 12, position: 'relative' }}>
       <button type="button" onClick={dismiss} aria-label="Hide" style={{ position: 'absolute', top: 4, right: 4, minWidth: 44, minHeight: 44, background: 'none', border: 0, color: 'inherit', cursor: 'pointer' }}>
         <X size={16} />
       </button>

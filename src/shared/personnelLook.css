@@ -7,8 +7,19 @@
    tinted every screen cool blue-grey. Light on both switches only: that is the
    one case where the root's --hub2-bg is the light page colour. */
 @media screen {
-  :root[data-hub2="on"]:not([data-pub-theme='dark']):has(.dir-app:not([data-dir-theme="dark"])) {
-    --dir-bg: var(--hub2-bg);
+  /* Literal hexes: only AISO has both hub2 and personnel, and <html> cannot
+     read the shell's own tokens when the staff theme switch and the phone's
+     setting disagree (the root then carries the other theme's palette). */
+  :root[data-hub2="on"]:has(.dir-app:not([data-dir-theme="dark"])) {
+    --dir-bg: #F6F3EC;
+  }
+  :root[data-hub2="on"]:has(.dir-app[data-dir-theme="dark"]) {
+    --dir-bg: #0B1830;
+  }
+  /* The header reads --pub-accent, which lives on <html>; read the shell's
+     own accent instead so it is midnight in light whatever the phone says. */
+  :root[data-hub2="on"] .dir-app:not([data-dir-theme="dark"]) .dir-header {
+    --glass-bar: color-mix(in srgb, var(--hub2-accent) 92%, transparent);
   }
   /* Dark staff shell: hub2.css leaves --dir-primary at the stock teal there
      (it fills under white text AND is text on the page). This bronze keeps
@@ -16,6 +27,24 @@
      3.82:1), and it is the logo's gold instead of somebody else's teal. */
   :root[data-hub2="on"] .dir-app[data-dir-theme="dark"] {
     --dir-primary: #9A6A1C;
+  }
+  /* Dark header: the midnight surface with its gold rule, not a bronze bar
+     (white on it was the "all gold" look). */
+  :root[data-hub2="on"] .dir-app[data-dir-theme="dark"] .dir-header {
+    --glass-bar: color-mix(in srgb, var(--hub2-surface) 92%, transparent);
+  }
+
+  /* Light glass field in the logo's paper, not the accent's hue: the accent
+     is midnight navy now (header, links), and an oklch tint of navy is
+     lavender. Low chroma so the page reads as warm paper with a hint of
+     gold and wine, not yellow (Grant, 2026-11-25: "all yellow/gold"). */
+  /* Same two arms as hub2Glass.css's light block, so this ties on
+     specificity and wins by coming later. */
+  :root[data-hub2="on"]:not([data-pub-theme='dark']):not(:has(.dir-app)),
+  :root[data-hub2="on"]:is(:has(.dir-app:not([data-dir-theme="dark"]))) {
+    --glass-field-teal: oklch(0.955 0.022 80);
+    --glass-field-warm: oklch(0.962 0.035 85);
+    --glass-field-plum: oklch(0.958 0.022 10);
   }
 
   /* Calendar day dots: one gold, the logo's dot, instead of each event's

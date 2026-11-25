@@ -3,6 +3,7 @@ import { dateLocale, fmtDate } from '../shared/dates';
 import { scoreOrderRank, lastName } from './scoreOrder';
 import { isClassGroup, isMasterClass, isCollegeGroup, isAdultStudent } from './groupKind';
 import { plannedAbsenceAppliesToRoll } from './plannedAbsenceScope';
+declare const __ORG_PERSONNEL__: boolean;
 import { takesAttendance, pieceEnsembleIds, isPublished, isAssignmentOpen, byDueDateOpenFirst, studentHasAssignment } from '../shared/pureRules';
 
 // ── Date helpers (work in local time, store as YYYY-MM-DD) ──────────────────────
@@ -207,7 +208,10 @@ export const APPT_COLOR = '#475569';
 // Gold (#ca8a04) is reserved for concerts, violet (#7c3aed) for assignment
 // dots, and slate (#475569) for sign-up appointments — the auto palette
 // avoids all three so an ensemble's dots can never be mistaken for any of them.
-const PALETTE = [
+const PALETTE = typeof __ORG_PERSONNEL__ !== 'undefined' && __ORG_PERSONNEL__ ? [
+  // AISO: the logo's wine, bronze and navy first, not blue (Grant, 2026-11-25).
+  '#7E2A40', '#875A12', '#0E1B33', '#16a34a', '#0f766e', '#ea580c', '#db2777', '#dc2626',
+] : [
   '#2563eb', // blue
   '#16a34a', // green
   '#0f766e', // teal

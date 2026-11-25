@@ -60,7 +60,7 @@
     "forEveryone": true,
     "light": {
       "bg": "#F6F3EC", "surface": "#FFFDF8", "ink": "#0E1B33", "muted": "#5A6273",
-      "line": "#E4DDCD", "accent": "#875A12", "plum": "#7E2A40", "sun": "#E2B257",
+      "line": "#E4DDCD", "accent": "#0E1B33", "plum": "#7E2A40", "sun": "#E2B257",
       "accentFill": "#0E1B33", "plumText": "#7E2A40", "sunInk": "#0E1B33"
     },
     "dark": {

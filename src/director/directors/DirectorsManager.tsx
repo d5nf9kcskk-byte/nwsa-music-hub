@@ -256,7 +256,7 @@ export function DirectorsManager({ currentEmail, currentRole, currentRoles }: Pr
 
         {loading && directors.length === 0 && <div className="dir-loc-empty">Loading…</div>}
         {!loading && directors.length === 0 && (
-          <div className="dir-loc-empty">No directors listed yet. Add the first one below.</div>
+          <div className="dir-loc-empty">{__ORG_PERSONNEL__ ? 'No admins listed yet. Add the first one below.' : 'No directors listed yet. Add the first one below.'}</div>
         )}
 
         {directors.map(d => {
