@@ -16,7 +16,12 @@ and fees stay in the sheet. Fixtures are invented people.
 2. "Confirmed: Y" on the sheet is a BOOKING flag: they said yes to the date.
    It is separate from signing the contract, which stays the player's own act.
 3. One sheet tab is one concert.
-4. Grant connects the sheet once the owner makes him an Editor (step 5).
+4. The sheet belongs to the AISO Google account, which is Grant's own. In
+   step 5 Grant clicks Connect while signed in as that account, so the sheet's
+   installable trigger runs under the AISO account, not anyone's personal one.
+   No one needs to grant him edit rights first. (Corrected 2026-11-25: an
+   earlier "view-only" finding came from a browser signed in to a different
+   Google account.)
 5. The personnel manager gets the Director role. No new role, no rules change.
 6. Taking a player off a concert voids that concert's contract (a draft is
    deleted). They stay on the roster.
