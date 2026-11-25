@@ -622,7 +622,7 @@ export default function DirectorApp() {
               top, so the director always knows this is the editing side. */}
           <div className="dir-panel-banner no-print" role="note" onClick={onPanelTap} style={{ cursor: 'pointer' }}>
             <span className="dir-panel-banner-dot" />
-            <span>Director Panel</span>
+            <span>{__ORG_PERSONNEL__ ? 'Admin Panel' : 'Director Panel'}</span>
             <span className="dir-panel-banner-sub">
               {__ORG_PERSONNEL__
                 ? '· editing area — the member side shows what you set here'
@@ -635,7 +635,7 @@ export default function DirectorApp() {
             <div className="dir-rail-brand">
               <img src={`${import.meta.env.BASE_URL}${ORG.markFile}`} alt={ORG.orgShortName} />
               <span className="dir-rail-brand-name">{ORG.appName}</span>
-              <span className="dir-panel-tag">Director Panel</span>
+              <span className="dir-panel-tag">{__ORG_PERSONNEL__ ? 'Admin Panel' : 'Director Panel'}</span>
             </div>
             <nav aria-label="Director navigation" style={{ display: 'contents' }}>
               {NAV_TOP.map(({ id, label, Icon }) => (
@@ -718,7 +718,7 @@ export default function DirectorApp() {
               <div>
                 <div className="dir-header-title">{title}</div>
                 <div className="dir-header-sub">
-                  <span className="dir-panel-tag">Director Panel</span> {ORG.appName}
+                  <span className="dir-panel-tag">{__ORG_PERSONNEL__ ? 'Admin Panel' : 'Director Panel'}</span> {ORG.appName}
                 </div>
               </div>
             </div>

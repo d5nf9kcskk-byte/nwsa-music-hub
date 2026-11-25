@@ -17,4 +17,74 @@
   :root[data-hub2="on"] .dir-app[data-dir-theme="dark"] {
     --dir-primary: #9A6A1C;
   }
+
+  /* Calendar day dots: one gold, the logo's dot, instead of each event's
+     own colour (Grant, 2026-11-25). Decoration only; the day's events are
+     listed in words below the grid. */
+  :root[data-hub2="on"] :is(.dir-cal-dot, .pub-cal-dot) {
+    background: var(--hub2-sun) !important;
+  }
+
+  /* The sign-in screen (.dir-auth) sits outside .dir-app, so none of the
+     look reached it: slate page, teal title, purple button. It now matches
+     the front page (membersGate.css): midnight page, paper card, navy
+     button. Pinned to the light palette in both themes because the logo PNG
+     has navy lettering. */
+  /* :root[data-hub2] beats hub2Glass.css's own root and body rules; the
+     glass field (body::before/::after) is the light page's glow and would
+     paint pale blobs on midnight, so it steps aside here. */
+  html:has(.dir-auth),
+  :root[data-hub2="on"]:has(.dir-auth) {
+    background:
+      radial-gradient(60% 40% at 80% 8%, rgba(226, 178, 87, .22), transparent 70%),
+      radial-gradient(70% 45% at 0% 100%, rgba(126, 42, 64, .38), transparent 70%),
+      #0B1830;
+  }
+  :root:has(.dir-auth) body { background: transparent; }
+  :root[data-hub2="on"]:has(.dir-auth) body::before,
+  :root[data-hub2="on"]:has(.dir-auth) body::after { display: none; }
+  #root:has(> .dir-auth) {
+    display: grid;
+    place-items: center;
+    padding: 24px 16px;
+    min-height: 100dvh;
+    height: auto;
+  }
+  [data-hub2="on"] .dir-auth {
+    --dir-bg: #F6F3EC;
+    --dir-surface: #FFFDF8;
+    --dir-text: #0E1B33;
+    --dir-text-muted: #5A6273;
+    --dir-border: #E4DDCD;
+    --dir-primary: #0E1B33;
+    --dir-blue: #0E1B33;
+    height: auto;
+    width: 100%;
+    max-width: 440px;
+    gap: 18px;
+    padding: 32px 24px;
+    border-radius: 22px;
+    background: #FFFDF8;
+    color: #0E1B33;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, .3);
+    font-family: var(--hub2-font-body);
+  }
+  [data-hub2="on"] .dir-auth-logo { width: 220px; max-width: 70%; margin-bottom: 0; }
+  [data-hub2="on"] .dir-auth h1 {
+    font-family: var(--hub2-font-title);
+    font-weight: 600;
+    font-size: 30px;
+    color: #0E1B33;
+  }
+  [data-hub2="on"] .dir-auth h1::before {
+    content: '';
+    display: block;
+    width: 40px;
+    height: 2px;
+    margin: 0 auto 14px;
+    border-radius: 2px;
+    background: #C8922E;
+  }
+  [data-hub2="on"] .dir-auth :is(button, input) { font-family: inherit; }
+  [data-hub2="on"] .dir-auth .dir-btn-ghost { background: transparent; color: #0E1B33; border-color: #0E1B33; }
 }
