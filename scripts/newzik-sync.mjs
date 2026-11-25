@@ -40,9 +40,9 @@ const NZ = 'https://prod.newzik.com';
 const AUTH = join(homedir(), '.config/aiso-newzik/auth.json');
 const uuid = () => randomUUID().toUpperCase();
 
-/** Score first, then full-score order, then "Violin 2" after "Violin 1". */
+/** Score, then solo parts, then full-score order; "Violin 2" after "Violin 1". */
 export function inScoreOrder(parts) {
-  const rank = p => (p.role === 'score' ? -1 : scoreOrderRank(p.label));
+  const rank = p => (p.role === 'score' ? -2 : /\bsolo\b/i.test(p.label) ? -1 : scoreOrderRank(p.label));
   return [...parts].sort((a, b) => rank(a) - rank(b) || a.label.localeCompare(b.label, 'en', { numeric: true }));
 }
 
@@ -222,8 +222,9 @@ function selfcheck() {
     { label: 'Violin 2', role: 'part' }, { label: 'Cello-Bass', role: 'part' }, { label: 'Score', role: 'score' },
     { label: 'Viola', role: 'part' }, { label: 'Violin 1', role: 'part' }, { label: 'Flute 2', role: 'part' },
     { label: 'Flute 1', role: 'part' }, { label: 'Horn in F 1', role: 'part' }, { label: 'Timpani', role: 'part' },
+    { label: 'Solo Violin', role: 'part' },
   ]).map(p => p.label);
-  assert(JSON.stringify(labels) === JSON.stringify(['Score', 'Flute 1', 'Flute 2', 'Horn in F 1', 'Timpani', 'Violin 1', 'Violin 2', 'Viola', 'Cello-Bass']), `score order: ${labels}`);
+  assert(JSON.stringify(labels) === JSON.stringify(['Score', 'Solo Violin', 'Flute 1', 'Flute 2', 'Horn in F 1', 'Timpani', 'Violin 1', 'Violin 2', 'Viola', 'Cello-Bass']), `score order: ${labels}`);
   const ev = { id: 'c', pieceIds: ['b', 'gone', 'a'] };
   const order = programOrder(ev, [{ id: 'a' }, { id: 'b' }, { id: 'x', eventIds: ['c'] }, { id: 'y', eventIds: ['other'] }]).map(p => p.id);
   assert(JSON.stringify(order) === '["b","a","x"]', `program order: ${order}`);
