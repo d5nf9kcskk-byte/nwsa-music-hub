@@ -45,6 +45,10 @@ via `src/org/index.ts` (`ORG`). Rules:
 - The demo org is `asyo` (Alpharetta Symphony Youth Orchestra), Firebase
   project `asyo-hub-demo`, deployed to the `asyo-music-hub` Pages repo via
   `.github/workflows/deploy-demo.yml`. Setup: `docs/demo-asyo-setup.md`.
+- **AISO's site is published by hand. Publish only from a tree rebased onto
+  `origin/claude/aiso`**: an older checkout silently rolls back the live
+  Personnel screen and the fix that lets AISO's functions start (`e4b5825`).
+  Steps: `docs/aiso-setup.md`, "Publishing the site by hand".
 - `scripts/seed-demo-org.mjs` must only ever write to `asyo-hub-demo`
   (it hard-aborts otherwise). NEVER seed `nwsa-hub` with demo data, and
   NEVER put real student data in any org's seed — demo people are fictional.
