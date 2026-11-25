@@ -175,6 +175,18 @@ async function main(argv) {
   const wrong = Object.keys(fields).filter(k => JSON.stringify(after[k]) !== JSON.stringify(fields[k]));
   if (lost.length || wrong.length) fail(`READ-BACK FAILED. lost: ${lost.join(', ') || 'none'}; differs: ${wrong.join(', ') || 'none'}`);
   console.log(`\nWROTE and read back repertoire/${m.pieceId}: ${uploads.length} parts; every earlier field intact.`);
+
+  // AISO hook: mirror each concert this piece is on into Grant's Newzik
+  // (scripts/newzik-sync.mjs). The hub write above stays done whatever Newzik says.
+  if (m.tenant === 'aiso' && !argv.includes('--no-newzik')) {
+    const { sync } = await import('./newzik-sync.mjs');
+    for (const eventId of after.eventIds ?? []) {
+      console.log('');
+      let ok = false;
+      try { ok = await sync(eventId); } catch (e) { console.error(`✗ Newzik: ${e.message}`); }
+      if (!ok) fail(`Hub parts are in. Newzik is NOT synced: fix the cause, then run  node scripts/newzik-sync.mjs ${eventId}`);
+    }
+  }
 }
 
 function selfcheck() {
