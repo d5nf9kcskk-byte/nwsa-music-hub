@@ -74,7 +74,7 @@ export function SchedulePublishField({ publishAt, onChange, label = 'Post later'
           </div>
           <div className="dir-field-hint">
             {isScheduling && preview
-              ? `Stays hidden from families until ${new Date(preview).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} — it posts itself then.`
+              ? `Stays hidden from ${__ORG_PERSONNEL__ ? 'members' : 'families'} until ${new Date(preview).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} — it posts itself then.`
               : 'Pick a future date and time — this stays hidden until then.'}
           </div>
         </>

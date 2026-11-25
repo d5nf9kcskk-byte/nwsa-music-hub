@@ -103,7 +103,7 @@ export function MessagesView() {
             <div className="dir-msg-body">
               <div className="dir-msg-meta">
                 <span>{m.email}</span>
-                {m.studentName && <span>Student: <strong>{m.studentName}</strong></span>}
+                {!__ORG_PERSONNEL__ && m.studentName && <span>Student: <strong>{m.studentName}</strong></span>}
               </div>
               <p className="dir-msg-text">{m.message}</p>
               <div className="dir-msg-actions">

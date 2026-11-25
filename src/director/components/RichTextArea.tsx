@@ -226,7 +226,7 @@ export function RichTextArea({ value, onChange, placeholder, rows = 3, className
           /* onClick, not onMouseDown: this button has no selection to
              preserve, and mousedown-only left it unreachable by keyboard. */
           onClick={() => setPreview(p => !p)}
-          title={preview ? 'Back to editing' : 'Preview what students see'}
+          title={preview ? 'Back to editing' : (__ORG_PERSONNEL__ ? 'Preview what members see' : 'Preview what students see')}
         >
           {preview ? <><Pencil size={12} /> Edit</> : <><Eye size={12} /> Preview</>}
         </button>

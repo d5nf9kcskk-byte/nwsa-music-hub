@@ -102,7 +102,7 @@ function DocumentForm({ document, ensembles, onSave, onDelete, onClose }: FormPr
               className="dir-input"
               value={title}
               onChange={e => setTitle(e.target.value)}
-              placeholder="e.g. Student Handbook 2025–26"
+              placeholder={__ORG_PERSONNEL__ ? "e.g. Member Handbook 2026–27" : "e.g. Student Handbook 2025–26"}
               autoFocus
             />
           </div>
@@ -257,7 +257,7 @@ export function DocumentsView({
         <div className="dir-empty">
           <FileText size={40} />
           <h3>No documents yet</h3>
-          <p>Tap + to upload a syllabus, handbook, form, or other resource — tag it with an ensemble, or leave it General for the whole program.</p>
+          <p>{__ORG_PERSONNEL__ ? 'Tap + to upload a handbook, form, or other resource — tag it with an ensemble, or leave it for everyone.' : 'Tap + to upload a syllabus, handbook, form, or other resource — tag it with an ensemble, or leave it General for the whole program.'}</p>
         </div>
       )}
 

@@ -59,6 +59,8 @@ const ERROR_TEXT: Record<string, string> = {
   'no-service-worker': 'The Hub app is still installing on this device. Reload once, then try again.',
 };
 
+const W = __ORG_PERSONNEL__ ? 'members' : 'families';
+const Wc = __ORG_PERSONNEL__ ? 'Members' : 'Families';
 export function PushAlertsPanel({ onClose }: { onClose: () => void }) {
   const panelRef = useModalA11y<HTMLDivElement>(onClose, true, { closeOnBack: true });
   const me = useCurrentDirector();
@@ -148,17 +150,17 @@ export function PushAlertsPanel({ onClose }: { onClose: () => void }) {
   async function flipFamilies(next: boolean) {
     if (!db || !me) return;
     if (next && !window.confirm(
-      'Open alerts to families?\n\n'
+      `Open alerts to ${W}?\n\n`
       + 'Before you do this:\n'
       + '• App Check enforcement should be ON for Firestore. Turning this on adds a public write anyone on the internet can call.\n'
       + '• The two-week iPhone trial should be done, with subscriptions still delivering.\n\n'
-      + 'Families will see "Get alerts on this phone" on the Home page right away.',
+      + `${Wc} will see "Get alerts on this phone" on the Home page right away.`,
     )) return;
     setBusy(true);
     try {
       await setDoc(doc(db, 'pushSettings', 'global'), { familiesOpen: next, updatedAt: Date.now(), updatedBy: me.email });
     } catch (err) {
-      setMsg({ ok: false, text: `Could not change the family switch: ${err instanceof Error ? err.message : 'unknown error'}` });
+      setMsg({ ok: false, text: `Could not change the ${__ORG_PERSONNEL__ ? 'member' : 'family'} switch: ${err instanceof Error ? err.message : 'unknown error'}` });
     } finally {
       setBusy(false);
     }
@@ -244,12 +246,12 @@ export function PushAlertsPanel({ onClose }: { onClose: () => void }) {
 
           {canFlipFamilies && (
             <div className="dir-card" style={{ marginTop: 20 }}>
-              <strong>Families</strong>
+              <strong>{Wc}</strong>
               <div className="dir-field-hint">
                 {familiesOpen === null ? 'Checking…'
                   : familiesOpen
-                    ? 'ON. Families see "Get alerts on this phone" on the Home page. Closing stops alerts to every family phone at once; opening again brings them back.'
-                    : 'OFF. Families see nothing, and no family phone gets an alert.'}
+                    ? `ON. ${Wc} see "Get alerts on this phone" on the Home page. Closing stops alerts to every ${__ORG_PERSONNEL__ ? 'member' : 'family'} phone at once; opening again brings them back.`
+                    : `OFF. ${Wc} see nothing, and no ${__ORG_PERSONNEL__ ? 'member' : 'family'} phone gets an alert.`}
               </div>
               <div className="dir-field-hint">
                 Turn this on only after App Check enforcement is on and the two-week iPhone trial
@@ -262,7 +264,7 @@ export function PushAlertsPanel({ onClose }: { onClose: () => void }) {
                   disabled={busy}
                   onClick={() => flipFamilies(!familiesOpen)}
                 >
-                  {familiesOpen ? 'Close alerts to families' : 'Open alerts to families…'}
+                  {familiesOpen ? `Close alerts to ${W}` : `Open alerts to ${W}…`}
                 </button>
               )}
             </div>

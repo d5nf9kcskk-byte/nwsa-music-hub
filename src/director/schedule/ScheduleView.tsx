@@ -506,7 +506,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
             type="button"
             className={`dir-tool-btn${myCalOpen ? ' active' : ''}`}
             onClick={() => setMyCalOpen(v => !v)}
-            title="A calendar with only your own ensembles, classes and lessons"
+            title={__ORG_PERSONNEL__ ? "A calendar with only your own ensembles" : "A calendar with only your own ensembles, classes and lessons"}
           >
             <Bell size={15} /> My calendar
           </button>

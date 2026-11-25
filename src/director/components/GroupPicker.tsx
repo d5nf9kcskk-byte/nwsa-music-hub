@@ -26,7 +26,7 @@ import { groupBuckets } from '../groupBuckets';
  */
 export function GroupPicker({
   ensembles, value, onChange,
-  label = 'Ensembles & classes',
+  label = __ORG_PERSONNEL__ ? 'Ensembles' : 'Ensembles & classes',
   emptyLabel = 'None chosen — tap to pick',
   tools,
 }: {

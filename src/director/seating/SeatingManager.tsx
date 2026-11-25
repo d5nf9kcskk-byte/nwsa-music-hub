@@ -293,7 +293,7 @@ function SeatingEditor({ chart, copyFrom, ensembleId, ensembleName, roster, piec
   function removeSection(si: number) {
     const sec = sections[si];
     if (sec.seats.length > 0 && !window.confirm(
-      `Remove "${sec.section}"? ${sec.seats.length} seated student${sec.seats.length === 1 ? '' : 's'} will be unseated.`
+      `Remove "${sec.section}"? ${sec.seats.length} seated ${__ORG_PERSONNEL__ ? 'player' : 'student'}${sec.seats.length === 1 ? '' : 's'} will be unseated.`
     )) return;
     setSections(prev => prev.filter((_, i) => i !== si));
   }
@@ -417,7 +417,7 @@ function SeatingEditor({ chart, copyFrom, ensembleId, ensembleName, roster, piec
                 <div className="dir-seat-share-url">{seatingChartUrl(chart.id)}</div>
                 <CopyLinkButton chartId={chart.id} />
               </div>
-              <div className="dir-field-hint">Anyone with this address can read it — the same names students already see on the ensemble page.</div>
+              <div className="dir-field-hint">Anyone with this address can read it — the same names {__ORG_PERSONNEL__ ? 'players' : 'students'} already see on the ensemble page.</div>
             </div>
           ) : (
             <div className="dir-field-hint" style={{ marginTop: 10 }}>
@@ -606,7 +606,7 @@ function SeatingEditor({ chart, copyFrom, ensembleId, ensembleName, roster, piec
                       className="dir-input"
                       value={seatQuery}
                       onChange={e => setSeatQuery(e.target.value)}
-                      placeholder="Search a student to add…"
+                      placeholder={__ORG_PERSONNEL__ ? "Search a player to add…" : "Search a student to add…"}
                       autoFocus
                     />
                     <div className="dir-add-sub-list" style={{ marginTop: 6 }}>
@@ -697,7 +697,7 @@ function SeatingEditor({ chart, copyFrom, ensembleId, ensembleName, roster, piec
             <button
               className="dir-btn dir-btn-danger"
               style={{ marginTop: 16 }}
-              onClick={() => { if (window.confirm('Delete this seating chart? Students will no longer see it.')) onDelete(); }}
+              onClick={() => { if (window.confirm((__ORG_PERSONNEL__ ? 'Delete this seating chart? Players will no longer see it.' : 'Delete this seating chart? Students will no longer see it.'))) onDelete(); }}
             >
               Delete chart
             </button>

@@ -596,7 +596,7 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
               ensembles={groupChoices}
               value={form.ensembleIds}
               onChange={setEnsembleIds}
-              label="Ensembles and classes this is for"
+              label={__ORG_PERSONNEL__ ? "Ensembles this is for" : "Ensembles and classes this is for"}
               emptyLabel={__ORG_PERSONNEL__ ? 'None — for everyone' : 'None — a school-wide item'}
               tools={musicIds.length > 0 ? (
                 <button
@@ -774,7 +774,7 @@ export function EventForm({ event, ensembles, defaultDate, onSave, onDelete, onC
                 className="dir-input"
                 value={audienceQuery}
                 onChange={e => setAudienceQuery(e.target.value)}
-                placeholder="Search a student required to attend…"
+                placeholder={__ORG_PERSONNEL__ ? "Search a player required to attend…" : "Search a student required to attend…"}
               />
               {audienceMatches.length > 0 && (
                 <div className="dir-add-sub-list" style={{ marginTop: 6 }}>

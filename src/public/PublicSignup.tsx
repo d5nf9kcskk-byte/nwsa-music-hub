@@ -30,6 +30,10 @@ import { useHoneypot } from './components/Honeypot';
 import { getReceipt, saveReceipt } from './signupReceipt';
 import { PUBLIC_STUDENT_INFO } from './publicStudentInfo';
 import { ORG } from '../org';
+
+declare const __ORG_PERSONNEL__: boolean;
+/** A personnel org has no grades or guardians: nothing asks for either. */
+const ADULT = __ORG_PERSONNEL__;
 import type { Attachment, SignPdfQuestion, SignupForm, SignupQuestion, SignupSlotBooking, Student } from '../director/types';
 import type { PdfMark } from '../shared/pdfStamp';
 import './signup.css';
@@ -256,10 +260,10 @@ export function PublicSignup() {
   const fieldsMissing = (asksFor('studentName') && formName.length < 2)
     || (asksFor('studentId') && fieldValue.studentId.length < 3)
     || pdfQuestionsMissing;
-  const needsGuardian = !!form.guardianStatement;
+  const needsGuardian = !ADULT && !!form.guardianStatement;
   const missingRequired = questions.some(q => q.required && !(answers[q.id] ?? '').trim());
   const valid = identified
-    && (openMode || effectiveGrade.trim() !== '')
+    && (openMode || ADULT || effectiveGrade.trim() !== '')
     && !missingRequired
     && (!needsSignature || signature.trim().length >= 3)
     && (!needsGuardian || (guardianName.trim().length >= 2 && guardianSignature.trim().length >= 3))
@@ -528,11 +532,12 @@ export function PublicSignup() {
               <div className="pub-signup-step">
                 <div className="pub-signup-step-num">2</div>
                 <div className="pub-signup-step-title">
-                  {openMode ? t('su.step.details') : t('su.step.grade')}
+                  {openMode || ADULT ? t('su.step.details') : t('su.step.grade')}
                 </div>
               </div>
               <div className="pub-card">
-                <label className="pub-absence-label" htmlFor="su-grade">
+                {!ADULT && (<>
+<label className="pub-absence-label" htmlFor="su-grade">
                   {openMode
                     ? <>{t('su.gradeOrYear')} <span className="pub-signup-optional">{t('misc.optional')}</span></>
                     : t('su.gradeIn')}
@@ -558,6 +563,7 @@ export function PublicSignup() {
                     {t('su.gradeCorrected', { grade: student.grade })}
                   </div>
                 )}
+</>)}
 
                 {form.collectEmail && (
                   <>
@@ -710,7 +716,7 @@ export function PublicSignup() {
                       : t('su.why.pdfId'))
                     : signsPdf && !pdfSigned && effectiveGrade.trim()
                     ? t('su.why.pdfSign')
-                    : whyNotYet({ effectiveGrade, gradeRequired: !openMode, missingRequired, needsSignature, signature, needsGuardian, guardianName, guardianSignature, collectEmail: !!form.collectEmail, email, guardianEmail })}
+                    : whyNotYet({ effectiveGrade, gradeRequired: !openMode && !ADULT, missingRequired, needsSignature, signature, needsGuardian, guardianName, guardianSignature, collectEmail: !!form.collectEmail, email, guardianEmail })}
                 </div>
               )}
               <p className="pub-signup-privacy">

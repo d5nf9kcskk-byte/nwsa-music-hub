@@ -426,7 +426,7 @@ function TodayCard({
   const firstEns = event.ensembleIds.map(id => ensembleMap[id]).find(Boolean);
   const name = event.title
     || event.ensembleIds.map(id => ensembleMap[id]?.name).filter(Boolean).join(' + ')
-    || 'School';
+    || (__ORG_PERSONNEL__ ? 'Everyone' : 'School');
   const linkedPieces = (event.pieceIds ?? []).map(id => piecesById[id]?.title).filter(Boolean);
   // A rehearsal, a sectional or a concert (#concert-roll): the events with a
   // roll to take. A concert with no group on it (a faculty recital) has none.

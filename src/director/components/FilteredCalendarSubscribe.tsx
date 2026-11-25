@@ -293,7 +293,7 @@ export function FilteredCalendarSubscribe({
             {sheet === 'filter' && (
               <BundleCalendars
                 platform={platform}
-                heading="Or pick a ready-made school calendar — always live, never a wait:"
+                heading={__ORG_PERSONNEL__ ? "Or pick a ready-made calendar — always live, never a wait:" : "Or pick a ready-made school calendar — always live, never a wait:"}
                 className="dir-subw-bundles"
               />
             )}

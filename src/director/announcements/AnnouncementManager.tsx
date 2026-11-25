@@ -492,7 +492,7 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onArchive
             <div className="dir-field-hint">
               {images.length >= MAX_ANNOUNCEMENT_IMAGES
                 ? `That is the limit of ${MAX_ANNOUNCEMENT_IMAGES} — remove one to add another.`
-                : 'Shown full width inside the post, tap to open the original. Good for a flyer or a screenshot of a times list. Families can read it without downloading anything.'}
+                : 'Shown full width inside the post, tap to open the original. Good for a flyer or a screenshot of a times list. ' + (__ORG_PERSONNEL__ ? 'Members' : 'Families') + ' can read it without downloading anything.'}
             </div>
           </div>
 
@@ -565,7 +565,7 @@ function AnnouncementForm({ announcement, ensembles, onSave, onDelete, onArchive
                 </div>
                 <div className="dir-field-hint">
                   {isScheduling && scheduledPreview
-                    ? `Stays hidden from families until ${new Date(scheduledPreview).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} — it posts itself then. For urgent posts, the Teams/email relay is queued around that moment (whenever a director next has the Hub open).`
+                    ? `Stays hidden from ${__ORG_PERSONNEL__ ? 'members' : 'families'} until ${new Date(scheduledPreview).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} — it posts itself then. For urgent posts, the Teams/email relay is queued around that moment (whenever a director next has the Hub open).`
                     : 'Pick a future date and time — this announcement stays hidden until then.'}
                 </div>
               </>

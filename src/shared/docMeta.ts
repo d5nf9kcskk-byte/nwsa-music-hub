@@ -2,8 +2,9 @@ import type { DocumentCategory, DocumentAudience } from '../director/types';
 
 /** Document categories in display order, shared by the director manager and the
  *  public Documents page so the two never drift. */
+declare const __ORG_PERSONNEL__: boolean;
 export const DOC_CATEGORIES: DocumentCategory[] = [
-  'Syllabus', 'Handbook', 'Form', 'Policy', 'Repertoire', 'Calendar', 'Newsletter',
+  ...(__ORG_PERSONNEL__ ? [] : ['Syllabus' as const]), 'Handbook', 'Form', 'Policy', 'Repertoire', 'Calendar', 'Newsletter',
   'Orchestra Assistant Positions', 'Other',
 ];
 

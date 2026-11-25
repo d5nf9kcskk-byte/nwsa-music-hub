@@ -191,7 +191,7 @@ export function IcsImport({ onClose }: Props) {
                 <div className="dir-field">
                   <label className="dir-label">Import as</label>
                   <select className="dir-input" value={eventType} onChange={e => setEventType(e.target.value as CalendarEvent['type'])}>
-                    <option value="Event">Event (e.g. school holiday)</option>
+                    <option value="Event">{__ORG_PERSONNEL__ ? 'Event (e.g. a holiday)' : 'Event (e.g. school holiday)'}</option>
                     <option value="Concert">Concert</option>
                     <option value="Rehearsal">Rehearsal</option>
                     <option value="Sectional">Sectional</option>
@@ -200,7 +200,7 @@ export function IcsImport({ onClose }: Props) {
                 <div className="dir-field">
                   <label className="dir-label">Assign to ensemble</label>
                   <select className="dir-input" value={ensembleId} onChange={e => setEnsembleId(e.target.value)}>
-                    <option value="">None (school-wide)</option>
+                    <option value="">{__ORG_PERSONNEL__ ? 'None (everyone)' : 'None (school-wide)'}</option>
                     {ensembles.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
                   </select>
                 </div>

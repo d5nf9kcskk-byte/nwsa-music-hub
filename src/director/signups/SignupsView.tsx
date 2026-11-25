@@ -210,9 +210,11 @@ export function SignupsView() {
         <button className="dir-btn dir-btn-primary" onClick={() => setPicking(p => !p)} aria-expanded={picking}>
           <Plus size={15} /> New form
         </button>
+        {!__ORG_PERSONNEL__ && (
         <button className="dir-btn dir-btn-ghost" onClick={() => newSignup({ ...allStateTemplate(addDays(today, 1)), formKind: 'registration' })}>
           <Sparkles size={15} /> All-State template
         </button>
+        )}
       </div>
 
       {picking && (
@@ -244,9 +246,9 @@ export function SignupsView() {
           <ClipboardSignature size={40} />
           <h3>No forms yet</h3>
           <p>
-            A form asks students to say yes or fill out the paperwork in one place —
-            you get their names, grades, and signatures without chasing email.
-            The All-State template sets one up in about a minute.
+            {__ORG_PERSONNEL__
+              ? 'A form asks members to say yes or fill out the paperwork in one place — you get their names and signatures without chasing email.'
+              : 'A form asks students to say yes or fill out the paperwork in one place — you get their names, grades, and signatures without chasing email. The All-State template sets one up in about a minute.'}
           </p>
         </div>
       )}
@@ -753,7 +755,7 @@ function SignupDetail({
                   <h1>{form.title}</h1>
                 </header>
                 <dl className="signup-sheet-fields">
-                  <dt>Student</dt><dd>{r.studentName}</dd>
+                  <dt>{__ORG_PERSONNEL__ ? 'Name' : 'Student'}</dt><dd>{r.studentName}</dd>
                   <dt>Grade</dt><dd>{r.grade}</dd>
                   {r.instrument && <><dt>Instrument</dt><dd>{r.instrument}</dd></>}
                   {r.email && <><dt>Email</dt><dd>{r.email}</dd></>}
@@ -1184,7 +1186,7 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, directors, 
   async function handleSave() {
     if (!draft.title.trim()) return;
     if (inviteMode && inviteIds.length === 0) {
-      setSaveError('Pick at least one student, or switch back to ensembles.');
+      setSaveError(__ORG_PERSONNEL__ ? 'Pick at least one player, or switch back to ensembles.' : 'Pick at least one student, or switch back to ensembles.');
       return;
     }
     // A slot booking is anchored to a student doc in firestore.rules, and an
@@ -1274,7 +1276,7 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, directors, 
             <label className="dir-label">Title *</label>
             <input className="dir-input" value={draft.title} autoFocus
               onChange={e => set('title', e.target.value)}
-              placeholder="e.g. All-State auditions — who's in?" />
+              placeholder={__ORG_PERSONNEL__ ? "e.g. Concert availability — who's in?" : "e.g. All-State auditions — who's in?"} />
           </div>
 
           <div className="dir-field">
@@ -1327,7 +1329,7 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, directors, 
               <label className={`dir-checkbox-tag ${inviteMode ? 'checked' : ''}`}>
                 <input type="radio" name="audience-mode" checked={inviteMode}
                   onChange={() => setAudienceMode('students')} />
-                Specific students
+                {__ORG_PERSONNEL__ ? 'Specific players' : 'Specific students'}
               </label>
               <label className={`dir-checkbox-tag ${openMode ? 'checked' : ''}`}>
                 <input type="radio" name="audience-mode" checked={openMode}
@@ -1364,7 +1366,7 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, directors, 
                 )}
                 <input className="dir-input" value={studentQuery}
                   onChange={e => setStudentQuery(e.target.value)}
-                  placeholder="Search a student to add…" />
+                  placeholder={__ORG_PERSONNEL__ ? "Search a player to add…" : "Search a student to add…"} />
                 {studentMatches.length > 0 && (
                   <div className="dir-add-sub-list" style={{ marginTop: 6 }}>
                     {studentMatches.map(s => (
@@ -1470,7 +1472,7 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, directors, 
             <div className="dir-signup-help">
               {openMode
                 ? 'A name is always collected. Grade or year is asked for too, but stays optional — an open form reaches people for whom “9th–12th” may not be the right answer.'
-                : 'Name and grade are always collected.'}
+                : (__ORG_PERSONNEL__ ? 'A name is always collected.' : 'Name and grade are always collected.')}
             </div>
           </div>
 
@@ -1561,11 +1563,11 @@ function SignupEditor({ initial, isNew, formId, ensembles, students, directors, 
               onChange={v => set('signatureStatement', v)}
               placeholder="Leave empty to just collect names and answers — no signature." />
             <div className="dir-signup-help">
-              Filled in = the student types their full name to sign, and the Hub records
+              Filled in = {__ORG_PERSONNEL__ ? 'the player' : 'the student'} types their full name to sign, and the Hub records
               the date and time with it.
             </div>
           </div>
-          {draft.signatureStatement?.trim() && (
+          {!__ORG_PERSONNEL__ && draft.signatureStatement?.trim() && (
             <div className="dir-field">
               <label className="dir-label">What a parent/guardian is agreeing to</label>
               <RichTextArea value={draft.guardianStatement ?? ''} rows={3}
@@ -1655,7 +1657,7 @@ function registrationDraft(today: string): Draft {
   return {
     ...blankDraft(today),
     signatureStatement: 'Everything I have entered above is correct, and I will meet every deadline my director gives me.',
-    guardianStatement: 'I am the parent or guardian of the student above, and I give permission for them to take part.',
+    guardianStatement: __ORG_PERSONNEL__ ? undefined : 'I am the parent or guardian of the student above, and I give permission for them to take part.',
   };
 }
 
