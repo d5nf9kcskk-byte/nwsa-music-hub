@@ -439,7 +439,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
               Who’s out
             </button>
           )}
-          {e.ensembleIds.length > 0 && onNavigate && (
+          {!__ORG_PERSONNEL__ && e.ensembleIds.length > 0 && onNavigate && (
             <button className="dir-event-roster-btn" onClick={() => onNavigate('scheduleSwap', { date: e.date })} title={__ORG_PERSONNEL__ ? 'Swap, shift, or cancel for this day' : 'Swap, shift, cancel, or move a student for this day'}>
               Change
             </button>
@@ -733,7 +733,7 @@ export function ScheduleView({ initialDate, initialEventId, initialEnsembleId = 
             <div className="dir-day-detail-header">
               {parseDate(selectedDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
               {selectedDate === today && <span className="dir-today-badge">Today</span>}
-              {onNavigate && !assistantMode && (eventsByDate[selectedDate] ?? []).some(e => e.ensembleIds.length > 0) && (
+              {!__ORG_PERSONNEL__ && onNavigate && !assistantMode && (eventsByDate[selectedDate] ?? []).some(e => e.ensembleIds.length > 0) && (
                 <button
                   className="dir-tool-btn"
                   style={{ marginLeft: 'auto' }}

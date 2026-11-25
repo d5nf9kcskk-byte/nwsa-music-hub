@@ -346,7 +346,7 @@ export function TodayView({ onNavigate, requestCount = 0 }: { onNavigate: DirNav
         <div className="dir-today-quick">
           <button className="dir-quick-btn" onClick={() => onNavigate('schedule', { date: today })}><CalendarPlus size={18} /> New event</button>
           <button className="dir-quick-btn" onClick={() => onNavigate('announcements')}><Megaphone size={18} /> Post announcement</button>
-          <button className="dir-quick-btn" onClick={() => onNavigate('scheduleSwap', { date: today })}><Clock size={18} /> Change today’s schedule</button>
+          {!__ORG_PERSONNEL__ && <button className="dir-quick-btn" onClick={() => onNavigate('scheduleSwap', { date: today })}><Clock size={18} /> Change today’s schedule</button>}
           {/* #close-a-day: Change a Day asks which school is closed, takes the
               high school's private lessons with it, and Back to normal undoes
               it. The old one-tap sweep here closed both campuses.

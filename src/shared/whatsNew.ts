@@ -47,7 +47,7 @@ export const WHATS_NEW: WhatsNewEntry[] = [
     audience: 'staff' as const,
     expires: '2026-12-05',
     bullets: [
-      'The menu is Today, Calendar, Change a Day, Personnel, the Library (Concerts, Repertoire, Documents, Forms, Announcements, Messages) and Ensembles. The screens built for a school are gone: Take Roll, Requests, Move a Student, Rotations, Who’s Out, lessons, progress notes, assignments, juries, concert check-in, and the Classes and College lists.',
+      'The menu is Today, Calendar, Personnel, the Library (Concerts, Repertoire, Documents, Forms, Announcements, Messages) and Ensembles. The screens built for a school are gone: Take Roll, Requests, Move a Student, Rotations, Who’s Out, lessons, progress notes, assignments, juries, concert check-in, and the Classes and College lists.',
       'Attendance is under Personnel → Attendance. On Today, each rehearsal and concert has an Attendance button that opens the roll on that service.',
       'Search (the magnifying glass) now finds people on the personnel roster by name, instrument or section, and opens them.',
       'The public site matches: one Staff sign-in link, no student lookup, and its contact page reads “Message the office”.',

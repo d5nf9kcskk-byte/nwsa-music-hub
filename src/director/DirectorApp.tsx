@@ -196,7 +196,8 @@ const NAV_GROUPS: { head: string; items: NavItem[] }[] = [
  * school screen. Adult roll is Personnel → Attendance.
  */
 const ADULT_TABS: readonly DirTab[] = [
-  'today', 'schedule', 'scheduleSwap',
+  // No Change a Day: an orchestra edits the event itself (Grant, 2026-11-25).
+  'today', 'schedule',
   'personnel',
   'concerts', 'repertoire', 'documents', 'signups', 'announcements', 'messages',
   'ensembles', 'ensembleHub', 'directors',
