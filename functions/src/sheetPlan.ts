@@ -68,21 +68,26 @@ export interface SheetEdits {
   counts: { matched: number; added: number; removed: number; unknown: number };
 }
 
-const FIELDS = ['seat', 'name', 'email', 'phone', 'confirmed', 'fee', 'extra', 'paid', 'category', 'id'] as const;
+const FIELDS = ['section', 'seat', 'name', 'email', 'phone', 'confirmed', 'fee', 'extra', 'paid', 'category', 'id'] as const;
 type Field = (typeof FIELDS)[number];
 
-function fieldOf(header: string): Field | null {
-  const h = header.trim().toLowerCase();
-  if (/^(part\s*\/\s*seat|seat|part)$/.test(h)) return 'seat';
-  if (h === 'name') return 'name';
-  if (h === 'email') return 'email';
-  if (h === 'phone') return 'phone';
-  if (h === 'confirmed') return 'confirmed';
-  if (h === 'payment' || h === 'fee') return 'fee';
-  if (h === 'extra') return 'extra';
-  if (h === 'paid') return 'paid';
-  if (h === 'category 2' || h === 'category') return 'category';
+/** Which field a column heading names, by its words (the importPlan.ts
+ *  fieldFor() approach), so a new tab laid out differently still maps.
+ *  Specific before general; anything else is a column the Hub never writes. */
+export function fieldOf(header: string): Field | null {
+  const h = header.trim().toLowerCase().replace(/\s+/g, ' ');
+  if (!h) return null;
   if (h === 'hub id') return 'id';
+  if (/^(e-?mail|email address)$/.test(h)) return 'email';
+  if (/^(section|instrument section|part section)$/.test(h)) return 'section';
+  if (/^(part ?\/ ?seat|seat|chair|part)$/.test(h)) return 'seat';
+  if (/^(name|full name|player|musician)$/.test(h)) return 'name';
+  if (/^(phone|cell|mobile|phone number)$/.test(h)) return 'phone';
+  if (/^(confirmed|said yes|booked)$/.test(h)) return 'confirmed';
+  if (/^(paid|paid on|date paid)$/.test(h)) return 'paid';
+  if (/^(payment|fee|rate|pay)$/.test(h)) return 'fee';
+  if (/^(extra|extras)$/.test(h)) return 'extra';
+  if (/^category( 2)?$/.test(h)) return 'category';
   return null;
 }
 
@@ -109,13 +114,14 @@ const usable = (e: string) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e);
 /** What a player's row says, field by field. Display names are "First Last". */
 function rowValues(p: SheetPlayer): Partial<Record<Field, Cell>> {
   return {
-    seat: p.seat ?? '', name: p.name.includes(',') ? p.name.split(/\s*,\s*/).reverse().join(' ') : p.name,
+    section: p.section, seat: p.seat ?? '', name: p.name.includes(',') ? p.name.split(/\s*,\s*/).reverse().join(' ') : p.name,
     email: p.email, phone: p.phone, confirmed: p.saidYes ? 'Y' : '', fee: p.fee ?? '', paid: p.paid, id: p.id,
   };
 }
 
 const same = (f: Field, a: Cell | undefined, b: Cell | undefined) =>
   f === 'name' ? nameKey(text(a)) === nameKey(text(b))
+    : f === 'section' ? sectionKey(text(a)) === sectionKey(text(b))
     : f === 'fee' || f === 'seat' ? (text(a) === '' ? text(b) === '' : Number(a) === Number(b))
       : f === 'confirmed' ? /^y/i.test(text(a)) === /^y/i.test(text(b))
         : text(a) === text(b);
@@ -134,16 +140,24 @@ export function planSheetPush(grid: Cell[][], model: SheetModel): SheetEdits {
   const width = Math.max(col.id + 1, ...grid.map(r => r.length));
   const at = (r: number, f: Field) => (col[f] == null ? '' : grid[r]?.[col[f]!]);
 
-  // Blocks: a section header has column A filled and no name.
+  // Two layouts. Blocks: a section header row has column A filled and no
+  // name. Flat: one table with a Section column. Blocks win when both exist.
   type Block = { label: string; key: string; header: number; last: number };
   const blocks: Block[] = [];
   const rowBlock: (Block | undefined)[] = [];
+  let lastData = h;
   for (let r = h + 1; r < grid.length; r++) {
     const a = text(grid[r]?.[0]);
-    if (a && !text(at(r, 'name')) && !text(at(r, 'id'))) blocks.push({ label: a, key: sectionKey(a), header: r, last: r });
+    if (grid[r]?.some(c => text(c))) lastData = r;
+    // (Column A holds the section name of a block, so it cannot also be a flat table's Section column.)
+    if (col.section !== 0 && a && !text(at(r, 'name')) && !text(at(r, 'id'))) blocks.push({ label: a, key: sectionKey(a), header: r, last: r });
     else if (blocks.length && grid[r]?.some(c => text(c))) blocks[blocks.length - 1].last = r;
     rowBlock[r] = blocks[blocks.length - 1];
   }
+  const flat = !blocks.length;
+  if (flat && col.section == null) throw new Error('The tab needs a Section column, or a header row per section.');
+  /** The section a row sits in: its block, or its Section cell. */
+  const sectionOf = (r: number) => (flat ? sectionKey(text(at(r, 'section'))) : rowBlock[r]?.key ?? '');
 
   const byId = new Map(model.players.map(p => [p.id, p]));
   const paired = new Set<string>();
@@ -158,9 +172,9 @@ export function planSheetPush(grid: Cell[][], model: SheetModel): SheetEdits {
   }
   // Pass 2: rows without one, matched once inside their own section.
   for (let r = h + 1; r < grid.length; r++) {
-    if (text(at(r, 'id')) || !text(at(r, 'name')) || !rowBlock[r]) continue;
+    if (text(at(r, 'id')) || !text(at(r, 'name')) || !sectionOf(r)) continue;
     const email = text(at(r, 'email')).toLowerCase();
-    const cands = model.players.filter(p => !paired.has(p.id) && sectionKey(p.section) === rowBlock[r]!.key);
+    const cands = model.players.filter(p => !paired.has(p.id) && sectionKey(p.section) === sectionOf(r));
     const hit = (usable(email) ? cands.filter(p => p.email.trim().toLowerCase() === email) : [])
       .concat(cands.filter(p => nameKey(p.name) === nameKey(text(at(r, 'name')))));
     const uniq = [...new Set(hit)];
@@ -168,7 +182,8 @@ export function planSheetPush(grid: Cell[][], model: SheetModel): SheetEdits {
     else out.counts.unknown++;
   }
 
-  // Rows to add, by section key; a moved player is a delete plus an add.
+  // Rows to add, by section key. A player who moved section is a delete plus
+  // an add between blocks, and one cell (Section) in a flat table.
   const adds = new Map<string, SheetPlayer[]>();
   const add = (p: SheetPlayer) => { const k = sectionKey(p.section); adds.set(k, [...(adds.get(k) ?? []), p]); };
   for (const hub of model.players) {
@@ -187,10 +202,10 @@ export function planSheetPush(grid: Cell[][], model: SheetModel): SheetEdits {
       }
     }
     if (r == null) { add(p); continue; }
-    if (rowBlock[r]?.key !== sectionKey(p.section)) { out.deletes.push(r); add(p); continue; }
+    if (!flat && sectionOf(r) !== sectionKey(p.section)) { out.deletes.push(r); add(p); continue; }
     out.counts.matched++;
     const want = rowValues(p);
-    for (const f of ['seat', 'name', 'email', 'phone', 'confirmed', 'fee', 'paid', 'id'] as const) {
+    for (const f of [...(flat ? ['section'] as const : []), 'seat', 'name', 'email', 'phone', 'confirmed', 'fee', 'paid', 'id'] as const) {
       if (col[f] == null) continue;
       const have = grid[r]?.[col[f]!];
       const v = want[f] ?? '';
@@ -207,6 +222,21 @@ export function planSheetPush(grid: Cell[][], model: SheetModel): SheetEdits {
     if (col.category != null) row[col.category] = label;
     return row;
   };
+  if (flat) {
+    // New players go after the last row of their section, else at the end.
+    const order = [...new Set([...model.sections.map(s => sectionKey(s.name)), ...adds.keys()])].filter(k => adds.has(k));
+    const tail: Cell[][] = [];
+    for (const k of order) {
+      const list = adds.get(k)!;
+      const rows = list.map(p => newRow(p, p.section));
+      let last = -1;
+      for (let r = h + 1; r < grid.length; r++) if (sectionOf(r) === k && text(at(r, 'name'))) last = r;
+      if (last >= 0) out.inserts.push({ after: last, rows }); else tail.push(...rows);
+      out.counts.added += list.length;
+    }
+    if (tail.length) out.inserts.push({ after: lastData, rows: tail });
+    return out;
+  }
   const count = (s: { name: string; needed?: number }) =>
     `${model.players.filter(p => sectionKey(p.section) === sectionKey(s.name)).length}/${s.needed}`;
   const seatCol = col.seat ?? 1;

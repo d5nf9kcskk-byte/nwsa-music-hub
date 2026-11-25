@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { collection, doc, setDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '../firebase';
 import { watchCollection } from '../../shared/watchCollection';
 import { trackWrite } from '../writeStatus';
 import { currentDirectorName, currentDirectorRole } from '../currentDirector';
-import type { ConcertPersonnel } from '../types';
+import type { ConcertPersonnel, SheetLink } from '../types';
 import { usePersonnelGate } from './personnelGate';
 import { FIXTURES_ON } from './fixtures';
 import { FIXTURE_CONCERT_PERSONNEL } from './fixturesAdult';
@@ -18,14 +18,18 @@ import { fxPatch, fxApply, useFxVersion } from '../personnel/fixtureWrites';
  */
 export function useConcertPersonnel() {
   const [docs, setDocs] = useState<ConcertPersonnel[]>([]);
+  const [links, setLinks] = useState<SheetLink[]>([]);
   const gate = usePersonnelGate();
   const fixtures = !db && FIXTURES_ON && gate === 'open';
   useFxVersion();
 
   useEffect(() => {
     if (!db || gate !== 'open') return;
-    return watchCollection(collection(db, 'concertPersonnel'), 'concertPersonnel',
+    const stopDocs = watchCollection(collection(db, 'concertPersonnel'), 'concertPersonnel',
       snap => setDocs(snap.docs.map(d => ({ id: d.id, ...d.data() } as ConcertPersonnel))));
+    const stopLinks = watchCollection(collection(db, 'sheetLinks'), 'sheetLinks',
+      snap => setLinks(snap.docs.map(d => ({ id: d.id, ...d.data() } as SheetLink))));
+    return () => { stopDocs(); stopLinks(); };
   }, [gate]);
 
   const all = fixtures ? fxApply('concertPersonnel', FIXTURE_CONCERT_PERSONNEL) : docs;
@@ -54,12 +58,16 @@ export function useConcertPersonnel() {
       { saidYes: yes ? arrayUnion(personnelId) : arrayRemove(personnelId), ...stamps() }, { merge: true }));
   }
 
-  /** Link (or, with '', unlink) the personnel manager's sheet for this concert. */
-  async function linkSheet(eventId: string, sheetId: string, sheetTab: string) {
-    if (!db) { if (fixtures) fxPatch('concertPersonnel', eventId, { sheetId, sheetTab }); return; }
+  /** Register a sheet tab as this concert's roster (bound by its gid), or,
+   *  with null, unlink it. The registry: `sheetLinks/concertRoster__<id>`. */
+  async function linkSheet(concertId: string, tab: { spreadsheetId: string; sheetId: number } | null) {
+    const id = `concertRoster__${concertId}`;
+    const data = tab && { ...tab, kind: 'concertRoster' as const, concertId, ...stamps() };
+    if (!db) { if (fixtures) fxPatch('sheetLinks', id, data); return; }
     const dbRef = db;
-    await trackWrite('Sheet link', () => setDoc(doc(dbRef, 'concertPersonnel', eventId), { sheetId, sheetTab, ...stamps() }, { merge: true }));
+    await trackWrite('Sheet link', () => (data ? setDoc(doc(dbRef, 'sheetLinks', id), data) : deleteDoc(doc(dbRef, 'sheetLinks', id))));
   }
 
-  return { concertDocs: all, saveSections, setSaidYes, linkSheet };
+  const sheetLinks = fixtures ? fxApply('sheetLinks', [] as SheetLink[]) : links;
+  return { concertDocs: all, sheetLinks, saveSections, setSaidYes, linkSheet };
 }

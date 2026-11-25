@@ -17,7 +17,12 @@ const PROJECT = process.env.GCLOUD_PROJECT || 'demo-sheet-push';
 if (!PROJECT.startsWith('demo-')) { console.error('Refusing: the project id must start with demo-.'); process.exit(2); }
 
 // ── The fake: one spreadsheet, one tab, cells as values. ──
-const SHEET = 'fake-sheet-id', GID = 7;
+// Two tabs, as in the personnel manager's spreadsheet: the old "Sheet1"
+// (never linked) and the live tab the registry points at by gid.
+const SHEET = 'fake-spreadsheet-id-000000000', GID = 914302117, OLD_GID = 0;
+const old = [['', 'Part/Seat', 'Name', 'Email'], ['Violin 1', '1/1', '', ''], ['', 1, 'Ada Whitlock', 'ada@example.org']];
+const oldBefore = JSON.stringify(old);
+let title = 'Live roster';
 let grid = [
   ['', 'Part/Seat', 'Name', 'Email', 'Phone', 'Confirmed', 'Payment', 'Extra', 'Paid', 'Email 1', 'Category 2'],
   ['Violin 1', '2/2', '', '', '', '', '', '', '', '', ''],
@@ -27,9 +32,11 @@ let grid = [
   ['', 1, 'Celia Brandt', 'celia@example.org', '', 'Y', 250, 'piccolo', '', '', 'Flute'],
   ['', 2, 'Someone Else', 'else@example.org', '', 'Y', 250, '', '', '', 'Flute'],
 ];
-let columns = 11, hidden = new Set(), protectedCols = 0, batches = 0;
+let columns = 11, hidden = new Set(), protectedCols = 0, batches = 0, otherTabWrites = 0;
 const valueOf = v => ('numberValue' in v ? v.numberValue : v.stringValue);
 function apply(req) {
+  const target = JSON.stringify(req).match(/"sheetId":(\d+)/)?.[1];
+  if (Number(target) !== GID) { otherTabWrites++; return; }
   if (req.appendDimension) columns += req.appendDimension.length;
   else if (req.updateCells) {
     const { rowIndex, columnIndex } = req.updateCells.start;
@@ -57,8 +64,16 @@ const server = http.createServer((req, res) => {
     const url = decodeURIComponent(req.url);
     if (!url.startsWith(`/${SHEET}`)) return send(404, {});
     if (req.method === 'POST' && url.endsWith(':batchUpdate')) { batches++; JSON.parse(body).requests.forEach(apply); return send(200, {}); }
-    if (url.includes('/values/')) return send(200, { values: grid.map(r => { const t = [...r]; while (t.length && t[t.length - 1] === '') t.pop(); return t; }) });
-    return send(200, { sheets: [{ properties: { sheetId: GID, title: 'Sheet1', gridProperties: { columnCount: columns } } }] });
+    if (url.includes('/values/')) {
+      const which = url.split('/values/')[1].split('?')[0].replace(/^'|'$/g, '');
+      const g = which === title ? grid : which === 'Sheet1' ? old : null;
+      if (!g) return send(400, {});
+      return send(200, { values: g.map(r => { const t = [...r]; while (t.length && t[t.length - 1] === '') t.pop(); return t; }) });
+    }
+    return send(200, { sheets: [
+      { properties: { sheetId: OLD_GID, title: 'Sheet1', gridProperties: { columnCount: 26 } } },
+      { properties: { sheetId: GID, title, gridProperties: { columnCount: columns } } },
+    ] });
   });
 });
 await new Promise(r => server.listen(0, '127.0.0.1', r));
@@ -66,7 +81,9 @@ process.env.SHEETS_API_BASE = `http://127.0.0.1:${server.address().port}`;
 process.env.SHEETS_TEST_TOKEN = 'test-token';
 
 const db = getFirestore(initializeApp({ projectId: PROJECT }));
-const { pushConcert } = await import('../functions/src/sheetPush.ts');
+const { pushLink } = await import('../functions/src/sheetPush.ts');
+const LINK = 'concertRoster__nyc';
+const pushConcert = () => pushLink(db, LINK);
 
 let failed = 0;
 const check = (label, ok) => { if (!ok) failed++; console.log(`${ok ? 'ok  ' : 'FAIL'} ${label}`); };
@@ -84,10 +101,11 @@ const contract = (id, pid, cents) => db.doc(`contracts/${id}`).set({ personnelId
 await contract('kAda', 'pAda', 25000);
 await contract('kBram', 'pBram', 25000);
 await contract('kCelia', 'pCelia', 30000);
-await db.doc('concertPersonnel/nyc').set({ sections: [{ name: 'Violin I', needed: 2 }, { name: 'Flute', needed: 2 }], saidYes: ['pAda', 'pCelia'], sheetId: SHEET, sheetTab: 'Sheet1' });
+await db.doc('concertPersonnel/nyc').set({ sections: [{ name: 'Violin I', needed: 2 }, { name: 'Flute', needed: 2 }], saidYes: ['pAda', 'pCelia'] });
+await db.doc(`sheetLinks/${LINK}`).set({ spreadsheetId: SHEET, sheetId: GID, kind: 'concertRoster', concertId: 'nyc' });
 
 // 1. First link.
-let note = await pushConcert(db, 'nyc');
+let note = await pushConcert();
 check(`first pass writes (${note})`, /^Wrote/.test(note));
 check('Hub ID column added, hidden and protected', grid[0][11] === 'Hub ID' && hidden.has(11) && protectedCols === 1 && columns >= 12);
 check('rows tied to their players', rowOf('pAda') === 2 && rowOf('pBram') === 3 && rowOf('pCelia') === 5);
@@ -96,20 +114,21 @@ check('the Hub fee wins', grid[5][6] === 300);
 check('Celia\'s phone reaches the sheet; her Extra is left alone', grid[5][4] === '555-0101' && grid[5][7] === 'piccolo');
 check('a name typed in Email is kept', grid[3][3] === 'Bram Okafor');
 const bram = (await db.doc('personnelContacts/pBram').get()).data();
-const link = (await db.doc('concertPersonnel/nyc').get()).data();
-check('the sheet filled the Hub: Bram\'s email as typed, his said-yes', bram?.email === 'Bram Okafor' && link.saidYes.includes('pBram'));
+const cp = (await db.doc('concertPersonnel/nyc').get()).data();
+const link = (await db.doc(`sheetLinks/${LINK}`).get()).data();
+check('the sheet filled the Hub: Bram\'s email as typed, his said-yes', bram?.email === 'Bram Okafor' && cp.saidYes.includes('pBram'));
 check('Flute header counts the Hub\'s players: 1/2', grid[4][1] === '1/2');
-check('status line saved, ok', link.sheetSync?.ok === true);
+check('status line saved on the registry, with the tab\'s name', link.sync?.ok === true && link.sync.tab === 'Live roster');
 
 // 2. Nothing changed: nothing sent.
 const before = batches;
-note = await pushConcert(db, 'nyc');
+note = await pushConcert();
 check(`second pass sends nothing (${note})`, batches === before && /^Up to date/.test(note));
 
 // 3. A Hub edit writes one cell.
 await db.doc('personnelContacts/pAda').set({ phone: '555-0199' }, { merge: true });
 const snapshot = grid.map(r => [...r]);
-await pushConcert(db, 'nyc');
+await pushConcert();
 const changed = grid.flatMap((r, i) => r.map((v, j) => (v !== (snapshot[i]?.[j] ?? '') ? `${i},${j}` : null))).filter(Boolean);
 check(`phone change is the one cell written (${changed})`, changed.join() === '2,4' && grid[2][4] === '555-0199');
 
@@ -117,17 +136,29 @@ check(`phone change is the one cell written (${changed})`, changed.join() === '2
 await person('pNew', 'Marchetti, Felix', 'Flute', 2);
 await contract('kNew', 'pNew', 25000);
 await db.doc('contracts/kBram').update({ status: 'Void' });
-await pushConcert(db, 'nyc');
+await pushConcert();
 check('Bram\'s row removed (contract voided)', rowOf('pBram') === -1 && grid[1][1] === '1/2');
 const felix = rowOf('pNew');
 check('Felix added at the end of Flute, after the unknown row', felix === grid.findIndex(r => r[2] === 'Someone Else') + 1 && grid[felix][2] === 'Felix Marchetti' && grid[felix][10] === 'Flute');
 check('Flute header now 2/2', grid[grid.findIndex(r => r[0] === 'Flute')][1] === '2/2');
-check('and then settled', /^Up to date/.test(await pushConcert(db, 'nyc')));
+check('and then settled', /^Up to date/.test(await pushConcert()));
 
-// 5. A sheet the Hub cannot open says so, in words, on the concert.
-await db.doc('concertPersonnel/nyc').update({ sheetId: 'not-shared' });
-note = await pushConcert(db, 'nyc');
-const bad = (await db.doc('concertPersonnel/nyc').get()).data().sheetSync;
+// 5. Bound by gid: renaming the tab changes nothing; Sheet1 was never touched.
+title = 'Cuong renamed it';
+await db.doc('personnelContacts/pAda').set({ phone: '555-0177' }, { merge: true });
+note = await pushConcert();
+check(`a renamed tab still syncs (${note})`, grid[2][4] === '555-0177' && (await db.doc(`sheetLinks/${LINK}`).get()).data().sync.tab === 'Cuong renamed it');
+check('the unregistered tab (Sheet1) is never read into a plan or written', JSON.stringify(old) === oldBefore && otherTabWrites === 0);
+
+// 6. Moving to a new tab is one record: point the link at a gid that is gone and the status says so.
+await db.doc(`sheetLinks/${LINK}`).update({ sheetId: 123 });
+note = await pushConcert();
+check(`a missing tab says so (${note})`, /tab is gone/.test(note));
+
+// 7. A sheet the Hub cannot open says so, in words, on the link.
+await db.doc(`sheetLinks/${LINK}`).update({ sheetId: GID, spreadsheetId: 'not-shared-0000000000000' });
+note = await pushConcert();
+const bad = (await db.doc(`sheetLinks/${LINK}`).get()).data().sync;
 check(`unshared sheet: status says why (${note})`, bad.ok === false && /Share it with the Hub/.test(bad.note));
 
 server.close();

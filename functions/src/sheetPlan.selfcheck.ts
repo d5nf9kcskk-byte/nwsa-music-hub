@@ -91,4 +91,29 @@ assert(!e5.cells.some(c => c.r === 5 && c.c === 8), 'first meeting keeps a Paid 
 const bad = sheet.map(r => [...r]); bad[3][4] = '123-45-6789';
 assert(!planSheetPush(bad, model).hubFills.some(f => f.phone), 'tax-id shaped phone refused');
 
+// 7. A flat table, laid out another way: Name first, a Section column, other
+//    heading words, a column the Hub does not know. Same promises.
+const flatGrid: Cell[][] = [
+  ['Name', 'E-mail', 'Section', 'Chair', 'Cell', 'Said yes', 'Fee', 'Notes'],
+  ['Ada Whitlock', 'ada@example.org', 'Violin 1', 1, '', 'Y', 250, 'stand partner wanted'],
+  ['Celia Brandt', 'celia@example.org', 'Flute', 1, '', '', 250, ''],
+  ['Someone Else', 'else@example.org', 'Flute', 2, '', 'Y', 250, 'not in the Hub'],
+];
+const flatModel: SheetModel = { sections: [], players: [
+  P('hubAda', 'Violin I', 'Whitlock, Ada', { seat: 1, email: 'ada@example.org', saidYes: true }),
+  P('hubCelia', 'Flute', 'Celia Brandt', { seat: 1, email: 'celia@example.org', saidYes: true }),
+  P('hubNew', 'Violin I', 'Felix Marchetti', { seat: 2, email: 'felix@example.org' }),
+] };
+const f1 = planSheetPush(flatGrid, flatModel);
+assert(f1.newIdCol === 8 && f1.counts.matched === 2 && f1.counts.unknown === 1, `flat counts ${JSON.stringify(f1.counts)}`);
+assert(!f1.cells.some(c => c.c === 7), 'a column the Hub does not know is never written');
+assert(f1.inserts.length === 1 && f1.inserts[0].after === 1 && f1.inserts[0].rows[0][0] === 'Felix Marchetti' && f1.inserts[0].rows[0][2] === 'Violin I', 'new player after the last row of their section');
+const fg1 = applyEdits(flatGrid, f1);
+assert(planSheetPush(fg1, flatModel).cells.length === 0, 'flat: second pass empty');
+const moved = planSheetPush(fg1, { ...flatModel, players: flatModel.players.map(p => p.id === 'hubCelia' ? { ...p, section: 'Violin I' } : p) });
+assert(moved.deletes.length === 0 && moved.inserts.length === 0 && moved.cells.some(c => c.c === 2 && c.v === 'Violin I'), 'flat: a section change is one cell');
+let threw = false;
+try { planSheetPush([['Name', 'Email'], ['Ada Whitlock', 'ada@example.org']], flatModel); } catch { threw = true; }
+assert(threw, 'a tab with neither section blocks nor a Section column is refused, not guessed');
+
 console.log('sheetPlan self-check: all pass');

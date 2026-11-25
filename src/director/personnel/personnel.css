@@ -371,6 +371,5 @@ span.pm-fill { cursor: default; }
 .pm-sheet { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13.5px; }
 .pm-sheet-bad { color: var(--dir-absent); }
 .pm-sheet-form .dir-input { flex: 1 1 260px; min-width: 0; }
-.pm-sheet-form .pm-sheet-tab { flex: 0 1 140px; }
 .pm-sheet-form .dir-btn { flex: 0 0 auto; }
 .pm-sheet-form .pc-note { flex-basis: 100%; }

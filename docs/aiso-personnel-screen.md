@@ -87,17 +87,32 @@ tick-and-email bar (invite to sign in, mark sent).
 
 ## Step 3: the Hub writes the sheet
 
-A concert links to its sheet on the Personnel screen ("Link the personnel
-sheet": the sheet's address and the tab). That sets `sheetId` and `sheetTab`
-on its `concertPersonnel` doc. From then on any write to the paid roster
-re-plans every linked concert (`functions/src/sheetPush.ts`, triggers in
-`personnelIndex.ts`) and sends only the cells that differ.
+**A registry of tabs, one engine, one adapter per kind** (Grant, 2026-11-25:
+"each new tab syncs a new area of the back end"). `sheetLinks/{kind__concertId}`
+(`SheetLink` in types.ts) says which tab feeds which part of the Hub:
+`spreadsheetId`, `sheetId` (the tab's gid), `kind`, `concertId`, and the
+function's status line `sync`. Only a registered tab syncs. A tab is bound by
+its gid, never its name or position, so renaming a tab is harmless and moving
+to the personnel manager's new tab is a change to one record ("Change tab" on
+the Personnel screen: paste the tab's address, which ends in `#gid=`).
 
-- **The layout it expects** (checked against the copy, structure only): row 1
-  headings Part/Seat, Name, Email, Phone, Confirmed, Payment, Extra, Paid,
-  Email 1, Category 2; then a block per section, its header row holding the
-  section in column A and "seated/needed" under Part/Seat. Columns are found
-  by heading, not by letter.
+`functions/src/sheetPush.ts` is the shared ENGINE: find the tab by gid, read
+it, ask the adapter for a plan, let the adapter save what the tab knew first,
+send the edits in one batchUpdate, write the status. `ADAPTERS` holds one
+kind, `concertRoster` (planner: `sheetPlan.ts`). No other kind is built; Grant
+is choosing which areas come next (plan file §8). A new kind is an adapter
+plus its name in the `/sheetLinks` rule.
+
+Any write to the paid roster re-plans every registered tab; a registry write
+re-plans its own tab, unless it only stamped the status line.
+
+- **Two layouts**, columns found by heading words, never by letter (`fieldOf`,
+  the importer's `fieldFor()` approach): section BLOCKS (Sheet1, checked
+  against the copy, structure only: headings Part/Seat, Name, Email, Phone,
+  Confirmed, Payment, Extra, Paid, Email 1, Category 2, then a header row per
+  section with the section in column A and "seated/needed" under Part/Seat),
+  or a FLAT table with a Section column. A tab with neither is refused, not
+  guessed. Columns with headings the Hub does not know are never written.
 - **Hub ID** goes in the first free column after the headings (L), hidden,
   with a warning-only protection. A row carrying one follows the Hub.
 - **First meeting**: a row with no Hub ID is matched once, inside its own
@@ -115,11 +130,13 @@ re-plans every linked concert (`functions/src/sheetPush.ts`, triggers in
   means.
 - Access: the sheet is shared (Editor) with the functions' service account,
   which takes a spreadsheets-scoped token from the metadata server. The status
-  line on the concert says what the last pass did, in counts only; nothing
+  line on the link says what the last pass did, in counts only; nothing
   logs the sheet id or a cell.
-- Proof: `functions/src/sheetPlan.selfcheck.ts` (the rules, incl. "a second
-  pass is empty") and `scripts/sheet-push.emulator-proof.mjs` (the real code
-  against the Firestore emulator and a fake Sheets server).
+- Proof: `functions/src/sheetPlan.selfcheck.ts` (both layouts; "a second pass
+  is empty") and `scripts/sheet-push.emulator-proof.mjs` (the real engine
+  against the Firestore emulator and a fake two-tab spreadsheet: bound by gid,
+  a renamed tab still syncs, the unregistered tab is never touched). Rules
+  cases for the registry in `personnel-rules.emulator-check.mjs`.
 
 ## Not here, on purpose
 

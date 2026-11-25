@@ -29,7 +29,7 @@ import { calledIds } from './personnelOrder';
 import { refusedCell, toLastFirst } from './importPlan';
 import { useFixtureWrites } from './fixtureWrites';
 import { sectionCards, fillLabel, isOpen, nextSeat, contractFor, usualFeeCents, usableEmail, partsFor, type SectionCard } from './concertRoster';
-import type { CalendarEvent, Contract, Payment, Personnel, PersonnelContact } from '../types';
+import type { CalendarEvent, Contract, Payment, Personnel, PersonnelContact, SheetLink as SheetLinkDoc } from '../types';
 
 /**
  * The paid roster (#personnel), as an app (#aiso-personnel,
@@ -83,7 +83,7 @@ export default function PersonnelManager({ initialPersonId, initialEventId }: {
   } = useFixtureWrites(live);
   const { templates, addTemplate, updateTemplate, deleteTemplate } = useContractTemplates();
   const { members, invite, remove: removeSignIn } = useMemberEntries();
-  const { concertDocs, saveSections, setSaidYes, linkSheet } = useConcertPersonnel();
+  const { concertDocs, sheetLinks, saveSections, setSaidYes, linkSheet } = useConcertPersonnel();
 
   useEffect(() => { recordActivity('personnel.view'); }, []);
 
@@ -266,8 +266,8 @@ export default function PersonnelManager({ initialPersonId, initialEventId }: {
       {concert && (
         <SheetLink
           key={concert.id}
-          sheetId={cdoc?.sheetId ?? ''} sheetTab={cdoc?.sheetTab ?? ''} status={cdoc?.sheetSync}
-          onLink={(id, tab) => linkSheet(concert.id, id, tab)}
+          link={sheetLinks.find(l => l.id === `concertRoster__${concert.id}`)}
+          onLink={tab => linkSheet(concert.id, tab)}
         />
       )}
 
@@ -577,33 +577,38 @@ function AddRow({ concert, section, usualFeeCents, onAdd, onDone }: {
   );
 }
 
-/** "Link the personnel sheet": paste its address and name the tab. The Hub
- *  then writes its changes there (functions/src/sheetPush.ts). The sheet must
- *  be shared, as an Editor, with the Hub's service account. */
-function SheetLink({ sheetId, sheetTab, status, onLink }: {
-  sheetId: string; sheetTab: string; status?: { at: number; ok: boolean; note: string };
-  onLink: (id: string, tab: string) => Promise<void>;
+/** "Link the personnel sheet": paste the address of the TAB (open it first,
+ *  so the address ends in #gid=…). The tab is registered by that gid, never
+ *  its name, so renaming it later is harmless. The Hub then writes its
+ *  changes there (functions/src/sheetPush.ts). The sheet must be shared, as an
+ *  Editor, with the Hub's service account. */
+function SheetLink({ link, onLink }: {
+  link?: SheetLinkDoc;
+  onLink: (tab: { spreadsheetId: string; sheetId: number } | null) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
   const [url, setUrl] = useState('');
-  const [tab, setTab] = useState(sheetTab || 'Sheet1');
-  const id = /\/spreadsheets\/d\/([A-Za-z0-9_-]{20,100})/.exec(url)?.[1] ?? '';
+  const spreadsheetId = /\/spreadsheets\/d\/([A-Za-z0-9_-]{20,100})/.exec(url)?.[1] ?? '';
+  const gid = /[#&?]gid=(\d+)/.exec(url)?.[1];
+  const status = link?.sync;
   const when = status ? new Date(status.at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
-  if (sheetId && !open) return (
+  if (link && !open) return (
     <div className="pm-sheet">
-      <span><b>Linked to a Google Sheet</b> (tab “{sheetTab}”). {status ? <span className={status.ok ? '' : 'pm-sheet-bad'}>{when}: {status.note}</span> : 'Waiting for the first write.'}</span>
-      <button className="dir-tool-btn" onClick={() => setOpen(true)}>Change</button>
-      <button className="dir-tool-btn" onClick={() => { void onLink('', ''); }}>Unlink</button>
+      <span><b>Linked to a Google Sheet</b>{status?.tab ? ` (tab “${status.tab}”)` : ''}. {status ? <span className={status.ok ? '' : 'pm-sheet-bad'}>{when}: {status.note}</span> : 'Waiting for the first write.'}</span>
+      <button className="dir-tool-btn" onClick={() => setOpen(true)}>Change tab</button>
+      <button className="dir-tool-btn" onClick={() => { void onLink(null); }}>Unlink</button>
     </div>
   );
   if (!open) return <div className="pm-sheet"><button className="dir-tool-btn" onClick={() => setOpen(true)}>Link the personnel sheet</button></div>;
   return (
-    <form className="pm-sheet pm-sheet-form" onSubmit={e => { e.preventDefault(); if (id && tab.trim()) { void onLink(id, tab.trim()); setOpen(false); setUrl(''); } }}>
-      <input className="dir-input" placeholder="Paste the sheet's link" aria-label="The sheet's link" value={url} onChange={e => setUrl(e.target.value)} autoFocus />
-      <input className="dir-input pm-sheet-tab" aria-label="Tab name" value={tab} onChange={e => setTab(e.target.value)} />
-      <button className="dir-btn dir-btn-primary" disabled={!id || !tab.trim()}>Link</button>
+    <form className="pm-sheet pm-sheet-form" onSubmit={e => { e.preventDefault(); if (spreadsheetId && gid) { void onLink({ spreadsheetId, sheetId: Number(gid) }); setOpen(false); setUrl(''); } }}>
+      <input className="dir-input" placeholder="Paste the tab's address" aria-label="The tab's address" value={url} onChange={e => setUrl(e.target.value)} autoFocus />
+      <button className="dir-btn dir-btn-primary" disabled={!spreadsheetId || !gid}>Link</button>
       <button type="button" className="dir-tool-btn" onClick={() => setOpen(false)}>Cancel</button>
-      <p className="pc-note">The Hub writes its changes into this tab. Share the sheet (Editor) with the Hub's service account first.{url && !id ? ' That does not look like a Google Sheets link.' : ''}</p>
+      <p className="pc-note">
+        Open the tab in Google Sheets and copy the address bar: it ends in “#gid=” and a number, which is how the Hub knows the tab even if it is renamed. Share the sheet (Editor) with the Hub's service account first.
+        {url && !spreadsheetId ? ' That does not look like a Google Sheets address.' : url && !gid ? ' That address does not say which tab: open the tab, then copy the address again.' : ''}
+      </p>
     </form>
   );
 }

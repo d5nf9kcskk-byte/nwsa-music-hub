@@ -1448,8 +1448,11 @@ link itself (steps 3 to 5) is not built yet.
   self-check. Typed values pass `refusedCell()` from `importPlan.ts`, the
   importer's own tax-id guard.
 - **Step 3, the Hub writes the sheet** (`functions/src/sheetPush.ts`, pure
-  planner `sheetPlan.ts`): a concert's `sheetId` + `sheetTab` link it; any
-  paid-roster write re-plans each linked concert and sends only differing
+  planner `sheetPlan.ts`). Only tabs registered in `sheetLinks` sync, each
+  bound by its GID (never a tab name or the first tab), with a `kind` that
+  picks ONE adapter behind a shared engine; `concertRoster` is the only kind.
+  Columns are found by heading words; block or flat (Section column) layouts.
+  Any paid-roster write re-plans each registered tab and sends only differing
   cells. A row without a Hub ID is matched once and FILLS the Hub before its
   ID is written, so the Hub never blanks what it had not heard; an unmatched
   row is never touched. Never log the sheet id or a cell (the sheet holds

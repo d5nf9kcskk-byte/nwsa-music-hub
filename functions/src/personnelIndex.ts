@@ -16,8 +16,8 @@
  *   memberMailSend / memberMailStatus / officeMessageSent
  *                   tracked broadcasts, their delivery status, and the office
  *                   threads (memberMessages.ts, #messages).
- *   sheetPush*      the Hub's roster changes, written into a concert's linked
- *                   Google Sheet (sheetPush.ts, #aiso-personnel).
+ *   sheetPush*      the Hub's roster changes, written into each Google Sheet
+ *                   tab registered in sheetLinks (sheetPush.ts, #aiso-personnel).
  *
  * Mail the Hub sends (the invitation, "a password was just set") is a `mail`
  * doc; the Trigger Email extension (firebase.json "extensions") sends it.
@@ -25,7 +25,7 @@
  * student mail, push and the drafter are the school's.
  */
 import { https, firestore } from 'firebase-functions/v1';
-import { pushLinked, onlyStatusChanged } from './sheetPush.ts';
+import { pushAll, pushLink, onlyStatusChanged } from './sheetPush.ts';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { getAppCheck } from 'firebase-admin/app-check';
@@ -42,16 +42,18 @@ export { bindGoogle } from './index.ts';
 // Messages to players (#messages): tracked broadcasts, office threads.
 export { memberMailSend, memberMailStatus, officeMessageSent } from './memberMessages.ts';
 
-// Hub → personnel sheet (#aiso-personnel step 3, sheetPush.ts): any write to
-// the paid roster re-plans each concert that has a sheet linked. A concert
-// doc write that only stamps the status line is ours and starts nothing.
-const rosterWrite = (path: string) => firestore.document(path).onWrite(() => pushLinked(getFirestore()));
+// Hub → Google Sheet tabs (#aiso-personnel step 3, sheetPush.ts): only tabs
+// registered in sheetLinks sync. Any write to the paid roster re-plans every
+// registered tab; a registry write re-plans its own tab, unless all it did was
+// stamp the status line (ours).
+const rosterWrite = (path: string) => firestore.document(path).onWrite(() => pushAll(getFirestore()));
 export const sheetPushPersonnel = rosterWrite('personnel/{id}');
 export const sheetPushContacts = rosterWrite('personnelContacts/{id}');
 export const sheetPushContracts = rosterWrite('contracts/{id}');
 export const sheetPushPayments = rosterWrite('payments/{id}');
-export const sheetPushConcert = firestore.document('concertPersonnel/{id}').onWrite(change =>
-  onlyStatusChanged(change.before.data(), change.after.data()) ? null : pushLinked(getFirestore()));
+export const sheetPushConcert = rosterWrite('concertPersonnel/{id}');
+export const sheetPushLink = firestore.document('sheetLinks/{id}').onWrite((change, ctx) =>
+  !change.after.exists || onlyStatusChanged(change.before.data(), change.after.data()) ? null : pushLink(getFirestore(), ctx.params.id));
 
 type Req = Parameters<Parameters<typeof https.onRequest>[0]>[0];
 type Res = Parameters<Parameters<typeof https.onRequest>[0]>[1];

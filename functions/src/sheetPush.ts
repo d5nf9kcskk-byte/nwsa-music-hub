@@ -1,17 +1,22 @@
 /**
- * Hub → personnel sheet (#aiso-personnel step 3, docs/aiso-personnel-screen.md).
+ * Hub → Google Sheet tabs (#aiso-personnel step 3, docs/aiso-personnel-screen.md).
  *
- * Any write to the paid roster re-plans every concert that has a sheet linked
- * (`concertPersonnel/{eventId}.sheetId` + `sheetTab`): read the Hub's view of
- * the concert, read the tab, `planSheetPush`, save what the sheet knew that
- * the Hub did not (first meetings only), then send the edits to Google in one
- * batchUpdate. A pass that finds nothing to change sends nothing.
+ * Only tabs registered in `sheetLinks` sync, each bound by its permanent gid
+ * (never its name or position). The ENGINE here is shared by every kind of
+ * link: find the tab by gid, read it, ask the kind's adapter for a plan, let
+ * the adapter save what the sheet knew first, send the edits in one
+ * batchUpdate, and write the status line. A pass that finds nothing to change
+ * sends nothing. The ADAPTER is per kind (`ADAPTERS`); the only one is
+ * 'concertRoster', one concert's personnel, planned by sheetPlan.ts. A new
+ * kind is a new adapter plus its name in firestore.rules, nothing else.
+ *
+ * Any write to the paid roster re-plans every link (personnelIndex.ts).
  *
  * Access is the functions' own service account: the sheet is shared with it
  * as an Editor, and its token comes from the metadata server with the
  * spreadsheets scope. No key file, no third-party library.
  *
- * One pass per concert at a time (entryLock, keyed `sheet__<eventId>` in the
+ * One pass per tab at a time (entryLock, keyed `sheet__<linkId>` in the
  * same lock collection the sign-in uses; no rule matches it). Every pass is a
  * full re-plan, so a pass that gives up waiting loses nothing: the next one
  * catches up.
@@ -27,7 +32,7 @@ import { entryLock } from './entryLock.ts';
 import { planSheetPush, rowOps, type Cell, type SheetEdits, type SheetModel, type SheetPlayer } from './sheetPlan.ts';
 import { calledIds } from '../../src/director/personnel/personnelOrder.ts';
 import { contractTotalCents } from '../../src/director/personnel/contractMoney.ts';
-import type { CalendarEvent, Contract, Payment, Personnel, PersonnelContact, ConcertPersonnel } from '../../src/director/types.ts';
+import type { CalendarEvent, Contract, Payment, Personnel, PersonnelContact, ConcertPersonnel, SheetLink } from '../../src/director/types.ts';
 
 /** Overridable only by the emulator proof, which points both at a fake. */
 const API = process.env.SHEETS_API_BASE || 'https://sheets.googleapis.com/v4/spreadsheets';
@@ -50,7 +55,8 @@ async function google<T>(url: string, init: RequestInit = {}): Promise<T> {
 const DAY = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
 
 /** The Hub's view of one concert, in the planner's shape. */
-export async function concertModel(db: Firestore, eventId: string, link: ConcertPersonnel): Promise<SheetModel> {
+export async function concertModel(db: Firestore, eventId: string): Promise<SheetModel> {
+  const link = ((await db.doc(`concertPersonnel/${eventId}`).get()).data() ?? {}) as ConcertPersonnel;
   const ev = await db.doc(`events/${eventId}`).get();
   if (!ev.exists) throw new Error('The concert is not on the calendar any more.');
   const concert = { id: eventId, ...ev.data() } as CalendarEvent;
@@ -113,55 +119,74 @@ export function requestsFor(gid: number, columnCount: number, e: SheetEdits): ob
   return out;
 }
 
-/** One pass for one concert. Answers the status line it saved. */
-export async function pushConcert(db: Firestore, eventId: string): Promise<string> {
-  return entryLock(db)(`sheet__${eventId}`, async () => {
-    const ref = db.doc(`concertPersonnel/${eventId}`);
-    const link = (await ref.get()).data() as ConcertPersonnel | undefined;
-    if (!link?.sheetId || !link.sheetTab) return 'not linked';
-    let note: string, ok = true;
-    try {
-      const model = await concertModel(db, eventId, link);
-      const base = `${API}/${encodeURIComponent(link.sheetId)}`;
-      const meta = await google<Meta>(`${base}?fields=sheets.properties(sheetId,title,gridProperties.columnCount)`);
-      const tab = meta.sheets.find(s => s.properties.title === link.sheetTab)?.properties;
-      if (!tab) throw new Error(`The sheet has no tab called “${link.sheetTab}”.`);
-      const values = await google<{ values?: Cell[][] }>(`${base}/values/${encodeURIComponent(`'${link.sheetTab.replace(/'/g, "''")}'`)}?valueRenderOption=UNFORMATTED_VALUE`);
-      const edits = planSheetPush(values.values ?? [], model);
-      // What the sheet knew first goes into the Hub before the IDs go out.
+/** One kind of linked tab: how to read the Hub for it, plan the tab, and
+ *  save what the tab knew first. */
+interface Adapter {
+  plan(db: Firestore, link: SheetLink, grid: Cell[][]): Promise<SheetEdits>;
+  save(db: Firestore, link: SheetLink, edits: SheetEdits): Promise<void>;
+}
+
+const ADAPTERS: Record<SheetLink['kind'], Adapter> = {
+  concertRoster: {
+    plan: async (db, link, grid) => planSheetPush(grid, await concertModel(db, link.concertId)),
+    async save(db, link, edits) {
+      const by = { updatedAt: Date.now(), updatedBy: 'Personnel sheet' };
       for (const f of edits.hubFills) {
-        const by = { updatedAt: Date.now(), updatedBy: 'Personnel sheet' };
         if (f.email != null || f.phone != null) await db.doc(`personnelContacts/${f.id}`).set({ ...(f.email != null ? { email: f.email } : {}), ...(f.phone != null ? { phone: f.phone } : {}) }, { merge: true });
         if (f.seat != null) await db.doc(`personnel/${f.id}`).update({ seat: f.seat, ...by });
-        if (f.saidYes) await ref.update({ saidYes: FieldValue.arrayUnion(f.id), ...by });
+        if (f.saidYes) await db.doc(`concertPersonnel/${link.concertId}`).set({ saidYes: FieldValue.arrayUnion(f.id), ...by }, { merge: true });
       }
+    },
+  },
+};
+
+/** One pass for one registered tab. Answers the status line it saved. */
+export async function pushLink(db: Firestore, linkId: string): Promise<string> {
+  return entryLock(db)(`sheet__${linkId}`, async () => {
+    const ref = db.doc(`sheetLinks/${linkId}`);
+    const snap = await ref.get();
+    if (!snap.exists) return 'not linked';
+    const link = { id: linkId, ...snap.data() } as SheetLink;
+    const adapter = ADAPTERS[link.kind];
+    let note: string, ok = true, title: string | undefined;
+    try {
+      if (!adapter) throw new Error(`Nothing in the Hub reads a “${link.kind}” tab yet.`);
+      const base = `${API}/${encodeURIComponent(link.spreadsheetId)}`;
+      const meta = await google<Meta>(`${base}?fields=sheets.properties(sheetId,title,gridProperties.columnCount)`);
+      const tab = meta.sheets.find(x => x.properties.sheetId === link.sheetId)?.properties;
+      if (!tab) throw new Error('The linked tab is gone from the sheet. Link the tab again.');
+      title = tab.title;
+      const values = await google<{ values?: Cell[][] }>(`${base}/values/${encodeURIComponent(`'${tab.title.replace(/'/g, "''")}'`)}?valueRenderOption=UNFORMATTED_VALUE`);
+      const edits = await adapter.plan(db, link, values.values ?? []);
+      // What the tab knew first goes into the Hub before the IDs go out.
+      await adapter.save(db, link, edits);
       const requests = requestsFor(tab.sheetId, tab.gridProperties?.columnCount ?? 26, edits);
       if (requests.length) await google(`${base}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests }) });
       const { matched, added, removed, unknown } = edits.counts;
       note = requests.length
         ? `Wrote ${edits.cells.length} cell${edits.cells.length === 1 ? '' : 's'}, added ${added}, removed ${removed} row${removed === 1 ? '' : 's'}.`
         : 'Up to date.';
-      note += ` ${matched + added} players on the sheet${unknown ? `; ${unknown} row${unknown === 1 ? '' : 's'} the Hub does not know left alone` : ''}.`;
+      note += ` ${matched + added} players on the tab${unknown ? `; ${unknown} row${unknown === 1 ? '' : 's'} the Hub does not know left alone` : ''}.`;
     } catch (e) {
       ok = false;
       note = e instanceof Error ? e.message : 'Could not write the sheet.';
     }
-    // Only the status changes here, which the concert trigger ignores.
-    await ref.update({ sheetSync: { at: Date.now(), ok, note } });
+    // Only the status changes here, which the registry trigger ignores.
+    await ref.update({ sync: { at: Date.now(), ok, note, ...(title ? { tab: title } : {}) } });
     return note;
   });
 }
 
-/** Every concert with a sheet linked. */
-export async function pushLinked(db: Firestore): Promise<void> {
-  const linked = await db.collection('concertPersonnel').where('sheetId', '>', '').get();
-  for (const d of linked.docs) await pushConcert(db, d.id).catch(() => undefined);
+/** Every registered tab. */
+export async function pushAll(db: Firestore): Promise<void> {
+  const links = await db.collection('sheetLinks').get();
+  for (const d of links.docs) await pushLink(db, d.id).catch(() => undefined);
 }
 
-/** A concert doc write that is only the status line (ours) must not start another pass. */
+/** A registry write that is only the status line (ours) must not start another pass. */
 export function onlyStatusChanged(before: Record<string, unknown> | undefined, after: Record<string, unknown> | undefined): boolean {
   if (!before || !after) return false;
   const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
-  keys.delete('sheetSync');
+  keys.delete('sync');
   return [...keys].every(k => JSON.stringify(before[k]) === JSON.stringify(after[k]));
 }
