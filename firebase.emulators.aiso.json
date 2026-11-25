@@ -1,0 +1,22 @@
+{
+  "firestore": {
+    "rules": "firestore.aiso.rules"
+  },
+  "storage": {
+    "rules": "storage.aiso.rules"
+  },
+  "emulators": {
+    "auth": {
+      "port": 9099
+    },
+    "firestore": {
+      "port": 8080
+    },
+    "storage": {
+      "port": 9199
+    },
+    "ui": {
+      "enabled": false
+    }
+  }
+}

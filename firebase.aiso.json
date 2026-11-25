@@ -1,9 +1,9 @@
 {
   "firestore": {
-    "rules": "firestore.rules"
+    "rules": "firestore.aiso.rules"
   },
   "storage": {
-    "rules": "storage.rules"
+    "rules": "storage.aiso.rules"
   },
   "functions": {
     "source": "functions",

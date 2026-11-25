@@ -32,6 +32,9 @@ import { ensembleMoodLine, rosterOfOneLine } from '../shared/whimsy';
 import { useEggCheer, useTapN } from '../shared/useEggCheer';
 import { NoteBurst } from '../shared/NoteBurst';
 import { PublicGroupStaffPanel } from '../director/components/GroupStaffPanel';
+
+// Build-time literal (vite.config.ts `define`).
+declare const __ORG_PERSONNEL__: boolean;
 import { staffForGroupPage } from '../director/groupStaff';
 
 /** "Tue · Thu" from the stored weekday numbers, or nothing when a group has no
@@ -293,7 +296,8 @@ export function PublicEnsemble() {
         <h2 className="pub-section-title">Schedule &amp; concerts</h2>
         <Link to={`/calendar?ensemble=${ensemble.id}`} className="pub-section-link"><CalendarDays size={13} /> Full calendar</Link>
       </div>
-      <SubscribeButton ensembleId={ensemble.id} label={`Subscribe · ${ensembleDisplayName(ensemble)}`} />
+      {/* No calendar feeds in a members-only org (#members-gate). */}
+      {__ORG_PERSONNEL__ ? null : <SubscribeButton ensembleId={ensemble.id} label={`Subscribe · ${ensembleDisplayName(ensemble)}`} />}
       {upcomingCount === 0 && <div className="pub-muted">No upcoming events.</div>}
 
       {upcomingRehearsals.length > 0 && (

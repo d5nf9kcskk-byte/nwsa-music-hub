@@ -82,16 +82,9 @@ jobs:
         if: steps.ready.outputs.go == 'true'
         run: node scripts/csp.selfcheck.mjs
 
-      - name: Generate ICS calendar feeds
-        if: steps.ready.outputs.go == 'true'
-        run: node scripts/generate-feeds.mjs
-        env:
-          ORG: aiso
-          VITE_FIREBASE_PROJECT_ID: ${{ secrets.AISO_FIREBASE_PROJECT_ID }}
-
-      - name: Verify ICS feeds
-        if: steps.ready.outputs.go == 'true'
-        run: grep -q BEGIN:VEVENT dist/feeds/all.ics || echo "::error::ICS feed generation produced no events"
+      # No ICS feeds (#members-gate): AISO is members-only, and a feed file on
+      # Pages is readable by anyone who guesses its name. The rules refuse the
+      # generator's unauthenticated reads anyway.
 
       - name: Publish to aiso-music-hub gh-pages
         if: steps.ready.outputs.go == 'true'

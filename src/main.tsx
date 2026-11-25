@@ -89,11 +89,18 @@ const DirectorApp = lazy(() => {
     });
 });
 
+// eslint-disable-next-line react-refresh/only-export-components
+const MembersGate = __ORG_PERSONNEL__ ? lazy(() => import('./public/MembersGate')) : null;
+
 const router = createBrowserRouter(
   [
     {
       path: '/',
-      element: <PublicLayout />,
+      // Personnel org: members only (#members-gate); the ternary folds, so a
+      // school bundle has neither the gate nor its chunk.
+      element: __ORG_PERSONNEL__ && MembersGate
+        ? <Suspense fallback={null}><MembersGate><PublicLayout /></MembersGate></Suspense>
+        : <PublicLayout />,
       errorElement: <AppError />,
       children: [
         { index: true, element: <PublicHome /> },

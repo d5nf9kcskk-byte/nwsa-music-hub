@@ -926,6 +926,12 @@ export const TRANSLATIONS: Record<string, { en: string; es: string }> = {
     'nav.staffLogin':           { en: 'Staff sign-in',      es: 'Acceso para el personal' },
     // Players sign in at the same /director screen (email + password).
     'nav.musicianLogin':        { en: 'Musician sign-in',   es: 'Acceso para músicos' },
+    // The members-only front page (#members-gate).
+    'gate.title':      { en: 'AISO Hub', es: 'AISO Hub' },
+    'gate.who':        { en: 'The {name}.', es: 'La {name}.' },
+    'gate.what':       { en: 'This is the private hub for AISO musicians and staff: rehearsals, music, and messages. Please sign in.', es: 'Este es el espacio privado para los músicos y el personal de AISO: ensayos, música y mensajes. Inicia sesión.' },
+    'gate.adminLogin': { en: 'Admin and staff sign-in', es: 'Acceso para administración y personal' },
+    'gate.contact':    { en: 'Questions?', es: '¿Preguntas?' },
     'contact.officeTitle':      { en: 'Message the office', es: 'Escribe a la oficina' },
     'search.hintNoAssignments': { en: 'Find events, repertoire, announcements, and ensembles.', es: 'Encuentra eventos, repertorio, anuncios y ensambles.' },
     'home.comingUpEventsOnly':  { en: 'Coming up — events', es: 'Próximos eventos' },

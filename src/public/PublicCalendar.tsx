@@ -283,12 +283,15 @@ export function PublicCalendar() {
         </div>
       )}
 
+      {/* A members-only org publishes no calendar feeds (#members-gate). */}
+      {__ORG_PERSONNEL__ ? null : (
       <div className="pub-subscribe-section">
         <SubscribeButton
           view={viewSpec}
           snapshot={{ events: visible, assignments: visibleAssignments, ensembles, piecesById }}
         />
       </div>
+      )}
 
       {view === 'list' ? (
         <div style={{ marginTop: 8 }}>

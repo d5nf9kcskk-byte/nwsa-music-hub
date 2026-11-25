@@ -1,0 +1,40 @@
+/* Members-only front page (#members-gate). Personnel builds only. */
+.mg-page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  background: linear-gradient(160deg, #0B1830 0%, #1E4FA3 100%);
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  position: relative;
+}
+.mg-lang { position: absolute; top: 16px; right: 16px; }
+.mg-card {
+  width: 100%;
+  max-width: 440px;
+  background: #FFFFFF;
+  color: #0E1B33;
+  border-radius: 20px;
+  padding: 32px 24px;
+  text-align: center;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, .25);
+}
+.mg-logo { max-width: 220px; width: 70%; height: auto; margin: 0 auto 16px; display: block; }
+.mg-title { font-size: 1.6rem; margin: 0 0 12px; color: #0E1B33; }
+.mg-who { font-size: 1.05rem; margin: 0 0 8px; line-height: 1.45; }
+.mg-what { color: #5E6A80; margin: 0 0 24px; line-height: 1.45; }
+.mg-doors { display: grid; gap: 12px; }
+.mg-btn {
+  display: block;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 2px solid #1E4FA3;
+  color: #1E4FA3;
+  font-weight: 700;
+  font-size: 1.05rem;
+  text-decoration: none;
+}
+.mg-btn-main { background: #8A2F4B; border-color: #8A2F4B; color: #FFFFFF; }
+.mg-btn:focus-visible { outline: 3px solid #E7BE5A; outline-offset: 2px; }
+.mg-contact { margin: 24px 0 0; font-size: .9rem; color: #5E6A80; }
+.mg-contact a { color: #1E4FA3; }

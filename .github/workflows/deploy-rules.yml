@@ -26,6 +26,9 @@ on:
       - 'storage.rules'
       - 'firebase.json'
       - '.firebaserc'
+      - 'firebase.aiso.json'
+      - 'firestore.aiso.rules'
+      - 'storage.aiso.rules'
       - '.github/workflows/deploy-rules.yml'
 
 # Never let two rule deploys race.
@@ -175,12 +178,20 @@ jobs:
           printf '%s' "$AISO_SERVICE_ACCOUNT_JSON" > "$RUNNER_TEMP/aiso-sa.json"
           echo "configured=true" >> "$GITHUB_OUTPUT"
 
+      # AISO is members-only (#members-gate): it deploys the GENERATED
+      # *.aiso.rules (firebase.aiso.json), never the school's files. Stale
+      # copies fail here rather than reopening the public reads.
+      - name: AISO rules match the school rules they come from
+        if: steps.aiso_key.outputs.configured == 'true'
+        run: node scripts/gate-rules.mjs --check
+
       - name: Deploy Firestore rules (AISO)
         if: steps.aiso_key.outputs.configured == 'true'
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/aiso-sa.json
         run: |
           npx --yes firebase-tools@13 deploy \
+            --config firebase.aiso.json \
             --only firestore:rules \
             --project aisymphony-hub \
             --non-interactive
@@ -195,6 +206,7 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/aiso-sa.json
         run: |
           npx --yes firebase-tools@13 deploy \
+            --config firebase.aiso.json \
             --only storage \
             --project aisymphony-hub \
             --non-interactive
