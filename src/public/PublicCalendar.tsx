@@ -83,7 +83,9 @@ export function PublicCalendar() {
   // Required vs optional concerts (#concert-checkin) — a student's own
   // question, "which of these do I actually have to be at?"
   const [attendance, setAttendance] = useState<ConcertAttendance | ''>('');
-  const [view, setView] = useState<'month' | 'list'>('month');
+  // A personnel org has few dates: the list reads better than a month grid
+  // (Grant, 2026-11-25). Build-time literal, so the school keeps 'month'.
+  const [view, setView] = useState<'month' | 'list'>(__ORG_PERSONNEL__ ? 'list' : 'month');
   const { cheer, show } = useEggCheer();
   const filterSeq = useRef<string[]>([]);
   const pinchStart = useRef<number | null>(null);
