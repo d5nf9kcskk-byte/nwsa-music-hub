@@ -231,7 +231,17 @@ From Google's own docs (Nov 2026):
 3. Link the tab in Personnel (paste the tab's address).
 4. In the workbook: Extensions → Apps Script, paste
    `docs/aiso-sheet-sync.gs`, Save, reload the sheet, then AISO Hub →
-   Connect, signed in as the AISO account, and allow it.
+   Connect, signed in as the AISO account, and allow it. When Google says
+   "unable to open the file" (its bug when several Google accounts are signed
+   in to one browser), make it a standalone project instead: the AISO
+   account's script.google.com → New project, paste, put the workbook's
+   address in `WORKBOOK`, Save, run `connect`. The test copy uses this.
+
+Proven live on 2026-11-26 on Grant's test copy (a "Sync test" tab of three
+made-up players, linked to a throwaway past-dated concert): an email typed
+in the sheet was on the player's Hub card within seconds, a phone typed in
+the Hub was in the sheet within seconds, and a tax-ID-shaped number typed
+in the sheet was wiped and never stored.
 
 Proof: `functions/src/sheetPlan.selfcheck.ts` (every rule above, and "after
 any pass, a second pass changes nothing on either side") and
