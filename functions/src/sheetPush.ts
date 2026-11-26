@@ -46,6 +46,7 @@ import { calledIds } from '../../src/director/personnel/personnelOrder.ts';
 import { contractTotalCents } from '../../src/director/personnel/contractMoney.ts';
 import { toLastFirst } from '../../src/director/personnel/importPlan.ts';
 import type { CalendarEvent, Contract, Payment, Personnel, PersonnelContact, ConcertPersonnel, SheetLink } from '../../src/director/types.ts';
+import ORG from '../../config/orgs/nwsa.json' with { type: 'json' };
 
 /** Overridable only by the emulator proof, which points them at a fake. */
 const API = process.env.SHEETS_API_BASE || 'https://sheets.googleapis.com/v4/spreadsheets';
@@ -157,7 +158,21 @@ export async function concertModel(db: Firestore, eventId: string): Promise<{ mo
   return { model: { sections: ctx.sections, players, roster }, ctx };
 }
 
-type Meta = { sheets: { properties: { sheetId: number; title: string; gridProperties?: { columnCount?: number } } }[] };
+type Meta = { sheets: { properties: { sheetId: number; title: string; gridProperties?: { columnCount?: number } }; developerMetadata?: { metadataKey?: string }[] }[] };
+/** One tab as the Hub sees it; `status` = the Hub's own status tab. */
+export interface Tab { sheetId: number; title: string; columnCount: number; status: boolean }
+/** Marks the Hub's status tab, so a person's own tab called "Hub" is never written over, and ours may be renamed. */
+const STATUS_KEY = 'aisoHubStatus';
+const sheetUrl = (spreadsheetId: string) => `${API}/${encodeURIComponent(spreadsheetId)}`;
+
+/** Every tab of a workbook, read with the Hub's own access (so it also proves the sheet is shared). */
+export async function tabsOf(spreadsheetId: string): Promise<Tab[]> {
+  const meta = await google<Meta>(`${sheetUrl(spreadsheetId)}?fields=sheets(properties(sheetId,title,gridProperties.columnCount),developerMetadata(metadataKey))`);
+  return meta.sheets.map(x => ({
+    sheetId: x.properties.sheetId, title: x.properties.title, columnCount: x.properties.gridProperties?.columnCount ?? 26,
+    status: !!x.developerMetadata?.some(m => m.metadataKey === STATUS_KEY),
+  }));
+}
 
 /** The batchUpdate body for a plan: cell writes first, then row edits deepest first. */
 export function requestsFor(gid: number, columnCount: number, e: SheetEdits): object[] {
@@ -313,13 +328,13 @@ export async function pushLink(db: Firestore, linkId: string, cause?: Cause): Pr
     const state = stateSnap.data() as State | undefined;
     if (isEcho(state, cause)) return 'echo';
     const link = { id: linkId, ...snap.data() } as SheetLink;
-    let note: string, ok = true, title: string | undefined;
+    let note: string, ok = true, title: string | undefined, tabs: Tab[] | undefined, problems: SheetEdits['problems'] = [];
     try {
       if (link.kind !== 'concertRoster') throw new Error(`Nothing in the Hub reads a “${link.kind}” tab yet.`);
-      const base = `${API}/${encodeURIComponent(link.spreadsheetId)}`;
-      const meta = await google<Meta>(`${base}?fields=sheets.properties(sheetId,title,gridProperties.columnCount)`);
-      const tab = meta.sheets.find(x => x.properties.sheetId === link.sheetId)?.properties;
-      if (!tab) throw new Error('The linked tab is gone from the sheet. Link the tab again.');
+      const base = sheetUrl(link.spreadsheetId);
+      tabs = await tabsOf(link.spreadsheetId);
+      const tab = tabs.find(x => x.sheetId === link.sheetId);
+      if (!tab || tab.status) throw new Error('The linked tab is gone from the sheet. Link the tab again.');
       title = tab.title;
       const values = await google<{ values?: Cell[][] }>(`${base}/values/${encodeURIComponent(`'${tab.title.replace(/'/g, "''")}'`)}?valueRenderOption=UNFORMATTED_VALUE`);
       const { model, ctx } = await concertModel(db, link.concertId);
@@ -330,18 +345,21 @@ export async function pushLink(db: Firestore, linkId: string, cause?: Cause): Pr
       // The Hub first: if the sheet write then fails, the next pass finds the
       // Hub already agreeing with the sheet and only the sheet left to write.
       const echo = await writeHub(db, ctx, edits.hub);
-      const requests = requestsFor(tab.sheetId, tab.gridProperties?.columnCount ?? 26, edits);
+      const requests = requestsFor(tab.sheetId, tab.columnCount, edits);
       if (requests.length) await google(`${base}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests }) });
       // Echo marks live two minutes: a trigger for our own write arrives in seconds.
       const fresh = Object.fromEntries(Object.entries(state?.echo ?? {}).filter(([, v]) => Number(v.split('.')[0]) * 1000 > Date.now() - 120_000));
       await stateRef.set({ base: edits.base, echo: { ...fresh, ...echo }, at: Date.now() }, { mergeFields: ['base', 'echo', 'at'] });
       note = statusNote(edits, requests.length);
+      problems = edits.problems;
     } catch (e) {
       ok = false;
       note = e instanceof Error ? e.message : 'Could not sync the sheet.';
     }
     // Only the status changes here, which the registry trigger ignores.
-    await ref.update({ sync: { at: Date.now(), ok, note, ...(title ? { tab: title } : {}) } });
+    await ref.update({ sync: { at: Date.now(), ok, note, ...(title ? { tab: title } : {}), ...(problems.length ? { problems } : {}) } });
+    // The workbook's own "Hub" tab shows the same, when the Hub could reach the workbook at all.
+    if (tabs) await writeStatusTab(db, link.spreadsheetId, tabs).catch(() => undefined);
     return note;
   });
 }
@@ -412,4 +430,119 @@ export async function ring(db: Firestore, spreadsheetId: string, sheetId: number
     notes.push(await pushLink(db, d.id).catch(e => (e instanceof Error ? e.message : 'busy')));
   }
   return notes;
+}
+
+const WHEN = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: ORG.timezone });
+const YEAR_DAY = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+const concertLabel = (c: Pick<CalendarEvent, 'title' | 'date'>) => `${c.title} (${YEAR_DAY.format(new Date(`${c.date}T00:00:00Z`))})`;
+
+/**
+ * The workbook's "Hub" tab: every tab of this workbook connected to the Hub,
+ * its last sync, what happened, and the rows to look at. Written whole by the
+ * Hub after every pass, through the API (which fires no trigger). Locked:
+ * only the workbook's owner (and the Hub) can type in it. Found by its marker,
+ * never its name: a person's own tab called "Hub" is never touched.
+ * ponytail: a ring of N linked tabs writes this N times; once per ring if a workbook ever links many.
+ */
+export async function writeStatusTab(db: Firestore, spreadsheetId: string, tabs?: Tab[]): Promise<void> {
+  tabs ??= await tabsOf(spreadsheetId);
+  const links = (await db.collection('sheetLinks').where('spreadsheetId', '==', spreadsheetId).get()).docs
+    .map(d => ({ id: d.id, ...d.data() }) as SheetLink);
+  const rows: string[][] = [
+    ['The Hub writes this tab. It lists every tab connected to the Hub and how its last sync went. To connect a tab: open it, then AISO Hub, Connect this tab.'],
+    [],
+    ['Tab', 'Connected to', 'Last sync', 'What happened'],
+  ];
+  if (!links.length) rows.push(['No tab is connected yet.']);
+  for (const l of links) {
+    const ev = (await db.doc(`events/${l.concertId}`).get()).data() as CalendarEvent | undefined;
+    const tab = tabs.find(t => t.sheetId === l.sheetId);
+    rows.push([tab?.title ?? '(tab gone)', ev ? concertLabel(ev) : '(concert gone)', l.sync ? WHEN.format(l.sync.at) : 'Not yet', l.sync ? `${l.sync.ok ? '' : 'Problem: '}${l.sync.note}` : '']);
+    for (const p of l.sync?.problems ?? []) rows.push(['', `Row ${p.row}`, '', p.why]);
+  }
+  const requests: object[] = [];
+  let gid = tabs.find(t => t.status)?.sheetId;
+  if (gid == null) {
+    const taken = new Set(tabs.map(t => t.sheetId));
+    do gid = 1_000_000 + Math.floor(Math.random() * 1_000_000_000); while (taken.has(gid));
+    const title = tabs.some(t => t.title === 'Hub') ? 'Hub status' : 'Hub';
+    requests.push(
+      { addSheet: { properties: { sheetId: gid, title } } },
+      { createDeveloperMetadata: { developerMetadata: { metadataKey: STATUS_KEY, metadataValue: '1', location: { sheetId: gid }, visibility: 'DOCUMENT' } } },
+      { addProtectedRange: { protectedRange: { range: { sheetId: gid }, description: 'The Hub writes this tab. Typing here is lost on the next sync.', warningOnly: false } } },
+    );
+  }
+  requests.push(
+    { updateCells: { range: { sheetId: gid }, fields: 'userEnteredValue' } }, // empty the tab
+    { updateCells: { start: { sheetId: gid, rowIndex: 0, columnIndex: 0 }, fields: 'userEnteredValue', rows: rows.map(r => ({ values: r.map(x => ({ userEnteredValue: { stringValue: x } })) })) } },
+  );
+  await google(`${sheetUrl(spreadsheetId)}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests }) });
+}
+
+/** A tab that may never be connected: the Hub's status tab, and Sheet1 (Grant's standing rule). */
+const unconnectable = (t: Tab) => (t.status ? 'This is the Hub\'s own status tab. Open the tab you want to connect, then try again.'
+  : t.title === 'Sheet1' ? 'Sheet1 stays unconnected. Open a concert\'s tab, then try again.' : '');
+
+/** What the workbook's "Connect this tab" menu offers: what a tab can be, and which concert. */
+export async function connectChoices(db: Firestore, spreadsheetId: string, sheetId: number) {
+  const tab = (await tabsOf(spreadsheetId)).find(t => t.sheetId === sheetId);
+  if (!tab) throw new Error('The Hub cannot see that tab. Save the sheet and try again.');
+  const no = unconnectable(tab);
+  if (no) throw new Error(no);
+  const since = new Date(Date.now() - 60 * 86_400_000).toISOString().slice(0, 10);
+  const current = (await db.collection('sheetLinks').where('spreadsheetId', '==', spreadsheetId).where('sheetId', '==', sheetId).get()).docs[0]?.data() as SheetLink | undefined;
+  const concerts = (await db.collection('events').where('type', '==', 'Concert').get()).docs
+    .map(d => ({ id: d.id, ...d.data() }) as CalendarEvent)
+    .filter(c => c.status !== 'Cancelled' && (c.date >= since || c.id === current?.concertId))
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map(c => ({ id: c.id, label: concertLabel(c) }));
+  return {
+    tab: tab.title,
+    kinds: [{ id: 'concertRoster', label: 'A concert\'s players' }],
+    concerts,
+    current: current ? { kind: current.kind, concertId: current.concertId } : null,
+  };
+}
+
+/**
+ * The menu's choice: register THIS tab (by gid) as that concert's roster,
+ * the same record the Personnel screen's "Link the personnel sheet" writes.
+ * One tab is one concert: any other link this tab had is removed. A concert
+ * already on another tab moves here (that tab stops syncing). The registry
+ * trigger then runs the first pass.
+ */
+export async function connectTab(db: Firestore, email: string, spreadsheetId: string, sheetId: number, kind: unknown, concertId: unknown): Promise<string> {
+  if (kind !== 'concertRoster') throw new Error('Choose what the tab is.');
+  if (typeof concertId !== 'string' || !/^[\w-]{1,100}$/.test(concertId)) throw new Error('Choose a concert.');
+  const choices = await connectChoices(db, spreadsheetId, sheetId);
+  const concert = choices.concerts.find(c => c.id === concertId);
+  if (!concert) throw new Error('That concert is not on the calendar, or it was cancelled.');
+  const id = `${kind}__${concertId}`;
+  const ref = db.doc(`sheetLinks/${id}`);
+  const before = (await ref.get()).data() as SheetLink | undefined;
+  const others = await db.collection('sheetLinks').where('spreadsheetId', '==', spreadsheetId).where('sheetId', '==', sheetId).get();
+  const batch = db.batch();
+  for (const d of others.docs) if (d.id !== id) batch.delete(d.ref);
+  batch.set(ref, { spreadsheetId, sheetId, kind, concertId, updatedAt: Date.now(), updatedBy: email });
+  await batch.commit();
+  const moved = before && (before.spreadsheetId !== spreadsheetId || before.sheetId !== sheetId);
+  return `Connected “${choices.tab}” to ${concert.label}.${moved ? ' That concert was on another tab before; that tab no longer syncs.' : ''} The Hub is filling it in now; the Hub tab shows how it went.`;
+}
+
+/**
+ * A registry write. When a link moves to another tab, or goes, what the old
+ * tab and the Hub agreed on (`sheetState`) no longer describes anything: kept,
+ * the next pass would read every player missing from the new tab as deleted
+ * there and take them off the concert. So it goes, and the next pass is a
+ * first meeting. Then the link's own pass, unless all that changed is the
+ * status line (ours); a link that is gone or left a workbook updates that
+ * workbook's Hub tab.
+ */
+export async function linkChanged(db: Firestore, linkId: string, before: Record<string, unknown> | undefined, after: Record<string, unknown> | undefined): Promise<unknown> {
+  if (before && (!after || before.spreadsheetId !== after.spreadsheetId || before.sheetId !== after.sheetId)) {
+    await db.doc(`sheetState/${linkId}`).delete();
+    if (before.spreadsheetId !== after?.spreadsheetId) await writeStatusTab(db, String(before.spreadsheetId)).catch(() => undefined);
+  }
+  if (!after || onlyStatusChanged(before, after)) return null;
+  return pushLink(db, linkId);
 }

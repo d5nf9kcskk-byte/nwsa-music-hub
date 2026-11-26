@@ -2061,8 +2061,8 @@ export interface SheetLink {
   sheetId: number;
   kind: SheetLinkKind;
   concertId: string;
-  /** The function's last pass, in counts only; `tab` is the tab's name then. */
-  sync?: { at: number; ok: boolean; note: string; tab?: string };
+  /** The function's last pass, in counts only; `tab` is the tab's name then, `problems` the rows to look at (row number and why, never a value). */
+  sync?: { at: number; ok: boolean; note: string; tab?: string; problems?: { row: number; why: string }[] };
   updatedAt?: number;
   updatedBy?: string;
   updatedByRole?: StaffRole;

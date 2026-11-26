@@ -26,7 +26,7 @@
  * student mail, push and the drafter are the school's.
  */
 import { https, firestore } from 'firebase-functions/v1';
-import { pushAll, pushLink, onlyStatusChanged, ring, doorbellCaller, stamp } from './sheetPush.ts';
+import { pushAll, linkChanged, ring, doorbellCaller, stamp, connectChoices, connectTab } from './sheetPush.ts';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { getAppCheck } from 'firebase-admin/app-check';
@@ -59,7 +59,7 @@ export const sheetPushContracts = rosterWrite('contracts/{id}');
 export const sheetPushPayments = rosterWrite('payments/{id}');
 export const sheetPushConcert = rosterWrite('concertPersonnel/{id}');
 export const sheetPushLink = firestore.document('sheetLinks/{id}').onWrite((change, ctx) =>
-  !change.after.exists || onlyStatusChanged(change.before.data(), change.after.data()) ? null : pushLink(getFirestore(), ctx.params.id));
+  linkChanged(getFirestore(), ctx.params.id, change.before.data(), change.after.data()));
 
 /**
  * The workbook's doorbell (#aiso-personnel step 4). The Apps Script in the
@@ -69,16 +69,35 @@ export const sheetPushLink = firestore.document('sheetLinks/{id}').onWrite((chan
  * The caller must be a verified Owner or Director. The body only says WHICH
  * workbook (and tab) changed and which Hub ids sat on the edited rows; the
  * pass re-reads the real sheet itself. Answers { ok, notes } (status lines).
+ *
+ * The workbook's "AISO Hub → Connect this tab…" menu uses the same door:
+ *   { action: 'choices', spreadsheetId, sheetId }   → { ok, tab, kinds, concerts, current }
+ *   { action: 'connect', spreadsheetId, sheetId, kind, concertId } → { ok, message }
+ * (sheetPush.ts connectChoices / connectTab.)
  */
 export const sheetEdited = https.onRequest(async (req, res) => {
   const refuse = (status: number, message: string) => { res.status(status).json({ ok: false, message }); };
   if (req.method !== 'POST') { refuse(405, 'POST only.'); return; }
   const db = getFirestore();
-  if (!(await doorbellCaller(db, bearer(req)).catch(() => null))) { refuse(401, 'Only an Owner or Director of the Hub can connect a sheet. Run "Connect" again while signed in as one.'); return; }
+  const caller = await doorbellCaller(db, bearer(req)).catch(() => null);
+  if (!caller) { refuse(401, 'Only an Owner or Director of the Hub can do this. Sign in to Google as one, then try again.'); return; }
   const { spreadsheetId, sheetId, ids } = (req.body ?? {}) as { spreadsheetId?: unknown; sheetId?: unknown; ids?: unknown };
   const okIds = Array.isArray(ids) ? ids.filter((x): x is string => typeof x === 'string' && /^[A-Za-z0-9]{10,40}$/.test(x)).slice(0, 500) : [];
   if (typeof spreadsheetId !== 'string' || !/^[\w-]{20,100}$/.test(spreadsheetId)) { refuse(400, 'Which workbook?'); return; }
   if (sheetId != null && !(Number.isInteger(sheetId) && (sheetId as number) >= 0)) { refuse(400, 'Which tab?'); return; }
+  const action = (req.body as { action?: unknown }).action;
+  if (action === 'choices' || action === 'connect') {
+    if (sheetId == null) { refuse(400, 'Which tab?'); return; }
+    const { kind, concertId } = req.body as { kind?: unknown; concertId?: unknown };
+    try {
+      if (action === 'choices') res.status(200).json({ ok: true, ...(await connectChoices(db, spreadsheetId, sheetId as number)) });
+      else res.status(200).json({ ok: true, message: await connectTab(db, caller, spreadsheetId, sheetId as number, kind, concertId) });
+    } catch (e) {
+      // The words are for the person at the sheet (sheetsError, or connectTab's own); nothing logged.
+      refuse(400, e instanceof Error ? e.message : 'That did not work on our side. Try again.');
+    }
+    return;
+  }
   try {
     const notes = await ring(db, spreadsheetId, (sheetId as number | undefined) ?? null, okIds);
     res.status(200).json({ ok: true, notes });

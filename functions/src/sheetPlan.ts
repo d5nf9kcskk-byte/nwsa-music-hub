@@ -30,6 +30,10 @@
  *   • A row the Hub cannot match is a player typed into the sheet: someone on
  *     the roster by that exact name, once and only once, joins the concert;
  *     anyone else is a new player. (Only when the caller can make ids.)
+ *   • A row carrying the Hub ID of a roster player who is not on this concert
+ *     joins them, when the row is new since the last pass or on a first link
+ *     (a tab copied from last concert's). Only a row both sides had agreed on
+ *     and the Hub then took off is removed from the sheet.
  *   • A row deleted in the sheet takes that player off the concert (never off
  *     the roster). More than MAX_SHEET_OFFS at once is treated as an accident:
  *     the rows come back. A row the Hub took off goes.
@@ -101,6 +105,9 @@ export interface SheetEdits {
   base: SheetBase;
   /** For the status line. */
   counts: { matched: number; added: number; removed: number; unknown: number; fromSheet: number; refused: number; clashes: number; restored: number };
+  /** Rows to look at, numbered as the sheet reads AFTER these edits (1-based),
+   *  with why. No cell values: this goes on the status line and the Hub tab. */
+  problems: { row: number; why: string }[];
 }
 
 export interface SyncOpts {
@@ -186,14 +193,17 @@ const same = (f: Synced, a: string, b: string | undefined) =>
       : f === 'email' ? a.toLowerCase() === (b ?? '').toLowerCase()
         : a === (b ?? '');
 
-/** May the sheet put this value into the Hub? */
-function valid(f: Synced, v: string, feeLocked: boolean | undefined, fee: string): boolean {
-  if (refusedCell(v)) return false;
-  if (f === 'name' || f === 'section') return v !== '';
-  if (f === 'seat') return v === '' || (/^\d+$/.test(v) && Number(v) >= 1);
-  if (f === 'fee') return !feeLocked && (v === '' || /^\d+(\.\d{1,2})?$/.test(v));
-  if (f === 'paid') return v === '' || Number(fee) > 0;
-  return true;
+const LABEL: Record<Synced, string> = { section: 'Section', seat: 'Seat', name: 'Name', email: 'Email', phone: 'Phone', confirmed: 'Confirmed', fee: 'Payment', paid: 'Paid' };
+
+/** Why the sheet may not put this value into the Hub; '' when it may. */
+function refusal(f: Synced, v: string, feeLocked: boolean | undefined, fee: string): string {
+  if (refusedCell(v)) return 'looks like a tax ID, which the Hub never keeps';
+  if ((f === 'name' || f === 'section') && v === '') return 'cannot be blank';
+  if (f === 'seat' && !(v === '' || (/^\d+$/.test(v) && Number(v) >= 1))) return 'takes a chair number';
+  if (f === 'fee' && feeLocked) return 'is fixed by a signed, void or season contract (change it in the Hub)';
+  if (f === 'fee' && !(v === '' || /^\d+(\.\d{1,2})?$/.test(v))) return 'takes an amount in dollars';
+  if (f === 'paid' && v !== '' && !(Number(fee) > 0)) return 'needs a Payment amount first';
+  return '';
 }
 
 /** How a value is written into a cell. Display names are "First Last". */
@@ -215,7 +225,9 @@ export function planSheetSync(grid: Cell[][], model: SheetModel, opts: SyncOpts 
   const out: SheetEdits = {
     cells: [], deletes: [], inserts: [], hub: [], base: { players: {}, needed: {} },
     counts: { matched: 0, added: 0, removed: 0, unknown: 0, fromSheet: 0, refused: 0, clashes: 0, restored: 0 },
+    problems: [],
   };
+  const problems: { r: number; why: string }[] = [];
   const h = grid.findIndex(r => r.some(c => fieldOf(text(c)) === 'name') && r.some(c => fieldOf(text(c)) === 'email'));
   if (h < 0) throw new Error('No header row with Name and Email.');
   const col: Partial<Record<Field, number>> = {};
@@ -263,8 +275,10 @@ export function planSheetSync(grid: Cell[][], model: SheetModel, opts: SyncOpts 
     if (byId.has(id)) {
       if (paired.has(id)) copies.add(r); // a copied row: matched afresh below
       else { paired.add(id); rowOf.set(id, r); }
-    } else if (base && !base.players[id] && roster.has(id) && text(at(r, 'name')) && label(r)) {
-      typedIn.set(r, { id, join: true }); paired.add(id); // a roster player's row pasted in
+    } else if (!base?.players[id] && roster.has(id) && text(at(r, 'name')) && label(r)) {
+      // A roster player's row pasted in, or, on a first link (no agreement yet),
+      // a tab copied from another concert: the row says they are on this one.
+      typedIn.set(r, { id, join: true }); paired.add(id);
     } else { out.deletes.push(r); out.counts.removed++; } // the Hub took them off
   }
   // Pass 2: rows without one, matched once inside their own section; the
@@ -278,7 +292,7 @@ export function planSheetSync(grid: Cell[][], model: SheetModel, opts: SyncOpts 
     const hit = [...new Set((usable(email) ? cands.filter(p => p.email.trim().toLowerCase() === email) : [])
       .concat(cands.filter(p => nameKey(p.name) === nameKey(name))))];
     if (hit.length === 1) { paired.add(hit[0].id); rowOf.set(hit[0].id, r); firstMeeting.add(r); continue; }
-    if (!opts.newId) { out.counts.unknown++; if (copies.has(r)) out.cells.push({ r, c: col.id, v: '' }); continue; }
+    if (!opts.newId) { out.counts.unknown++; problems.push({ r, why: 'The Hub does not know this row, so it left it alone.' }); if (copies.has(r)) out.cells.push({ r, c: col.id, v: '' }); continue; }
     const known = [...roster.values()].filter(p => !paired.has(p.id) && nameKey(p.name) === nameKey(name));
     const id = known.length === 1 ? known[0].id : opts.newId();
     typedIn.set(r, { id, join: known.length === 1 });
@@ -324,8 +338,13 @@ export function planSheetSync(grid: Cell[][], model: SheetModel, opts: SyncOpts 
       if (!b) sheetWins = hub === '' && s !== ''; // first meeting: the sheet fills what the Hub lacks
       else if (same(f, s, b[f])) sheetWins = false; // only the Hub moved
       else if (same(f, hub, b[f])) sheetWins = !(f === 'section' && sorted); // only the sheet moved
-      else { out.counts.clashes++; sheetWins = (sheetAt[p.id] ?? 0) > (p.hubAt ?? 0); }
-      if (sheetWins && !valid(f, s, p.feeLocked, m.fee)) { out.counts.refused++; sheetWins = false; }
+      else {
+        out.counts.clashes++;
+        sheetWins = (sheetAt[p.id] ?? 0) > (p.hubAt ?? 0);
+        problems.push({ r, why: `${LABEL[f]} was changed here and in the Hub at once; the ${sheetWins ? 'sheet' : 'Hub'}'s edit was later, so it was kept.` });
+      }
+      const no = sheetWins ? refusal(f, s, p.feeLocked, m.fee) : '';
+      if (no) { out.counts.refused++; sheetWins = false; problems.push({ r, why: `${LABEL[f]} ${no}, so the Hub put its value back.` }); }
       if (sheetWins) {
         m[f] = s;
         out.hub.push({ kind: 'set', id: p.id, field: f, value: f === 'paid' ? (s ? iso(paidDate(at(r, 'paid'), today) ?? new Date(`${today}T00:00:00Z`)) : '') : s });
@@ -343,7 +362,8 @@ export function planSheetSync(grid: Cell[][], model: SheetModel, opts: SyncOpts 
     const v = {} as Vals;
     for (const f of SYNCED) {
       let s = cellOf(r, f);
-      if (s !== '' && !valid(f, s, false, v.fee)) { out.counts.refused++; s = ''; if (f !== 'section') out.cells.push({ r, c: col[f]!, v: '' }); }
+      const no = s !== '' ? refusal(f, s, false, v.fee) : '';
+      if (no) { out.counts.refused++; problems.push({ r, why: `${LABEL[f]} ${no}, so the Hub cleared it.` }); s = ''; if (f !== 'section') out.cells.push({ r, c: col[f]!, v: '' }); }
       v[f] = s;
     }
     const d = v.paid ? paidDate(at(r, 'paid'), today) ?? new Date(`${today}T00:00:00Z`) : null;
@@ -416,6 +436,10 @@ export function planSheetSync(grid: Cell[][], model: SheetModel, opts: SyncOpts 
   }
 
   out.counts.fromSheet = out.hub.length;
+  // Where each problem row sits once the row edits land (deletes above it pull it up, inserts above push it down).
+  // ponytail: a row moved to another block, or a season player's row put back, is not listed; the counts on the status line cover them.
+  const after = (r: number) => r - out.deletes.filter(d => d < r).length + out.inserts.reduce((n, i) => n + (i.after < r ? i.rows.length : 0), 0);
+  out.problems = problems.filter(p => !out.deletes.includes(p.r)).slice(0, 50).map(p => ({ row: after(p.r) + 1, why: p.why }));
   out.base = { players: Object.fromEntries(merged), needed: Object.fromEntries(needed) };
   return out;
 }

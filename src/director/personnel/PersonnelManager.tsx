@@ -608,7 +608,7 @@ function SheetLink({ link, onLink }: {
       <button className="dir-btn dir-btn-primary" disabled={!spreadsheetId || !gid}>Link</button>
       <button type="button" className="dir-tool-btn" onClick={() => setOpen(false)}>Cancel</button>
       <p className="pc-note">
-        Open the tab in Google Sheets and copy the address bar: it ends in “#gid=” and a number, which is how the Hub knows the tab even if it is renamed. Share the sheet (Editor) with the Hub's service account first. For edits made in the sheet to reach the Hub, the workbook also needs the AISO Hub script (Extensions, Apps Script; then AISO Hub, Connect).
+        Open the tab in Google Sheets and copy the address bar: it ends in “#gid=” and a number, which is how the Hub knows the tab even if it is renamed. Share the sheet (Editor) with the Hub's service account first. For edits made in the sheet to reach the Hub, the workbook also needs the AISO Hub script (Extensions, Apps Script; then AISO Hub, Turn on sync). Once it is there, AISO Hub, Connect this tab does the same as this box, from the sheet.
         {url && !spreadsheetId ? ' That does not look like a Google Sheets address.' : url && !gid ? ' That address does not say which tab: open the tab, then copy the address again.' : ''}
       </p>
     </form>

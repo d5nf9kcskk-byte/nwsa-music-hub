@@ -3,13 +3,22 @@
  *
  * Two ways to add it, signed in as the AISO account (an Owner or Director in
  * the Hub):
- *   • Inside the workbook: Extensions → Apps Script, replace what is there
- *     with this file, Save. Reload the sheet, then AISO Hub → Connect.
- *   • When that page says "unable to open the file" (Google's bug when
- *     several Google accounts are signed in): script.google.com/u/<n>/home
- *     for the AISO account → New project, paste this file, put the
- *     workbook's address in WORKBOOK below, Save, choose "connect" and Run.
+ *   • Inside the workbook (needed for the menu): Extensions → Apps Script,
+ *     replace what is there with this file, Save. Reload the sheet, then
+ *     AISO Hub → Turn on sync. If that page says "unable to open the file"
+ *     (Google's bug when several Google accounts are signed in), open the
+ *     workbook in a browser window signed in to the AISO account only.
+ *   • As a standalone project (syncs, but has NO menu: Google lets only a
+ *     script inside the workbook add one): script.google.com/u/<n>/home for
+ *     the AISO account → New project, paste this file, put the workbook's
+ *     address in WORKBOOK below, Save, choose "connect" and Run.
  * Google asks to allow it the first time.
+ *
+ * AISO Hub → Connect this tab… asks what the open tab is and which concert,
+ * and the Hub registers it (the same record as Personnel's "Link the
+ * personnel sheet"). Anyone who can open the menu can use it, but the Hub
+ * acts only for an Owner or Director. The Hub keeps a locked "Hub" tab in the
+ * workbook: each connected tab, its last sync, and the rows to look at.
  *
  * It sends NO cell values. On every edit, paste, row insert or delete it tells
  * the Hub "this workbook changed" (and which Hub ids were on the edited
@@ -27,8 +36,10 @@ function book_() { return WORKBOOK ? SpreadsheetApp.openByUrl(WORKBOOK) : Spread
 
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('AISO Hub')
-    .addItem('Connect', 'connect')
+    .addItem('Connect this tab…', 'connectThisTab')
     .addItem('Sync now', 'ring')
+    .addSeparator()
+    .addItem('Turn on sync (once per workbook)', 'connect')
     .addToUi();
 }
 
@@ -59,6 +70,36 @@ function changed(e) {
 
 function ring() { return post_(null, []); }
 
+/** The menu: what this tab is and which concert, in a small dialog. */
+function connectThisTab() {
+  var ui = SpreadsheetApp.getUi();
+  var sheetId = SpreadsheetApp.getActiveSheet().getSheetId();
+  var got = call_({ action: 'choices', sheetId: sheetId });
+  if (!got.ok) { ui.alert(got.message); return; }
+  if (!got.concerts.length) { ui.alert('There is no concert on the Hub\'s calendar to connect this tab to.'); return; }
+  var esc = function (s) { return String(s).replace(/[&<>"']/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; }); };
+  var options = function (list, pick) {
+    return list.map(function (x) { return '<option value="' + esc(x.id) + '"' + (x.id === pick ? ' selected' : '') + '>' + esc(x.label) + '</option>'; }).join('');
+  };
+  var cur = got.current || {};
+  var html = '<style>body{font:14px Arial,sans-serif}label{display:block;margin:12px 0 4px}select{width:100%;padding:4px}button{margin:16px 8px 0 0}</style>'
+    + '<label for="k">What is this tab?</label><select id="k">' + options(got.kinds, cur.kind) + '</select>'
+    + '<label for="c">Which concert?</label><select id="c">' + options(got.concerts, cur.concertId) + '</select>'
+    + '<p id="m" role="status"></p><button id="go">Connect</button><button onclick="google.script.host.close()">Close</button>'
+    + '<script>var m=document.getElementById("m"),b=document.getElementById("go");b.onclick=function(){b.disabled=true;m.textContent="Connecting…";'
+    + 'google.script.run.withSuccessHandler(function(t){m.textContent=t;b.style.display="none";})'
+    + '.withFailureHandler(function(e){m.textContent=e.message;b.disabled=false;})'
+    + '.connectTabTo(' + sheetId + ',document.getElementById("k").value,document.getElementById("c").value);};</script>';
+  ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(440).setHeight(280), 'Connect “' + got.tab + '” to the Hub');
+}
+
+/** The dialog's Connect button. */
+function connectTabTo(sheetId, kind, concertId) {
+  var got = call_({ action: 'connect', sheetId: sheetId, kind: kind, concertId: concertId });
+  if (!got.ok) throw new Error(got.message);
+  return got.message;
+}
+
 function idsIn_(sheet, range) {
   var top = sheet.getRange(1, 1, Math.min(10, sheet.getMaxRows()), sheet.getLastColumn() || 1).getValues();
   for (var r = 0; r < top.length; r++) {
@@ -74,9 +115,19 @@ function idsIn_(sheet, range) {
   return [];
 }
 
+/** The doorbell. */
 function post_(sheetId, ids) {
-  var body = { spreadsheetId: book_().getId(), ids: ids };
-  if (sheetId !== null) body.sheetId = sheetId;
+  var extra = { ids: ids };
+  if (sheetId !== null) extra.sheetId = sheetId;
+  var out = call_(extra);
+  if (!out.ok) return 'The Hub said: ' + out.message;
+  return (out.notes || []).join('\n') || 'No tab of this workbook is linked in the Hub yet.';
+}
+
+/** One call to the Hub, as the person running this (their own Google token). */
+function call_(extra) {
+  var body = { spreadsheetId: book_().getId() };
+  for (var k in extra) body[k] = extra[k];
   var res = UrlFetchApp.fetch(HUB, {
     method: 'post', contentType: 'application/json', muteHttpExceptions: true,
     headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
@@ -84,6 +135,6 @@ function post_(sheetId, ids) {
   });
   var out = {};
   try { out = JSON.parse(res.getContentText()); } catch (err) { out = {}; }
-  if (res.getResponseCode() !== 200) return 'The Hub said: ' + (out.message || res.getResponseCode());
-  return (out.notes || []).join('\n') || 'No tab of this workbook is linked in the Hub yet.';
+  if (res.getResponseCode() !== 200) return { ok: false, message: out.message || ('the Hub answered ' + res.getResponseCode()) };
+  return out;
 }

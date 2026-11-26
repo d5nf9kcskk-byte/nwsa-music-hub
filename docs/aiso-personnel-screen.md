@@ -199,6 +199,45 @@ From Google's own docs (Nov 2026):
 - **A row deleted from the tab** takes that player off the concert (a draft
   is deleted, anything else voided), never off the roster (decision 6).
 
+### In the workbook: Connect this tab, and the Hub tab (2026-11-26)
+
+Grant's "Step 4 in the sheet" (below, Tab-per-area decisions), built:
+
+- **AISO Hub → Connect this tab…** opens a small window on the tab you are
+  looking at, with two choices: what the tab is (today only "A concert's
+  players") and which concert (the calendar's concerts from 60 days ago on,
+  plus the tab's current one, which is picked). Connect writes the same
+  `sheetLinks/{kind__concertId}` record as Personnel's "Link the personnel
+  sheet", by the tab's gid. The window asks the Hub through `sheetEdited`
+  (`action: 'choices'` / `'connect'`, `connectChoices` / `connectTab` in
+  `sheetPush.ts`) with the clicker's own Google token, so the Hub acts only
+  for an Owner or Director, as the Personnel screen does. One tab is one
+  concert: the tab's other link goes. Choosing a concert that was on another
+  tab moves it here, and the window says the other tab stopped syncing.
+  Sheet1 and the Hub tab are refused. The menu exists only when the script is
+  inside the workbook: Google lets no standalone script add a menu.
+- **The "Hub" tab.** After every pass the Hub rewrites one tab of the
+  workbook: each connected tab, its concert, its last sync, what happened,
+  and under it one line per row to look at ("Row 12: Seat takes a chair
+  number, so the Hub put its value back"), numbered as the sheet reads after
+  that pass. Never a cell's value. The rows come from the planner
+  (`SheetEdits.problems`: refused values, clashes, a row it cannot place) and
+  ride on the link's status as `sync.problems`. The tab is locked (only the
+  workbook's owner can type in it) and found by a marker
+  (`aisoHubStatus` developer metadata), never by its name: a person's own tab
+  called "Hub" is never written over (ours is then "Hub status"), and ours
+  may be renamed. API writes fire no trigger, so it never rings the doorbell.
+- **Moving a link to another tab forgets the old agreement.** `linkChanged`
+  (the registry trigger) deletes `sheetState` when a link's tab changes or
+  the link goes. Before, Personnel's "Change tab" kept it, and the first pass
+  on the new tab would have read every player missing from it as deleted
+  there and taken them off the concert.
+- **A first link keeps every row.** A row carrying the Hub ID of a roster
+  player who is not on the concert now joins them when there is no agreement
+  yet (a tab copied from last concert's), instead of being deleted from the
+  sheet. Only a row both sides had agreed on, and the Hub then took off, is
+  removed.
+
 ### Its real limits, in plain words
 
 - **"Immediately" means a few seconds** each way: the script wakes, the Hub
@@ -228,14 +267,18 @@ From Google's own docs (Nov 2026):
    Google Cloud console).
 2. Share the workbook (Editor) with the Hub's service account
    (`aisymphony-hub@appspot.gserviceaccount.com`).
-3. Link the tab in Personnel (paste the tab's address).
+3. Link the tab in Personnel (paste the tab's address), or use the
+   workbook's menu once step 4 is done.
 4. In the workbook: Extensions → Apps Script, paste
-   `docs/aiso-sheet-sync.gs`, Save, reload the sheet, then AISO Hub →
-   Connect, signed in as the AISO account, and allow it. When Google says
+   `docs/aiso-sheet-sync.gs`, Save, reload the sheet, then AISO Hub → Turn
+   on sync, signed in as the AISO account, and allow it. When Google says
    "unable to open the file" (its bug when several Google accounts are signed
-   in to one browser), make it a standalone project instead: the AISO
-   account's script.google.com → New project, paste, put the workbook's
-   address in `WORKBOOK`, Save, run `connect`. The test copy uses this.
+   in to one browser), open the workbook in a browser window signed in to the
+   AISO account only. A standalone project (the AISO account's
+   script.google.com → New project, paste, put the workbook's address in
+   `WORKBOOK`, Save, run `connect`) syncs too, but has no menu.
+5. Connect each concert's tab: open it, AISO Hub → Connect this tab… (or
+   step 3 in Personnel).
 
 Proven live on 2026-11-26 on Grant's test copy (a "Sync test" tab of three
 made-up players, linked to a throwaway past-dated concert): an email typed
@@ -264,10 +307,15 @@ doorbell's caller check, refusals, row deletes, Google's refusals in words).
   dropdowns (what the tab is; which concert or season), and a locked "Hub"
   status tab listing each connected tab, its last sync, and rows with
   problems. "Change tab" in Personnel stays as the staff-side way to connect.
+  Built 2026-11-26 (above, "In the workbook"). One difference from "who may
+  connect a tab: anyone who can edit the workbook": the Hub registers a tab
+  only for an Owner or Director, the same rule as the Personnel screen,
+  because the Hub cannot check from a Google token that the person can edit
+  that workbook.
 
 ## Not here, on purpose
 
 A players-see-"said yes" change (decision 1 keeps `memberView` as it is),
 field-level history (the status line counts clashes; the losing value is not
-kept), the "Connect this tab" dropdown menu and "Hub" status tab in the sheet
-(linking stays in Personnel), and a grid view (the sheet is the grid).
+kept), unlinking from the sheet (Personnel's Unlink does it), and a grid view
+(the sheet is the grid).

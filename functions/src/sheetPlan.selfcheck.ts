@@ -99,6 +99,7 @@ assert(!e0.cells.some(c => c.r === 6), 'a row the Hub cannot match (and cannot m
 assert(e0.cells.some(c => c.r === 1 && c.c === 1 && c.v === '3/3'), 'Violin 1 header becomes 3/3');
 assert(!e0.cells.some(c => c.r === 4 && c.c === 1), 'Flute has no count in the Hub: its header is left alone');
 assert(e0.cells.some(c => c.r === 2 && c.c === 11 && c.v === 'hubAda'), 'Hub IDs written');
+assert(e0.problems.length === 1 && e0.problems[0].row === 8 && /* row 7 now, row 8 once Felix is inserted above it */ /does not know/.test(e0.problems[0].why), `the unmatched row is listed: ${JSON.stringify(e0.problems)}`);
 
 // 2. The real thing: ids can be made. A row typed into the sheet becomes a player.
 const s = pass(sheet, model);
@@ -152,6 +153,14 @@ const r7 = pass(g, locked, t.base);
 assert(r7.e.counts.refused === 3 && r7.e.hub.length === 0, `refused, nothing reaches the Hub: ${JSON.stringify(r7.e.hub)}`);
 assert(r7.grid[ada][4] !== '123-45-6789' && r7.grid[bram][1] === 2 && r7.grid[rowId(r7.grid, 'hubCelia')][6] === 300, 'and the Hub values are put back');
 settles(r7, 'refused');
+// ...and each is listed for the Hub tab: its row, the column and why, never the value.
+const listed = r7.e.problems.map(p => `${p.row} ${p.why.split(' ')[0]}`).sort().join();
+assert(listed === [`${ada + 1} Phone`, `${bram + 1} Seat`, `${rowId(g, 'hubCelia') + 1} Payment`].sort().join(), `problem rows: ${listed}`);
+assert(!JSON.stringify(r7.e.problems).includes('123-45-6789') && /tax ID/.test(r7.e.problems.find(p => p.why.startsWith('Phone'))!.why), 'the why names no value');
+// A row the Hub takes off above a problem row moves it up: the number is where the row is AFTER the pass.
+const r7b = pass(g, { ...locked, players: locked.players.filter(p => p.id !== 'hubAda') }, t.base);
+assert(r7b.e.deletes.includes(ada) && ada < bram && r7b.e.problems.some(p => p.row === bram && p.why.startsWith('Seat'))
+  && r7b.grid[r7b.e.problems.find(p => p.why.startsWith('Seat'))!.row - 1][11] === 'hubBram', `shifted problem row: ${JSON.stringify(r7b.e.problems)}`);
 
 // 8. A row deleted in the sheet takes that player off the concert; the Hub then has them gone.
 g = t.grid.filter((_, i) => i !== rowId(t.grid, 'hubDario'));
@@ -207,6 +216,14 @@ const r12 = pass(g, t.model, t.base);
 const hana = r12.e.hub.find(c => c.kind === 'new');
 assert(hana?.kind === 'new' && hana.vals.name === 'Hana Iwasaki' && r12.grid[ada + 1][11] === hana.id && r12.grid[ada][11] === 'hubAda', 'copy gets its own id');
 settles(r12, 'copied row');
+
+// 12b. A tab copied from another concert, linked for the first time (no
+//      agreement yet): its rows carry Hub IDs of roster players who are not on
+//      this concert. They join it; nothing is deleted from the sheet.
+const nextConcert: SheetModel = { sections: t.model.sections, players: [], roster: t.model.players.map(p => ({ id: p.id, name: p.name })) };
+const copied = planSheetSync(t.grid, nextConcert, { newId, today: TODAY });
+assert(copied.deletes.length === 0 && copied.hub.filter(c => c.kind === 'new' && c.join).length === t.model.players.length,
+  `a copied tab joins its players: ${JSON.stringify({ del: copied.deletes, hub: copied.hub.map(c => c.kind) })}`);
 
 // 13. A flat table, laid out another way: Name first, a Section column, other
 //     heading words, a column the Hub does not know. Same promises.

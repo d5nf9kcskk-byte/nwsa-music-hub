@@ -33,10 +33,24 @@ let grid = [
   ['', 2, 'Someone Else', 'else@example.org', '', 'Y', 250, '', '', '', 'Flute'],
 ];
 let columns = 11, hidden = new Set(), protectedCols = 0, batches = 0, otherTabWrites = 0;
+// A person's own tab that happens to be called "Hub": the Hub's status tab must never write over it.
+const OWN_HUB_GID = 55;
+/** The Hub's status tab, once the Hub has made it. */
+let status = null;
 const valueOf = v => ('numberValue' in v ? v.numberValue : v.stringValue);
+/** Applies one request; true when it touched the live roster tab. */
 function apply(req) {
-  const target = JSON.stringify(req).match(/"sheetId":(\d+)/)?.[1];
-  if (Number(target) !== GID) { otherTabWrites++; return; }
+  const target = Number(JSON.stringify(req).match(/"sheetId":(\d+)/)?.[1]);
+  if (req.addSheet) { status = { gid: target, title: req.addSheet.properties.title, grid: [], marked: '', locked: false }; return false; }
+  if (status && target === status.gid) {
+    if (req.createDeveloperMetadata) status.marked = req.createDeveloperMetadata.developerMetadata.metadataKey;
+    else if (req.addProtectedRange) status.locked = req.addProtectedRange.protectedRange.warningOnly === false;
+    else if (req.updateCells?.range) status.grid = [];
+    else if (req.updateCells) status.grid = req.updateCells.rows.map(r => r.values.map(c => valueOf(c.userEnteredValue)));
+    else throw new Error(`unexpected status-tab request ${Object.keys(req)}`);
+    return false;
+  }
+  if (target !== GID) { otherTabWrites++; return false; }
   if (req.appendDimension) columns += req.appendDimension.length;
   else if (req.updateCells) {
     const { rowIndex, columnIndex } = req.updateCells.start;
@@ -54,6 +68,7 @@ function apply(req) {
   else if (req.updateDimensionProperties) hidden.add(req.updateDimensionProperties.range.startIndex);
   else if (req.addProtectedRange) protectedCols++;
   else throw new Error(`unexpected request ${Object.keys(req)}`);
+  return true;
 }
 const server = http.createServer((req, res) => {
   let body = '';
@@ -70,7 +85,7 @@ const server = http.createServer((req, res) => {
     if (url.startsWith('/switched-off')) return send(403, { error: { code: 403, status: 'PERMISSION_DENIED', details: [{ reason: 'SERVICE_DISABLED' }] } });
     if (url.startsWith('/not-shared')) return send(403, { error: { code: 403, status: 'PERMISSION_DENIED' } });
     if (!url.startsWith(`/${SHEET}`)) return send(404, {});
-    if (req.method === 'POST' && url.endsWith(':batchUpdate')) { batches++; JSON.parse(body).requests.forEach(apply); return send(200, {}); }
+    if (req.method === 'POST' && url.endsWith(':batchUpdate')) { if (JSON.parse(body).requests.map(apply).some(Boolean)) batches++; return send(200, {}); }
     if (url.includes('/values/')) {
       const which = url.split('/values/')[1].split('?')[0].replace(/^'|'$/g, '');
       const g = which === title ? grid : which === 'Sheet1' ? old : null;
@@ -80,6 +95,8 @@ const server = http.createServer((req, res) => {
     return send(200, { sheets: [
       { properties: { sheetId: OLD_GID, title: 'Sheet1', gridProperties: { columnCount: 26 } } },
       { properties: { sheetId: GID, title, gridProperties: { columnCount: columns } } },
+      { properties: { sheetId: OWN_HUB_GID, title: 'Hub', gridProperties: { columnCount: 26 } } },
+      ...(status ? [{ properties: { sheetId: status.gid, title: status.title, gridProperties: { columnCount: 26 } }, developerMetadata: [{ metadataKey: status.marked }] }] : []),
     ] });
   });
 });
@@ -89,7 +106,7 @@ process.env.SHEETS_TEST_TOKEN = 'test-token';
 process.env.TOKENINFO_URL = `http://127.0.0.1:${server.address().port}/tokeninfo`;
 
 const db = getFirestore(initializeApp({ projectId: PROJECT }));
-const { pushLink, ring, doorbellCaller, stamp } = await import('../functions/src/sheetPush.ts');
+const { pushLink, ring, doorbellCaller, stamp, connectChoices, connectTab, linkChanged } = await import('../functions/src/sheetPush.ts');
 const LINK = 'concertRoster__nyc';
 const pushConcert = () => pushLink(db, LINK);
 
@@ -138,6 +155,12 @@ let link = (await db.doc(`sheetLinks/${LINK}`).get()).data();
 check('status line saved on the registry, with the tab\'s name', link.sync?.ok === true && link.sync.tab === 'Live roster');
 const state = (await db.doc(`sheetState/${LINK}`).get()).data();
 check('what both sides agreed is kept server-side', Object.keys(state.base.players).length === 4);
+const statusRow = label => status?.grid.find(r => r[0] === label);
+check('the Hub made its status tab: marked, locked, and beside (never over) the person\'s own "Hub" tab',
+  status?.title === 'Hub status' && status.marked === 'aisoHubStatus' && status.locked);
+check(`it lists the connected tab, its concert, its last sync and what happened (${statusRow('Live roster')})`,
+  status.grid[2].join() === 'Tab,Connected to,Last sync,What happened'
+  && statusRow('Live roster')?.[1] === 'Sample concert (Jan 3, 2027)' && /\d:\d\d/.test(statusRow('Live roster')[2]) && /4 players on the tab/.test(statusRow('Live roster')[3]));
 
 // 2. Nothing changed: nothing sent either way.
 const before = batches;
@@ -189,6 +212,10 @@ grid[5][6] = 999;
 note = (await ring(db, SHEET, GID, ['pCelia']))[0];
 check(`refused values put back (${note})`, /2 values the Hub cannot take/.test(note) && grid[5][4] === '555-0101' && grid[5][6] === 300);
 check('and never stored', (await db.doc('personnelContacts/pCelia').get()).data().phone === '555-0101' && (await db.doc('contracts/kCelia').get()).data().baseRateCents === 30000);
+const listed = status.grid.filter(r => r[1] === `Row ${rowOf('pCelia') + 1}`).map(r => r[3]);
+check(`the Hub tab lists Celia's row twice, with why (${listed})`, listed.length === 2 && listed.some(w => /^Phone looks like a tax ID/.test(w)) && listed.some(w => /^Payment is fixed/.test(w))
+  && (await db.doc(`sheetLinks/${LINK}`).get()).data().sync.problems.length === 2);
+check('and never the refused value itself', !JSON.stringify(status.grid).includes('123-45-6789'));
 
 // 7. A row deleted in the sheet takes the player off the concert: Sent → Void, Draft → deleted. They stay on the roster.
 const bramRow = rowOf('pBram'), elseRow = rowOf(elseId);
@@ -229,6 +256,38 @@ bad = await says('not-shared-0000000000000000');
 check(`not shared: says so (${bad.note})`, /not shared with the Hub/.test(bad.note));
 bad = await says('no-such-sheet-0000000000000');
 check(`no such spreadsheet: says so (${bad.note})`, /no spreadsheet at that link/.test(bad.note));
+
+// 12. The workbook's menu: AISO Hub → Connect this tab…
+await says(SHEET); // back on the real tab
+await db.doc('events/spring').set({ type: 'Concert', title: 'Spring <Gala> & co', date: '2099-04-01', ensembleIds: ['orch'], status: 'Scheduled' });
+await db.doc('events/gone').set({ type: 'Concert', title: 'Called off', date: '2099-05-01', status: 'Cancelled' });
+await db.doc('events/old').set({ type: 'Concert', title: 'Long past', date: '2020-01-01', status: 'Scheduled' });
+const choices = await connectChoices(db, SHEET, GID);
+check(`the menu offers the concerts, this tab's current one picked (${choices.concerts.map(c => c.id)})`,
+  choices.tab === 'Cuong renamed it' && choices.current?.concertId === 'nyc' && choices.kinds[0].id === 'concertRoster'
+  && choices.concerts.map(c => c.id).join() === 'nyc,spring');
+const refusal = async (gid) => connectChoices(db, SHEET, gid).then(() => 'no refusal', e => e.message);
+check('Sheet1 cannot be connected', /Sheet1 stays unconnected/.test(await refusal(OLD_GID)));
+check('nor the Hub\'s own status tab', /status tab/.test(await refusal(status.gid)));
+check('a cancelled or unknown concert is refused', /not on the calendar/.test(await connectTab(db, 'boss@example.org', SHEET, GID, 'concertRoster', 'gone').catch(e => e.message))
+  && /Choose what the tab is/.test(await connectTab(db, 'boss@example.org', SHEET, GID, 'calendar', 'spring').catch(e => e.message)));
+// Move this tab to the spring concert: one tab is one concert, so the nyc link goes.
+const nycBefore = (await db.doc(`sheetLinks/${LINK}`).get()).data();
+const said = await connectTab(db, 'boss@example.org', SHEET, GID, 'concertRoster', 'spring');
+const spring = (await db.doc('sheetLinks/concertRoster__spring').get()).data();
+check(`connecting writes the same record Personnel does (${said})`, /^Connected/.test(said)
+  && spring.spreadsheetId === SHEET && spring.sheetId === GID && spring.kind === 'concertRoster' && spring.concertId === 'spring' && spring.updatedBy === 'boss@example.org'
+  && !(await db.doc(`sheetLinks/${LINK}`).get()).exists);
+// What the registry trigger does with those two writes.
+const playersOnTab = grid.filter(r => /^p|^[A-Za-z0-9]{20}$/.test(String(r[11] ?? '')) && r[11] !== 'Hub ID').length;
+await linkChanged(db, LINK, nycBefore, undefined);
+check('the old link\'s agreement is forgotten', !(await db.doc(`sheetState/${LINK}`).get()).exists);
+note = await linkChanged(db, 'concertRoster__spring', undefined, spring);
+const springK = (await db.collection('contracts').where('eventIds', 'array-contains', 'spring').get()).docs.map(d => d.data());
+check(`the first spring pass keeps every row and joins those players to spring (${note})`,
+  grid.filter(r => /^p|^[A-Za-z0-9]{20}$/.test(String(r[11] ?? '')) && r[11] !== 'Hub ID').length === playersOnTab
+  && springK.length === playersOnTab && springK.every(k => k.status === 'Draft'));
+check('the Hub tab now names spring, escaped nowhere (plain text)', status.grid.some(r => r[1] === 'Spring <Gala> & co (Apr 1, 2099)') && !status.grid.some(r => /Sample concert/.test(r[1] ?? '')));
 
 server.close();
 console.log(failed ? `${failed} FAILED` : 'all pass');
