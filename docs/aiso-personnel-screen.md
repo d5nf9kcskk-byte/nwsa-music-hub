@@ -1,4 +1,4 @@
-# AISO Personnel: the concert screen (steps 1 and 2)
+# AISO Personnel: the concert screen and the sheet link (steps 1 to 4)
 
 Approved by Grant on 2026-11-25 (option A, all six default answers). The plan
 and its clickable mockup live outside the repo, in Grant's Hub App plan folder
@@ -125,9 +125,7 @@ re-plans its own tab, unless it only stamped the status line.
   Email 1 and Category 2 of an existing row stay the sheet's.
 - A player taken off the concert loses their row; a new one gets a row at the
   end of their section's block; a section with no block gets one at the end.
-- Paid is not read from the sheet: a Paid cell the Hub has no payment for is
-  cleared once its row carries a Hub ID. Step 4 decides what a typed Paid
-  means.
+- Paid is now read from the sheet too: see step 4.
 - Access: the sheet is shared (Editor) with the functions' service account,
   which takes a spreadsheets-scoped token from the metadata server. The status
   line on the link says what the last pass did, in counts only; nothing
@@ -137,6 +135,109 @@ re-plans its own tab, unless it only stamped the status line.
   against the Firestore emulator and a fake two-tab spreadsheet: bound by gid,
   a renamed tab still syncs, the unregistered tab is never touched). Rules
   cases for the registry in `personnel-rules.emulator-check.mjs`.
+
+## Step 4: two-way sync, one document shown two ways (2026-11-26)
+
+Grant, 2026-11-26: "an easy two-way sync, one updating the other on all
+things, not just a few things, all things, and immediately." Built as below.
+
+### What was wrong first
+
+Linking the test copy said "The Hub cannot open the sheet" because the
+**Google Sheets API was switched off** on the `aisymphony-hub` project, so
+Google refused every request. The message hid that: it was printed for any
+refusal. `sheetsError()` now names the cause: Sheets switched off (with the
+link to turn it on), the sheet not shared (with the address to share it
+with), no spreadsheet at that link, or too many requests. Google's docs
+confirm 1st gen functions honour `?scopes=` on the metadata token, so the
+token itself was fine.
+
+### The ways it could be done, and the one chosen
+
+From Google's own docs (Nov 2026):
+
+| Way | How soon | What it sees | What it costs / needs | Verdict |
+|---|---|---|---|---|
+| Apps Script in the workbook, installable `onEdit` + `onChange` triggers, ringing a Hub function | seconds | typing and pastes (`onEdit`); rows and columns added or removed, sorts, new tabs (`onChange`: EDIT, INSERT_ROW, REMOVE_ROW, INSERT_COLUMN, REMOVE_COLUMN, INSERT_GRID, REMOVE_GRID, FORMAT, OTHER). NOT edits made by the API or another script ("Script executions and API requests don't cause triggers to run") | free; a gmail account gets 90 min of trigger time and 20,000 URL calls a day, 20 triggers per script. Paste once, press Connect once | **chosen** |
+| Drive `files.watch` push notifications | not documented | only "the file changed": an empty body, no cells | a channel lasts one day at most, so a renewal job | no: no faster, more parts |
+| Apps Script writing Firestore itself over REST | seconds | same as above | Hub credentials or rules for the script; the merge logic written twice, in two languages | no |
+| Polling the sheet | as often as you poll | everything | Sheets allows 60 reads a minute per account | only as a 5-minute safety net |
+| AppSheet / Connected Sheets | | | AppSheet has no Firestore connector; Connected Sheets is BigQuery only, read-only | not possible |
+
+### How it works
+
+- **A pass compares state, not events.** Every pass reads the tab, the Hub,
+  and `base`: what both sides held after the last pass (`sheetState/{linkId}`,
+  matched by no rule, so server only). For each cell, whichever side moved
+  away from `base` made the edit; the other side is updated. So it does not
+  matter what woke the pass or whether a doorbell was missed: the next pass
+  sees every difference. Planner: `planSheetSync()` in `sheetPlan.ts`.
+- **What wakes a pass**: any Hub write to the paid roster (the existing
+  triggers), and the workbook's doorbell. The script
+  (`docs/aiso-sheet-sync.gs`) posts to `sheetEdited` on every edit, paste,
+  row insert or delete, and once every five minutes. It sends no cell values:
+  only which workbook and tab, and the Hub ids on the edited rows (for
+  clashes). The function re-reads the real sheet. The caller must be a
+  verified Owner or Director (its Google token, checked with Google).
+- **No echo.** The Hub's writes to the sheet go through the Sheets API, which
+  never fires the workbook's triggers. The sheet's writes to the Hub do fire
+  the Firestore triggers, so a pass records the commit time of each document
+  it wrote and the trigger for exactly that write is skipped. Even an
+  unskipped echo plans nothing, since both sides already agree.
+- **Rows** are tied by the hidden Hub ID column. Moving a row inside its
+  section changes nothing; moving it into another section's block changes
+  their section.
+- **Every synced column goes both ways**: Seat, Name, Email, Phone,
+  Confirmed (said yes), Payment (this concert's fee), Paid, the section, and
+  the "/needed" in a section's header row. Typing a date (or anything) in Paid
+  records a payment of what is still owed on that date (today when it is not
+  a date); clearing it deletes that concert's payments for that player.
+- **A row typed into the tab** is a player on the concert: someone on the
+  roster with exactly that name joins (a sub), anyone else is a new roster
+  player; either way with a Draft contract for this concert at the typed fee.
+  A copied row gets its own Hub ID. A new section block becomes a section.
+- **A row deleted from the tab** takes that player off the concert (a draft
+  is deleted, anything else voided), never off the roster (decision 6).
+
+### Its real limits, in plain words
+
+- **"Immediately" means a few seconds** each way: the script wakes, the Hub
+  reads the tab and writes. Two people typing in the same cell within those
+  seconds is a clash: **the later edit wins** (the sheet's time comes from the
+  doorbell, the Hub's from its records; when the Hub cannot tell, the Hub's
+  wins). The status line counts clashes.
+- **Refused, and put back**: anything shaped like a tax ID, a word in Seat, a
+  fee on a signed, void or season contract, and deleting the row of a player
+  a season contract calls (take them off in the Hub).
+- **Accidents are undone**: more than 5 rows vanishing at once come back,
+  and a sort that throws players into other sections' blocks does not change
+  anyone's section (their rows go back).
+- **Extra, Email 1 and Category 2** are the sheet's own: the Hub has no place
+  for them, so they are never read and never overwritten (a moved row carries
+  them along).
+- **The script runs as the account that pressed Connect** (the AISO account),
+  for everyone's edits. If that account loses access, or someone deletes the
+  script, the sheet's edits wait until the next Hub change or until Connect is
+  pressed again. The Hub's edits keep reaching the sheet regardless.
+- A gmail account's 90 minutes a day of trigger time is roughly 1,500 to
+  3,000 edits a day.
+
+### Setting it up (once per workbook)
+
+1. Turn on the Google Sheets API for `aisymphony-hub` (one click in the
+   Google Cloud console).
+2. Share the workbook (Editor) with the Hub's service account
+   (`aisymphony-hub@appspot.gserviceaccount.com`).
+3. Link the tab in Personnel (paste the tab's address).
+4. In the workbook: Extensions → Apps Script, paste
+   `docs/aiso-sheet-sync.gs`, Save, reload the sheet, then AISO Hub →
+   Connect, signed in as the AISO account, and allow it.
+
+Proof: `functions/src/sheetPlan.selfcheck.ts` (every rule above, and "after
+any pass, a second pass changes nothing on either side") and
+`scripts/sheet-push.emulator-proof.mjs` (the real engine against the
+Firestore emulator and a fake Sheets server: both directions, echo skip, the
+doorbell's caller check, refusals, row deletes, Google's refusals in words).
 
 ## Tab-per-area decisions (Grant, 2026-11-25: "Yes, A + defaults")
 
@@ -156,6 +257,7 @@ re-plans its own tab, unless it only stamped the status line.
 
 ## Not here, on purpose
 
-The sheet link itself, a players-see-"said yes" change (decision 1 keeps
-`memberView` as it is), field-level history, and a grid view (the sheet is
-the grid).
+A players-see-"said yes" change (decision 1 keeps `memberView` as it is),
+field-level history (the status line counts clashes; the losing value is not
+kept), the "Connect this tab" dropdown menu and "Hub" status tab in the sheet
+(linking stays in Personnel), and a grid view (the sheet is the grid).

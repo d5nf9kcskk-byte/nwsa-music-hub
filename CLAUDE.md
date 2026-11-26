@@ -1462,6 +1462,25 @@ link itself (steps 3 to 5) is not built yet.
   row is never touched. Never log the sheet id or a cell (the sheet holds
   pay). `firestore.aiso.rules` is GENERATED: after any `firestore.rules`
   change run `node scripts/gate-rules.mjs`, or AISO deploys the old rules.
+- **Step 4, two-way: one document shown two ways** (Nov 2026, Grant: "all
+  things, and immediately"). `planSheetSync()` is a THREE-WAY comparison per
+  cell: the sheet, the Hub, and `base` (what both held after the last pass,
+  in `sheetState/{linkId}`, matched by no rule). Whichever side moved is the
+  edit; both moved = the later edit wins (doorbell time vs the Hub's
+  updatedAt; a tie is the Hub's). A pass compares STATE, so a missed wake-up
+  loses nothing. The sheet wakes it through the workbook script
+  `docs/aiso-sheet-sync.gs` (installable onEdit/onChange + every 5 min) →
+  `sheetEdited` (Owner/Director's Google token, checked at tokeninfo); it
+  sends no cells, the pass re-reads the tab. No echo: Sheets API writes never
+  fire the workbook's triggers, and the Hub's own writes are skipped by
+  commit time (`sheetState.echo`). Typed rows become players (roster name
+  once = join) with a Draft contract; a deleted row voids (draft: deletes);
+  a typed Paid records what is owed, a cleared one deletes those payments.
+  Refused and put back: tax-id shapes, words in Seat, a fee on a non-flat,
+  signed or season contract, a season player's row; >5 rows gone at once or a
+  sort across sections is undone. Never "simplify" the base away: without it
+  a pass cannot tell which side changed. Spec: docs/aiso-personnel-screen.md
+  "Step 4".
 - `personnel/fixtureWrites.ts` makes the fixture build's edits stick in
   memory. It lives in the screen's chunk ON PURPOSE: the shared paid-roster
   hooks are also in the school's bundle (staff search), and putting it there

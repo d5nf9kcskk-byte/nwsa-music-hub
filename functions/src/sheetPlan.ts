@@ -1,36 +1,48 @@
 /**
- * Hub → personnel sheet: what to change (#aiso-personnel step 3,
- * docs/aiso-personnel-screen.md). Pure: a grid of cell values and the Hub's
- * view of one concert in, a list of edits out. sheetPush.ts reads the sheet,
- * calls this, and sends the edits; sheetPlan.selfcheck.ts pins it.
+ * Hub ⇄ personnel sheet: what to change on each side (#aiso-personnel steps 3
+ * and 4, docs/aiso-personnel-screen.md). Pure: a grid of cell values, the
+ * Hub's view of one concert, and what both sides agreed on last time in; the
+ * edits for the sheet, the changes for the Hub, and the new agreement out.
+ * sheetPush.ts reads both sides, calls this, and writes both;
+ * sheetPlan.selfcheck.ts pins it.
  *
  * The sheet, as the personnel manager keeps it: a header row (Part/Seat, Name,
  * Email, Phone, Confirmed, Payment, Extra, Paid, …), then one block per
  * section: a header row with the section in column A and "seated/needed" in
- * the Part/Seat column, then one row per player. A hidden "Hub ID" column
- * ties a row to its player, so sorting or moving rows is safe.
+ * the Part/Seat column, then one row per player. (Or a flat table with a
+ * Section column.) A hidden "Hub ID" column ties a row to its player, so
+ * sorting or moving rows inside a section is safe.
+ *
+ * ONE DOCUMENT, TWO VIEWS. Every pass is a three-way comparison per cell:
+ * the sheet's value, the Hub's value, and `base`, the value both sides held
+ * after the last pass. Whichever side moved away from `base` is the edit.
+ * Both moved = a clash: the later edit wins (`sheetAt` for the sheet, the
+ * player's `hubAt` for the Hub; a tie goes to the Hub). Because the pass
+ * compares STATE rather than replaying events, it does not matter what woke
+ * it, or whether a doorbell was missed: the next pass sees every difference.
  *
  * Rules, each pinned by the self-check:
- *   • The Hub is the record for a row that carries its Hub ID: every listed
- *     cell follows the Hub, blanks included.
+ *   • A row that carries its Hub ID is that player. Each synced cell follows
+ *     whichever side changed it.
  *   • A row with no Hub ID is matched once, inside its own section, by email
- *     or name. On that first meeting the sheet fills what the Hub has not
- *     heard yet (`hubFills`: email, phone, seat, said yes), and any other
- *     cell the Hub has nothing for is left alone on that pass. Paid is not
- *     taken from the sheet (a payment is a money record, step 4 decides it):
- *     a Paid cell the Hub has no payment for is cleared on the NEXT pass. Only then is the Hub ID written, so
- *     the next pass, where the Hub is the record, finds nothing to blank.
- *   • A row the Hub does not know (no ID, no match) is never touched.
- *   • A row whose Hub ID is no longer on the concert is removed (the player
- *     was taken off it); the person stays on the roster.
- *   • A new player gets a row at the end of their section's block; a section
- *     with no block gets one at the end.
- *   • Extra, Email 1 and Category 2 of an existing row are the sheet's own.
- *
- * Zero imports, so node runs the self-check and the function bundle carries it bare.
+ *     or name (first meeting): the sheet fills what the Hub does not hold
+ *     yet, and the Hub wins where both hold something.
+ *   • A row the Hub cannot match is a player typed into the sheet: someone on
+ *     the roster by that exact name, once and only once, joins the concert;
+ *     anyone else is a new player. (Only when the caller can make ids.)
+ *   • A row deleted in the sheet takes that player off the concert (never off
+ *     the roster). More than MAX_SHEET_OFFS at once is treated as an accident:
+ *     the rows come back. A row the Hub took off goes.
+ *   • A row moved into another section's block changes their section. More
+ *     than MAX_SHEET_MOVES at once is a sort, not a decision: they go back.
+ *   • A value the Hub refuses (a tax id's shape, a fee on a signed contract,
+ *     a word in Seat) is put back to the Hub's value, and counted.
+ *   • Extra, Email 1 and Category 2 are the sheet's own; never read, never
+ *     written on an existing row (a moved row carries them along).
  */
+import { refusedCell } from '../../src/director/personnel/importPlan.ts';
 
-export type Cell = string | number;
+export type Cell = string | number | boolean;
 
 export interface SheetPlayer {
   id: string;
@@ -44,13 +56,35 @@ export interface SheetPlayer {
   fee?: number;
   /** "Nov 20" when fully paid, '' otherwise. */
   paid: string;
+  /** When the Hub last changed this player (ms); a clash goes to the later side. */
+  hubAt?: number;
+  /** The fee cannot change from the sheet: signed, void, or not a flat fee. */
+  feeLocked?: boolean;
+  /** Deleting their row cannot take them off (a season contract calls them). */
+  offLocked?: boolean;
 }
 
 export interface SheetModel {
   /** In the concert's order; `needed` is the "/12". */
   sections: { name: string; needed?: number }[];
   players: SheetPlayer[];
+  /** Everyone on the roster who is NOT on this concert, for a typed-in row. */
+  roster?: { id: string; name: string }[];
 }
+
+export const SYNCED = ['section', 'seat', 'name', 'email', 'phone', 'confirmed', 'fee', 'paid'] as const;
+export type Synced = (typeof SYNCED)[number];
+/** One player as both sides last agreed, every value as text. */
+export type Vals = Record<Synced, string>;
+export interface SheetBase { players: Record<string, Vals>; needed: Record<string, string> }
+
+export type HubChange =
+  /** `value` is the cell's text; for paid, a YYYY-MM-DD date or ''. */
+  | { kind: 'set'; id: string; field: Synced; value: string }
+  | { kind: 'new'; id: string; join: boolean; vals: Vals; paidOn: string }
+  | { kind: 'off'; id: string }
+  /** A section's chairs needed ('' = not set), or a section the sheet added. */
+  | { kind: 'section'; name: string; needed: string };
 
 export interface SheetEdits {
   /** Cell writes on rows that already exist, 0-based [row, col]. */
@@ -59,17 +93,32 @@ export interface SheetEdits {
   deletes: number[];
   /** Rows to add after row `after` (0-based), in order. */
   inserts: { after: number; rows: Cell[][] }[];
-  /** First meetings: what the sheet knows that the Hub does not, to save in
-   *  the Hub. Values are stored as typed (a name in Email included). */
-  hubFills: { id: string; email?: string; phone?: string; seat?: number; saidYes?: true }[];
   /** Set when the Hub ID column is new: hide and protect it. */
   newIdCol?: number;
-  /** For the status line: rows matched, added, removed, left alone. */
-  counts: { matched: number; added: number; removed: number; unknown: number };
+  /** What the sheet changed, for the Hub to write. */
+  hub: HubChange[];
+  /** What both sides hold once these edits land. */
+  base: SheetBase;
+  /** For the status line. */
+  counts: { matched: number; added: number; removed: number; unknown: number; fromSheet: number; refused: number; clashes: number; restored: number };
 }
 
-const FIELDS = ['section', 'seat', 'name', 'email', 'phone', 'confirmed', 'fee', 'extra', 'paid', 'category', 'id'] as const;
-type Field = (typeof FIELDS)[number];
+export interface SyncOpts {
+  base?: SheetBase;
+  /** When the sheet last changed a player's row (ms), from the doorbell. */
+  sheetAt?: Record<string, number>;
+  /** Makes a Hub id for a player typed into the sheet. Absent = such rows are left alone. */
+  newId?: () => string;
+  /** YYYY-MM-DD; "paid" with no readable date means today. */
+  today?: string;
+}
+
+/** A sheet that loses more rows than this in one pass lost them by accident. */
+export const MAX_SHEET_OFFS = 5;
+/** More section moves than this in one pass is a sort. */
+export const MAX_SHEET_MOVES = 3;
+
+type Field = Synced | 'extra' | 'category' | 'id';
 
 /** Which field a column heading names, by its words (the importPlan.ts
  *  fieldFor() approach), so a new tab laid out differently still maps.
@@ -105,29 +154,68 @@ export function nameKey(s: string): string {
   return b ? `${b} ${a}` : t;
 }
 
-const text = (v: Cell | undefined) => (v == null ? '' : String(v)).trim();
-/** A Social Security or employer id's shape: never carried into the Hub
- *  (the importer's guard, importPlan.ts refusedCell). */
-const TAX_ID = /^(\d{3}-?\d{2}-?\d{4}|\d{2}-\d{7})$/;
+const text = (v: Cell | undefined) => (v == null || v === false ? '' : v === true ? 'TRUE' : String(v)).trim();
 const usable = (e: string) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e);
+const DAY = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+const iso = (d: Date) => d.toISOString().slice(0, 10);
 
-/** What a player's row says, field by field. Display names are "First Last". */
-function rowValues(p: SheetPlayer): Partial<Record<Field, Cell>> {
-  return {
-    section: p.section, seat: p.seat ?? '', name: p.name.includes(',') ? p.name.split(/\s*,\s*/).reverse().join(' ') : p.name,
-    email: p.email, phone: p.phone, confirmed: p.saidYes ? 'Y' : '', fee: p.fee ?? '', paid: p.paid, id: p.id,
-  };
+/** A Paid cell as a date: a Sheets date (a day number), "2026-11-20", "Nov 20", "11/20". */
+function paidDate(v: Cell | undefined, today: string): Date | null {
+  if (typeof v === 'number' && v > 20000 && v < 80000) return new Date(Date.UTC(1899, 11, 30) + Math.round(v) * 86400000);
+  const t = text(v);
+  if (!/^(\d{4}-\d{2}-\d{2}|\d{1,2}[/.-]\d{1,2}([/.-]\d{2,4})?|[a-z]{3,9}\.? \d{1,2}(,? \d{4})?)$/i.test(t)) return null;
+  const year = today.slice(0, 4);
+  for (const s of /\d{4}/.test(t) ? [t] : [`${t} ${year}`, `${t}/${year}`]) {
+    const ms = Date.parse(/^\d{4}-\d{2}-\d{2}$/.test(s) ? `${s}T00:00:00Z` : `${s} UTC`);
+    if (!Number.isNaN(ms)) return new Date(ms);
+  }
+  return null;
 }
 
-const same = (f: Field, a: Cell | undefined, b: Cell | undefined) =>
-  f === 'name' ? nameKey(text(a)) === nameKey(text(b))
-    : f === 'section' ? sectionKey(text(a)) === sectionKey(text(b))
-    : f === 'fee' || f === 'seat' ? (text(a) === '' ? text(b) === '' : Number(a) === Number(b))
-      : f === 'confirmed' ? /^y/i.test(text(a)) === /^y/i.test(text(b))
-        : text(a) === text(b);
+/** One cell as comparable text. */
+function norm(f: Synced, v: Cell | undefined, today: string): string {
+  if (f === 'confirmed') return v === true || /^(y|x|✓|✔|true)/i.test(text(v)) ? 'Y' : '';
+  if (f === 'paid') { const d = paidDate(v, today); return d ? DAY.format(d) : text(v); }
+  if (f === 'fee' && typeof v === 'string') { const n = Number(v.replace(/[$,\s]/g, '')); return v.trim() && Number.isFinite(n) ? String(n) : v.trim(); }
+  return text(v);
+}
 
-export function planSheetPush(grid: Cell[][], model: SheetModel): SheetEdits {
-  const out: SheetEdits = { cells: [], deletes: [], inserts: [], hubFills: [], counts: { matched: 0, added: 0, removed: 0, unknown: 0 } };
+const same = (f: Synced, a: string, b: string | undefined) =>
+  f === 'name' ? nameKey(a) === nameKey(b ?? '')
+    : f === 'section' ? sectionKey(a) === sectionKey(b ?? '')
+      : f === 'email' ? a.toLowerCase() === (b ?? '').toLowerCase()
+        : a === (b ?? '');
+
+/** May the sheet put this value into the Hub? */
+function valid(f: Synced, v: string, feeLocked: boolean | undefined, fee: string): boolean {
+  if (refusedCell(v)) return false;
+  if (f === 'name' || f === 'section') return v !== '';
+  if (f === 'seat') return v === '' || (/^\d+$/.test(v) && Number(v) >= 1);
+  if (f === 'fee') return !feeLocked && (v === '' || /^\d+(\.\d{1,2})?$/.test(v));
+  if (f === 'paid') return v === '' || Number(fee) > 0;
+  return true;
+}
+
+/** How a value is written into a cell. Display names are "First Last". */
+function display(f: Synced, v: string): Cell {
+  if ((f === 'seat' || f === 'fee') && v !== '' && Number.isFinite(Number(v))) return Number(v);
+  if (f === 'name' && v.includes(',')) return v.split(/\s*,\s*/).reverse().join(' ');
+  return v;
+}
+
+/** The Hub's player as text. */
+const hubVals = (p: SheetPlayer, today: string): Vals => ({
+  section: p.section, seat: p.seat == null ? '' : String(p.seat), name: p.name, email: p.email, phone: p.phone,
+  confirmed: p.saidYes ? 'Y' : '', fee: p.fee == null ? '' : String(p.fee), paid: norm('paid', p.paid, today),
+});
+
+export function planSheetSync(grid: Cell[][], model: SheetModel, opts: SyncOpts = {}): SheetEdits {
+  const { base, sheetAt = {} } = opts;
+  const today = opts.today ?? iso(new Date());
+  const out: SheetEdits = {
+    cells: [], deletes: [], inserts: [], hub: [], base: { players: {}, needed: {} },
+    counts: { matched: 0, added: 0, removed: 0, unknown: 0, fromSheet: 0, refused: 0, clashes: 0, restored: 0 },
+  };
   const h = grid.findIndex(r => r.some(c => fieldOf(text(c)) === 'name') && r.some(c => fieldOf(text(c)) === 'email'));
   if (h < 0) throw new Error('No header row with Name and Email.');
   const col: Partial<Record<Field, number>> = {};
@@ -156,70 +244,138 @@ export function planSheetPush(grid: Cell[][], model: SheetModel): SheetEdits {
   }
   const flat = !blocks.length;
   if (flat && col.section == null) throw new Error('The tab needs a Section column, or a header row per section.');
-  /** The section a row sits in: its block, or its Section cell. */
-  const sectionOf = (r: number) => (flat ? sectionKey(text(at(r, 'section'))) : rowBlock[r]?.key ?? '');
+  /** The section a row sits in, as written: its block, or its Section cell. */
+  const label = (r: number) => (flat ? text(at(r, 'section')) : rowBlock[r]?.label ?? '');
+  const cellOf = (r: number, f: Synced) => (f === 'section' ? label(r) : norm(f, at(r, f), today));
 
   const byId = new Map(model.players.map(p => [p.id, p]));
+  const roster = new Map((model.roster ?? []).map(p => [p.id, p]));
   const paired = new Set<string>();
-  const firstMeeting = new Set<number>();
   const rowOf = new Map<string, number>();
+  const firstMeeting = new Set<number>();
+  const typedIn = new Map<number, { id: string; join: boolean }>();
+  const copies = new Set<number>();
+
   // Pass 1: rows that already carry a Hub ID.
   for (let r = h + 1; r < grid.length; r++) {
     const id = text(at(r, 'id'));
     if (!id) continue;
-    if (byId.has(id) && !paired.has(id)) { paired.add(id); rowOf.set(id, r); }
-    else { out.deletes.push(r); out.counts.removed++; }
+    if (byId.has(id)) {
+      if (paired.has(id)) copies.add(r); // a copied row: matched afresh below
+      else { paired.add(id); rowOf.set(id, r); }
+    } else if (base && !base.players[id] && roster.has(id) && text(at(r, 'name')) && label(r)) {
+      typedIn.set(r, { id, join: true }); paired.add(id); // a roster player's row pasted in
+    } else { out.deletes.push(r); out.counts.removed++; } // the Hub took them off
   }
-  // Pass 2: rows without one, matched once inside their own section.
+  // Pass 2: rows without one, matched once inside their own section; the
+  // rest are players typed into the sheet.
   for (let r = h + 1; r < grid.length; r++) {
-    if (text(at(r, 'id')) || !text(at(r, 'name')) || !sectionOf(r)) continue;
+    if ((text(at(r, 'id')) && !copies.has(r)) || typedIn.has(r)) continue;
+    const name = text(at(r, 'name'));
+    if (!name || !label(r)) { if (copies.has(r)) out.cells.push({ r, c: col.id, v: '' }); continue; }
     const email = text(at(r, 'email')).toLowerCase();
-    const cands = model.players.filter(p => !paired.has(p.id) && sectionKey(p.section) === sectionOf(r));
-    const hit = (usable(email) ? cands.filter(p => p.email.trim().toLowerCase() === email) : [])
-      .concat(cands.filter(p => nameKey(p.name) === nameKey(text(at(r, 'name')))));
-    const uniq = [...new Set(hit)];
-    if (uniq.length === 1) { paired.add(uniq[0].id); rowOf.set(uniq[0].id, r); firstMeeting.add(r); }
-    else out.counts.unknown++;
+    const cands = model.players.filter(p => !paired.has(p.id) && sectionKey(p.section) === sectionKey(label(r)));
+    const hit = [...new Set((usable(email) ? cands.filter(p => p.email.trim().toLowerCase() === email) : [])
+      .concat(cands.filter(p => nameKey(p.name) === nameKey(name))))];
+    if (hit.length === 1) { paired.add(hit[0].id); rowOf.set(hit[0].id, r); firstMeeting.add(r); continue; }
+    if (!opts.newId) { out.counts.unknown++; if (copies.has(r)) out.cells.push({ r, c: col.id, v: '' }); continue; }
+    const known = [...roster.values()].filter(p => !paired.has(p.id) && nameKey(p.name) === nameKey(name));
+    const id = known.length === 1 ? known[0].id : opts.newId();
+    typedIn.set(r, { id, join: known.length === 1 });
+    paired.add(id);
   }
 
-  // Rows to add, by section key. A player who moved section is a delete plus
-  // an add between blocks, and one cell (Section) in a flat table.
-  const adds = new Map<string, SheetPlayer[]>();
-  const add = (p: SheetPlayer) => { const k = sectionKey(p.section); adds.set(k, [...(adds.get(k) ?? []), p]); };
-  for (const hub of model.players) {
-    const r = rowOf.get(hub.id);
-    let p = hub;
-    if (r != null && firstMeeting.has(r)) {
-      const fill: SheetEdits['hubFills'][number] = { id: hub.id };
-      const email = text(at(r, 'email')), phone = text(at(r, 'phone'));
-      if (!hub.email && email && !TAX_ID.test(email)) fill.email = email;
-      if (!hub.phone && phone && !TAX_ID.test(phone)) fill.phone = phone;
-      if (!hub.saidYes && /^y/i.test(text(at(r, 'confirmed')))) fill.saidYes = true;
-      if (hub.seat == null && /^\d+$/.test(text(at(r, 'seat'))) && Number(text(at(r, 'seat'))) >= 1) fill.seat = Number(text(at(r, 'seat')));
-      if (Object.keys(fill).length > 1) {
-        out.hubFills.push(fill);
-        p = { ...hub, email: fill.email ?? hub.email, phone: fill.phone ?? hub.phone, seat: fill.seat ?? hub.seat, saidYes: hub.saidYes || Boolean(fill.saidYes) };
-      }
+  // Players the sheet no longer shows: deleted there, or new in the Hub.
+  const gone = model.players.filter(p => !paired.has(p.id) && base?.players[p.id]);
+  const offs = gone.filter(p => !p.offLocked);
+  out.counts.refused += gone.length - offs.length;
+  const restore = offs.length > MAX_SHEET_OFFS;
+  if (restore) out.counts.restored = offs.length;
+  else for (const p of offs) out.hub.push({ kind: 'off', id: p.id });
+
+  // A sort moves many rows across blocks at once: then the Hub keeps sections.
+  let moves = 0;
+  for (const [id, r] of rowOf) {
+    const b = base?.players[id];
+    if (b && !firstMeeting.has(r) && !same('section', label(r), b.section) && same('section', byId.get(id)!.section, b.section)) moves++;
+  }
+  const sorted = moves > MAX_SHEET_MOVES;
+
+  const merged = new Map<string, Vals>();
+  type Add = { id: string; v: Vals; carry?: Cell[] };
+  const adds = new Map<string, Add[]>();
+  const add = (x: Add) => { const k = sectionKey(x.v.section); adds.set(k, [...(adds.get(k) ?? []), x]); };
+
+  for (const p of model.players) {
+    const hv = hubVals(p, today);
+    const r = rowOf.get(p.id);
+    if (r == null) {
+      if (!offs.includes(p) || restore) { merged.set(p.id, hv); add({ id: p.id, v: hv }); }
+      continue;
     }
-    if (r == null) { add(p); continue; }
-    if (!flat && sectionOf(r) !== sectionKey(p.section)) { out.deletes.push(r); add(p); continue; }
+    const b = firstMeeting.has(r) ? undefined : base?.players[p.id];
+    const m = {} as Vals;
+    const write: Synced[] = [];
+    for (const f of SYNCED) {
+      if (f !== 'section' && col[f] == null) { m[f] = hv[f]; continue; } // no such column on this tab
+      const s = cellOf(r, f), hub = hv[f];
+      if (same(f, s, hub)) { m[f] = hub; continue; }
+      let sheetWins: boolean;
+      if (!b) sheetWins = hub === '' && s !== ''; // first meeting: the sheet fills what the Hub lacks
+      else if (same(f, s, b[f])) sheetWins = false; // only the Hub moved
+      else if (same(f, hub, b[f])) sheetWins = !(f === 'section' && sorted); // only the sheet moved
+      else { out.counts.clashes++; sheetWins = (sheetAt[p.id] ?? 0) > (p.hubAt ?? 0); }
+      if (sheetWins && !valid(f, s, p.feeLocked, m.fee)) { out.counts.refused++; sheetWins = false; }
+      if (sheetWins) {
+        m[f] = s;
+        out.hub.push({ kind: 'set', id: p.id, field: f, value: f === 'paid' ? (s ? iso(paidDate(at(r, 'paid'), today) ?? new Date(`${today}T00:00:00Z`)) : '') : s });
+      } else { m[f] = hub; write.push(f); }
+    }
+    merged.set(p.id, m);
     out.counts.matched++;
-    const want = rowValues(p);
-    for (const f of [...(flat ? ['section'] as const : []), 'seat', 'name', 'email', 'phone', 'confirmed', 'fee', 'paid', 'id'] as const) {
-      if (col[f] == null) continue;
-      const have = grid[r]?.[col[f]!];
-      const v = want[f] ?? '';
-      if (same(f, have, v)) continue;
-      if (firstMeeting.has(r) && text(v) === '' && text(have) !== '') continue;
-      out.cells.push({ r, c: col[f]!, v });
-    }
+    if (!flat && !same('section', label(r), m.section)) { out.deletes.push(r); add({ id: p.id, v: m, carry: grid[r] }); continue; }
+    for (const f of write) if (f !== 'section' || flat) out.cells.push({ r, c: col[f]!, v: display(f, m[f]) });
+    if (text(at(r, 'id')) !== p.id) out.cells.push({ r, c: col.id, v: p.id });
   }
 
-  const newRow = (p: SheetPlayer, label: string): Cell[] => {
-    const row: Cell[] = Array(width).fill('');
-    const v = rowValues(p);
-    for (const f of FIELDS) if (col[f] != null && v[f] != null) row[col[f]!] = v[f]!;
-    if (col.category != null) row[col.category] = label;
+  // Players typed into the sheet: their row is the record, minus what the Hub refuses.
+  for (const [r, { id, join }] of typedIn) {
+    const v = {} as Vals;
+    for (const f of SYNCED) {
+      let s = cellOf(r, f);
+      if (s !== '' && !valid(f, s, false, v.fee)) { out.counts.refused++; s = ''; if (f !== 'section') out.cells.push({ r, c: col[f]!, v: '' }); }
+      v[f] = s;
+    }
+    const d = v.paid ? paidDate(at(r, 'paid'), today) ?? new Date(`${today}T00:00:00Z`) : null;
+    out.hub.push({ kind: 'new', id, join, vals: v, paidOn: d ? iso(d) : '' });
+    merged.set(id, v);
+    if (text(at(r, 'id')) !== id) out.cells.push({ r, c: col.id, v: id });
+  }
+
+  // Chairs needed: per block, the same three-way question.
+  const neededOf = (c: Cell | undefined) => /^\s*\d*\s*\/\s*(\d+)\s*$/.exec(text(c))?.[1] ?? '';
+  const seatCol = col.seat ?? 1;
+  const needed = new Map<string, string>();
+  for (const s of model.sections) needed.set(sectionKey(s.name), s.needed == null ? '' : String(s.needed));
+  for (const bl of blocks) {
+    const s = neededOf(grid[bl.header]?.[seatCol]), hub = needed.get(bl.key), b = base?.needed[bl.key];
+    if (hub == null) {
+      // A section the sheet added: only once it holds a player or a count.
+      const named = grid.slice(bl.header + 1, bl.last + 1).some(r => text(r[col.name!]));
+      if (s || named) { out.hub.push({ kind: 'section', name: bl.label, needed: s }); needed.set(bl.key, s); }
+      continue;
+    }
+    if (s !== hub && (b == null ? hub === '' && s !== '' : s !== b && hub === b)) { out.hub.push({ kind: 'section', name: bl.label, needed: s }); needed.set(bl.key, s); }
+  }
+  const counted = new Map<string, number>();
+  for (const v of merged.values()) counted.set(sectionKey(v.section), (counted.get(sectionKey(v.section)) ?? 0) + 1);
+  const countOf = (k: string) => (needed.get(k) ? `${counted.get(k) ?? 0}/${needed.get(k)}` : '');
+
+  const newRow = ({ id, v, carry }: Add, blockLabel: string): Cell[] => {
+    const row: Cell[] = carry ? Array.from({ length: width }, (_, i) => carry[i] ?? '') : Array(width).fill('');
+    for (const f of SYNCED) if (col[f] != null) row[col[f]!] = display(f, v[f]);
+    row[col.id!] = id;
+    if (col.category != null) row[col.category] = blockLabel;
     return row;
   };
   if (flat) {
@@ -228,47 +384,46 @@ export function planSheetPush(grid: Cell[][], model: SheetModel): SheetEdits {
     const tail: Cell[][] = [];
     for (const k of order) {
       const list = adds.get(k)!;
-      const rows = list.map(p => newRow(p, p.section));
+      const rows = list.map(x => newRow(x, x.v.section));
       let last = -1;
-      for (let r = h + 1; r < grid.length; r++) if (sectionOf(r) === k && text(at(r, 'name'))) last = r;
+      for (let r = h + 1; r < grid.length; r++) if (sectionKey(label(r)) === k && text(at(r, 'name'))) last = r;
       if (last >= 0) out.inserts.push({ after: last, rows }); else tail.push(...rows);
       out.counts.added += list.length;
     }
     if (tail.length) out.inserts.push({ after: lastData, rows: tail });
-    return out;
+  } else {
+    for (const b of blocks) {
+      const list = adds.get(b.key) ?? [];
+      if (list.length) { out.inserts.push({ after: b.last, rows: list.map(x => newRow(x, b.label)) }); out.counts.added += list.length; }
+      adds.delete(b.key);
+      const want = countOf(b.key);
+      if (want && text(grid[b.header]?.[seatCol]) !== want) out.cells.push({ r: b.header, c: seatCol, v: want });
+    }
+    // Sections with no block yet: a new block at the end, in the concert's order.
+    const end = Math.max(h, ...blocks.map(b => b.last));
+    const tail: Cell[][] = [];
+    const order = [...model.sections.map(s => sectionKey(s.name)), ...adds.keys()];
+    for (const k of [...new Set(order)].filter(x => adds.has(x))) {
+      const list = adds.get(k)!;
+      const label0 = model.sections.find(x => sectionKey(x.name) === k)?.name ?? list[0].v.section;
+      const head: Cell[] = Array(width).fill('');
+      head[0] = label0;
+      if (countOf(k)) head[seatCol] = countOf(k);
+      tail.push(head, ...list.map(x => newRow(x, label0)));
+      out.counts.added += list.length;
+    }
+    if (tail.length) out.inserts.push({ after: end, rows: tail });
   }
-  const count = (s: { name: string; needed?: number }) =>
-    `${model.players.filter(p => sectionKey(p.section) === sectionKey(s.name)).length}/${s.needed}`;
-  const seatCol = col.seat ?? 1;
-  for (const b of blocks) {
-    const list = adds.get(b.key) ?? [];
-    if (list.length) { out.inserts.push({ after: b.last, rows: list.map(p => newRow(p, b.label)) }); out.counts.added += list.length; }
-    adds.delete(b.key);
-    const s = model.sections.find(x => sectionKey(x.name) === b.key);
-    if (s?.needed != null && text(grid[b.header]?.[seatCol]) !== count(s)) out.cells.push({ r: b.header, c: seatCol, v: count(s) });
-  }
-  // Sections with no block yet: a new block at the end, in the concert's order.
-  const end = Math.max(h, ...blocks.map(b => b.last));
-  const tail: Cell[][] = [];
-  const order = [...model.sections.map(s => sectionKey(s.name)), ...adds.keys()];
-  for (const k of [...new Set(order)].filter(x => adds.has(x))) {
-    const list = adds.get(k)!;
-    const s = model.sections.find(x => sectionKey(x.name) === k);
-    const label = s?.name ?? list[0].section;
-    const head: Cell[] = Array(width).fill('');
-    head[0] = label;
-    if (s?.needed != null) head[seatCol] = count(s);
-    tail.push(head, ...list.map(p => newRow(p, label)));
-    out.counts.added += list.length;
-  }
-  if (tail.length) out.inserts.push({ after: end, rows: tail });
+
+  out.counts.fromSheet = out.hub.length;
+  out.base = { players: Object.fromEntries(merged), needed: Object.fromEntries(needed) };
   return out;
 }
 
 /** The row edits in the order they must be sent: deepest row first, so an
  *  earlier edit never moves a row a later one points at. Cell writes go
  *  before any of these (they use the rows as read). */
-export function rowOps(e: SheetEdits): ({ kind: 'delete'; r: number } | { kind: 'insert'; after: number; rows: Cell[][] })[] {
+export function rowOps(e: Pick<SheetEdits, 'deletes' | 'inserts'>): ({ kind: 'delete'; r: number } | { kind: 'insert'; after: number; rows: Cell[][] })[] {
   return [
     ...e.deletes.map(r => ({ kind: 'delete' as const, r, k: r })),
     ...e.inserts.map(i => ({ kind: 'insert' as const, after: i.after, rows: i.rows, k: i.after + 0.5 })),
@@ -276,7 +431,7 @@ export function rowOps(e: SheetEdits): ({ kind: 'delete'; r: number } | { kind: 
 }
 
 /** What the sheet looks like after the edits: the self-check's stand-in for Google. */
-export function applyEdits(grid: Cell[][], e: SheetEdits): Cell[][] {
+export function applyEdits(grid: Cell[][], e: Pick<SheetEdits, 'cells' | 'deletes' | 'inserts'>): Cell[][] {
   const g = grid.map(r => [...r]);
   for (const { r, c, v } of e.cells) { while (g[r].length <= c) g[r].push(''); g[r][c] = v; }
   for (const op of rowOps(e)) {

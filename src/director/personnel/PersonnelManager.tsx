@@ -579,9 +579,10 @@ function AddRow({ concert, section, usualFeeCents, onAdd, onDone }: {
 
 /** "Link the personnel sheet": paste the address of the TAB (open it first,
  *  so the address ends in #gid=…). The tab is registered by that gid, never
- *  its name, so renaming it later is harmless. The Hub then writes its
- *  changes there (functions/src/sheetPush.ts). The sheet must be shared, as an
- *  Editor, with the Hub's service account. */
+ *  its name, so renaming it later is harmless. The Hub and the tab then keep
+ *  each other up to date (functions/src/sheetPush.ts). The sheet must be
+ *  shared, as an Editor, with the Hub's service account, and carry the
+ *  workbook script (docs/aiso-sheet-sync.gs) for its edits to reach the Hub. */
 function SheetLink({ link, onLink }: {
   link?: SheetLinkDoc;
   onLink: (tab: { spreadsheetId: string; sheetId: number } | null) => Promise<void>;
@@ -595,7 +596,7 @@ function SheetLink({ link, onLink }: {
   const when = status ? new Date(status.at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
   if (link && !open) return (
     <div className="pm-sheet">
-      <span><b>Linked to a Google Sheet</b>{status?.tab ? ` (tab “${status.tab}”)` : ''}. {status ? <span className={status.ok ? '' : 'pm-sheet-bad'}>{when}: {status.note}</span> : 'Waiting for the first write.'}</span>
+      <span><b>Linked to a Google Sheet</b>{status?.tab ? ` (tab “${status.tab}”)` : ''}. {status ? <span className={status.ok ? '' : 'pm-sheet-bad'}>{when}: {status.note}</span> : 'Waiting for the first sync.'}</span>
       <button className="dir-tool-btn" onClick={() => setOpen(true)}>Change tab</button>
       <button className="dir-tool-btn" onClick={() => { void onLink(null); }}>Unlink</button>
     </div>
@@ -607,7 +608,7 @@ function SheetLink({ link, onLink }: {
       <button className="dir-btn dir-btn-primary" disabled={!spreadsheetId || !gid}>Link</button>
       <button type="button" className="dir-tool-btn" onClick={() => setOpen(false)}>Cancel</button>
       <p className="pc-note">
-        Open the tab in Google Sheets and copy the address bar: it ends in “#gid=” and a number, which is how the Hub knows the tab even if it is renamed. Share the sheet (Editor) with the Hub's service account first.
+        Open the tab in Google Sheets and copy the address bar: it ends in “#gid=” and a number, which is how the Hub knows the tab even if it is renamed. Share the sheet (Editor) with the Hub's service account first. For edits made in the sheet to reach the Hub, the workbook also needs the AISO Hub script (Extensions, Apps Script; then AISO Hub, Connect).
         {url && !spreadsheetId ? ' That does not look like a Google Sheets address.' : url && !gid ? ' That address does not say which tab: open the tab, then copy the address again.' : ''}
       </p>
     </form>

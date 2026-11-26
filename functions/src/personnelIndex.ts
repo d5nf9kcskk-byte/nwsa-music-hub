@@ -17,7 +17,8 @@
  *                   tracked broadcasts, their delivery status, and the office
  *                   threads (memberMessages.ts, #messages).
  *   sheetPush*      the Hub's roster changes, written into each Google Sheet
- *                   tab registered in sheetLinks (sheetPush.ts, #aiso-personnel).
+ *   sheetEdited     tab registered in sheetLinks, and the sheet's edits
+ *                   written into the Hub (sheetPush.ts, #aiso-personnel).
  *
  * Mail the Hub sends (the invitation, "a password was just set") is a `mail`
  * doc; the Trigger Email extension (firebase.json "extensions") sends it.
@@ -25,7 +26,7 @@
  * student mail, push and the drafter are the school's.
  */
 import { https, firestore } from 'firebase-functions/v1';
-import { pushAll, pushLink, onlyStatusChanged } from './sheetPush.ts';
+import { pushAll, pushLink, onlyStatusChanged, ring, doorbellCaller, stamp } from './sheetPush.ts';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { getAppCheck } from 'firebase-admin/app-check';
@@ -42,11 +43,16 @@ export { bindGoogle } from './index.ts';
 // Messages to players (#messages): tracked broadcasts, office threads.
 export { memberMailSend, memberMailStatus, officeMessageSent } from './memberMessages.ts';
 
-// Hub → Google Sheet tabs (#aiso-personnel step 3, sheetPush.ts): only tabs
-// registered in sheetLinks sync. Any write to the paid roster re-plans every
-// registered tab; a registry write re-plans its own tab, unless all it did was
-// stamp the status line (ours).
-const rosterWrite = (path: string) => firestore.document(path).onWrite(() => pushAll(getFirestore()));
+// Hub ⇄ Google Sheet tabs (#aiso-personnel steps 3 and 4, sheetPush.ts): only
+// tabs registered in sheetLinks sync. Any write to the paid roster runs a pass
+// for every registered tab, except a write a pass made itself (its echo); a
+// registry write runs its own tab, unless all it did was stamp the status line
+// (ours). The sheet's side rings `sheetEdited` below.
+const rosterWrite = (path: string) => firestore.document(path).onWrite(change =>
+  pushAll(getFirestore(), {
+    path: (change.after.exists ? change.after : change.before).ref.path,
+    stamp: change.after.exists && change.after.updateTime ? stamp(change.after.updateTime) : 'deleted',
+  }));
 export const sheetPushPersonnel = rosterWrite('personnel/{id}');
 export const sheetPushContacts = rosterWrite('personnelContacts/{id}');
 export const sheetPushContracts = rosterWrite('contracts/{id}');
@@ -54,6 +60,33 @@ export const sheetPushPayments = rosterWrite('payments/{id}');
 export const sheetPushConcert = rosterWrite('concertPersonnel/{id}');
 export const sheetPushLink = firestore.document('sheetLinks/{id}').onWrite((change, ctx) =>
   !change.after.exists || onlyStatusChanged(change.before.data(), change.after.data()) ? null : pushLink(getFirestore(), ctx.params.id));
+
+/**
+ * The workbook's doorbell (#aiso-personnel step 4). The Apps Script in the
+ * personnel manager's workbook (docs/aiso-sheet-sync.gs) POSTs here on every
+ * edit, paste, row insert or delete, and every five minutes:
+ *   { spreadsheetId, sheetId?, ids? }   Bearer = the script's own Google token
+ * The caller must be a verified Owner or Director. The body only says WHICH
+ * workbook (and tab) changed and which Hub ids sat on the edited rows; the
+ * pass re-reads the real sheet itself. Answers { ok, notes } (status lines).
+ */
+export const sheetEdited = https.onRequest(async (req, res) => {
+  const refuse = (status: number, message: string) => { res.status(status).json({ ok: false, message }); };
+  if (req.method !== 'POST') { refuse(405, 'POST only.'); return; }
+  const db = getFirestore();
+  if (!(await doorbellCaller(db, bearer(req)).catch(() => null))) { refuse(401, 'Only an Owner or Director of the Hub can connect a sheet. Run "Connect" again while signed in as one.'); return; }
+  const { spreadsheetId, sheetId, ids } = (req.body ?? {}) as { spreadsheetId?: unknown; sheetId?: unknown; ids?: unknown };
+  const okIds = Array.isArray(ids) ? ids.filter((x): x is string => typeof x === 'string' && /^[A-Za-z0-9]{10,40}$/.test(x)).slice(0, 500) : [];
+  if (typeof spreadsheetId !== 'string' || !/^[\w-]{20,100}$/.test(spreadsheetId)) { refuse(400, 'Which workbook?'); return; }
+  if (sheetId != null && !(Number.isInteger(sheetId) && (sheetId as number) >= 0)) { refuse(400, 'Which tab?'); return; }
+  try {
+    const notes = await ring(db, spreadsheetId, (sheetId as number | undefined) ?? null, okIds);
+    res.status(200).json({ ok: true, notes });
+  } catch (err) {
+    console.error('sheetEdited failed:', (err as { code?: unknown } | null)?.code ?? 'unknown');
+    refuse(500, 'That did not work on our side. The Hub catches up on the next change.');
+  }
+});
 
 type Req = Parameters<Parameters<typeof https.onRequest>[0]>[0];
 type Res = Parameters<Parameters<typeof https.onRequest>[0]>[1];
