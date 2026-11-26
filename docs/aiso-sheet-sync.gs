@@ -82,22 +82,20 @@ function connectThisTab() {
     return list.map(function (x) { return '<option value="' + esc(x.id) + '"' + (x.id === pick ? ' selected' : '') + '>' + esc(x.label) + '</option>'; }).join('');
   };
   var cur = got.current || {};
-  var html = '<style>body{font:14px Arial,sans-serif}label{display:block;margin:12px 0 4px}select{width:100%;padding:4px}button{margin:16px 8px 0 0}</style>'
+  // Connect posts to the Hub from the pop-up itself, with this person's own
+  // short-lived Google token: google.script.run fails (PERMISSION_DENIED) in
+  // any browser with several Google accounts signed in.
+  var send = JSON.stringify({ url: HUB, token: ScriptApp.getOAuthToken(), body: { spreadsheetId: book_().getId(), action: 'connect', sheetId: sheetId } }).replace(/</g, '\\u003c');
+  var html ='<style>body{font:14px Arial,sans-serif}label{display:block;margin:12px 0 4px}select{width:100%;padding:4px}button{margin:16px 8px 0 0}</style>'
     + '<label for="k">What is this tab?</label><select id="k">' + options(got.kinds, cur.kind) + '</select>'
     + '<label for="c">Which concert?</label><select id="c">' + options(got.concerts, cur.concertId) + '</select>'
     + '<p id="m" role="status"></p><button id="go">Connect</button><button onclick="google.script.host.close()">Close</button>'
-    + '<script>var m=document.getElementById("m"),b=document.getElementById("go");b.onclick=function(){b.disabled=true;m.textContent="Connecting…";'
-    + 'google.script.run.withSuccessHandler(function(t){m.textContent=t;b.style.display="none";})'
-    + '.withFailureHandler(function(e){m.textContent=e.message;b.disabled=false;})'
-    + '.connectTabTo(' + sheetId + ',document.getElementById("k").value,document.getElementById("c").value);};</script>';
+    + '<script>var S=' + send + ',m=document.getElementById("m"),b=document.getElementById("go");b.onclick=function(){b.disabled=true;m.textContent="Connecting…";'
+    + 'S.body.kind=document.getElementById("k").value;S.body.concertId=document.getElementById("c").value;'
+    + 'fetch(S.url,{method:"POST",headers:{Authorization:"Bearer "+S.token,"Content-Type":"application/json"},body:JSON.stringify(S.body)})'
+    + '.then(function(r){return r.json();}).then(function(o){if(!o.ok)throw new Error(o.message||"The Hub said no.");m.textContent=o.message;b.style.display="none";})'
+    + '.catch(function(e){m.textContent=e instanceof TypeError?"Could not reach the Hub. Try again.":e.message;b.disabled=false;});};</script>';
   ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(440).setHeight(280), 'Connect “' + got.tab + '” to the Hub');
-}
-
-/** The dialog's Connect button. */
-function connectTabTo(sheetId, kind, concertId) {
-  var got = call_({ action: 'connect', sheetId: sheetId, kind: kind, concertId: concertId });
-  if (!got.ok) throw new Error(got.message);
-  return got.message;
 }
 
 function idsIn_(sheet, range) {

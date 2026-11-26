@@ -77,6 +77,20 @@ export const sheetPushLink = firestore.document('sheetLinks/{id}').onWrite((chan
  */
 export const sheetEdited = https.onRequest(async (req, res) => {
   const refuse = (status: number, message: string) => { res.status(status).json({ ok: false, message }); };
+  // The Connect pop-up calls here from its own page, because Google's
+  // google.script.run runs as the wrong account when a browser has several
+  // signed in (PERMISSION_DENIED). Access is the bearer token, so letting that
+  // page's origin read the answer opens nothing else.
+  if (/^https:\/\/[a-z0-9-]+-script\.googleusercontent\.com$/.test(req.get('origin') ?? '')) {
+    res.set('Access-Control-Allow-Origin', req.get('origin')!);
+    res.set('Vary', 'Origin');
+    if (req.method === 'OPTIONS') {
+      res.set('Access-Control-Allow-Methods', 'POST');
+      res.set('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+      res.status(204).send('');
+      return;
+    }
+  }
   if (req.method !== 'POST') { refuse(405, 'POST only.'); return; }
   const db = getFirestore();
   const caller = await doorbellCaller(db, bearer(req)).catch(() => null);

@@ -216,6 +216,19 @@ Grant's "Step 4 in the sheet" (below, Tab-per-area decisions), built:
   tab moves it here, and the window says the other tab stopped syncing.
   Sheet1 and the Hub tab are refused. The menu exists only when the script is
   inside the workbook: Google lets no standalone script add a menu.
+  The Connect button posts to `sheetEdited` from the window's own page (the
+  token rides in the window), never through `google.script.run`: that fails
+  with PERMISSION_DENIED in any browser with several Google accounts signed
+  in (found live 2026-11-26). So `sheetEdited` answers CORS for
+  `*-script.googleusercontent.com` origins only; the bearer token is still
+  the whole of its access control.
+- **Putting the script inside the workbook when Extensions → Apps Script
+  fails** (the same several-accounts bug, "Page Not Found"): with the AISO
+  account's Apps Script API setting on, a standalone helper can create the
+  attached project through the Apps Script API (`projects.create` with
+  `parentId`, then `updateContent`), sending `x-goog-user-project:
+  aisymphony-hub` because a script's own default cloud project cannot have
+  that API switched on. Done this way on the test copy, 2026-11-26.
 - **The "Hub" tab.** After every pass the Hub rewrites one tab of the
   workbook: each connected tab, its concert, its last sync, what happened,
   and under it one line per row to look at ("Row 12: Seat takes a chair
