@@ -82,8 +82,8 @@ export const sheetEdited = https.onRequest(async (req, res) => {
   try {
     const notes = await ring(db, spreadsheetId, (sheetId as number | undefined) ?? null, okIds);
     res.status(200).json({ ok: true, notes });
-  } catch (err) {
-    console.error('sheetEdited failed:', (err as { code?: unknown } | null)?.code ?? 'unknown');
+  } catch {
+    // Nothing logged: a pass's failure is on the link's status line, and a log would be public to the project.
     refuse(500, 'That did not work on our side. The Hub catches up on the next change.');
   }
 });
