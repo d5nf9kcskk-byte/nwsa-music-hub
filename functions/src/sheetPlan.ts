@@ -447,7 +447,7 @@ export function planSheetSync(grid: Cell[][], model: SheetModel, opts: SyncOpts 
 /** The row edits in the order they must be sent: deepest row first, so an
  *  earlier edit never moves a row a later one points at. Cell writes go
  *  before any of these (they use the rows as read). */
-export function rowOps(e: Pick<SheetEdits, 'deletes' | 'inserts'>): ({ kind: 'delete'; r: number } | { kind: 'insert'; after: number; rows: Cell[][] })[] {
+export function rowOps<T = Cell>(e: { deletes: number[]; inserts: { after: number; rows: T[][] }[] }): ({ kind: 'delete'; r: number } | { kind: 'insert'; after: number; rows: T[][] })[] {
   return [
     ...e.deletes.map(r => ({ kind: 'delete' as const, r, k: r })),
     ...e.inserts.map(i => ({ kind: 'insert' as const, after: i.after, rows: i.rows, k: i.after + 0.5 })),
@@ -455,9 +455,9 @@ export function rowOps(e: Pick<SheetEdits, 'deletes' | 'inserts'>): ({ kind: 'de
 }
 
 /** What the sheet looks like after the edits: the self-check's stand-in for Google. */
-export function applyEdits(grid: Cell[][], e: Pick<SheetEdits, 'cells' | 'deletes' | 'inserts'>): Cell[][] {
+export function applyEdits<T = Cell>(grid: T[][], e: { cells: { r: number; c: number; v: T }[]; deletes: number[]; inserts: { after: number; rows: T[][] }[] }): T[][] {
   const g = grid.map(r => [...r]);
-  for (const { r, c, v } of e.cells) { while (g[r].length <= c) g[r].push(''); g[r][c] = v; }
+  for (const { r, c, v } of e.cells) { while (g.length <= r) g.push([]); while (g[r].length <= c) g[r].push('' as T); g[r][c] = v; }
   for (const op of rowOps(e)) {
     if (op.kind === 'delete') g.splice(op.r, 1);
     else g.splice(op.after + 1, 0, ...op.rows.map(x => [...x]));

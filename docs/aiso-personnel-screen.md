@@ -290,8 +290,11 @@ Grant's "Step 4 in the sheet" (below, Tab-per-area decisions), built:
    AISO account only. A standalone project (the AISO account's
    script.google.com → New project, paste, put the workbook's address in
    `WORKBOOK`, Save, run `connect`) syncs too, but has no menu.
-5. Connect each concert's tab: open it, AISO Hub → Connect this tab… (or
-   step 3 in Personnel).
+5. Connect each tab: open it, AISO Hub → Connect this tab… and choose what
+   it is (a concert's players, Musicians, or a season's Schedule). A
+   concert's tab can also be linked from Personnel (step 3). After the
+   2026-11-26 update, paste the new `docs/aiso-sheet-sync.gs` over the old
+   one so the window offers the new kinds.
 
 Proven live on 2026-11-26 on Grant's test copy (a "Sync test" tab of three
 made-up players, linked to a throwaway past-dated concert): an email typed
@@ -305,13 +308,83 @@ any pass, a second pass changes nothing on either side") and
 Firestore emulator and a fake Sheets server: both directions, echo skip, the
 doorbell's caller check, refusals, row deletes, Google's refusals in words).
 
+## Musicians and Schedule tabs (2026-11-26)
+
+Grant asked on 2026-11-26 to start the next two areas, and decided how they
+behave the same day. Both are a FLAT tab: one row per Hub record, one column
+per field, the same hidden Hub ID column and the same three-way rule as the
+concert roster (whichever side moved away from what both last agreed made
+the edit; both moved = the later edit wins). Planner:
+`functions/src/sheetTable.ts` (pure, both tabs' columns as `TableSpec`s);
+Hub side: `functions/src/sheetAreas.ts`; engine: `sheetPush.ts`, unchanged
+in shape (`ADAPTERS` became `areaFor()` beside the concert roster).
+
+- **Musicians** (`sheetLinks/musicians__roster`, one tab for the
+  orchestra): every person on the roster, Contracted, Sub list and Inactive.
+  Columns, found by their heading words: Name, Instrument, Section, Seat,
+  Status, Email, Phone. Nothing from the pay tier (notes, how they are paid,
+  the pay handle) is ever read or written. **A deleted row comes back**
+  (Grant): a player leaves by setting Status to Inactive, never by losing
+  their row, because their contracts point at them. A row typed in is a new
+  player, Contracted unless the row says otherwise, on the orchestra.
+- **Schedule** (`sheetLinks/schedule__2026-27`, one tab per season). **A
+  season is Aug 1 to Jul 31** (Grant), named like "2026-27". **Every event**
+  dated in it is on the tab (Grant): concerts, rehearsals, sectionals and
+  the rest. Columns: Date, Start, End, Title, Type, Location, Status. Dates
+  and times are written as real Sheets dates and times ("Sun, Dec 13, 2026",
+  "7:30 PM"), so the tab sorts; typed "Dec 13", "12/13", "7pm" are read, and
+  a date with no year takes the season's. **A deleted row makes the event
+  Cancelled** (Grant), and the row comes back reading Cancelled; typing
+  Scheduled into Status brings it back. Every sheet edit that moves a date,
+  time, room or status leaves the app's own change receipt
+  (`changeReceipt()`, imported from `changePlan.ts`), so "Back to normal"
+  works on it. A row typed in is a new event (Rehearsal and Scheduled unless
+  the row says otherwise) on the orchestra. An event deleted in the Hub
+  loses its row; one moved into another season moves to that season's tab.
+- **Both**: an EMPTY tab is filled by the Hub, headings first. A row
+  without a Hub ID is matched once (by name; by date, start and title); a
+  row matching two records, or repeating one already on the tab, is left
+  alone and listed. Refused and put back: a tax ID's shape, a word in Seat,
+  a status or type the Hub does not have, a date outside the season, a time
+  it cannot read. More than 5 rows vanishing at once is an accident: they
+  come back and nothing changes in the Hub. Columns the Hub does not know
+  are never read or written.
+- **What wakes a pass**: the same doorbell, and any Hub write to the roster
+  (Musicians) or to `events` (Schedule; a new trigger, `sheetPushEvents`).
+- **Connect this tab…** now asks what the tab is (a concert's players,
+  Musicians, a season's Schedule); a concert asks which concert, a Schedule
+  asks which season (last season, this one and the next two), Musicians
+  asks nothing. The Hub tab names each ("Musicians: the roster and sub
+  list", "Schedule: the 2026-27 season (Aug 1, 2026 to Jul 31, 2027)").
+- **Rules**: `/sheetLinks` takes one shape per kind (the doc id must be
+  `concertRoster__<event>`, `musicians__roster` or `schedule__<season>`);
+  `firestore.aiso.rules` regenerated. Cases in
+  `personnel-rules.emulator-check.mjs`.
+- **The AISO functions build now defines the org config** (`build-org.mjs`):
+  `changePlan.ts`'s imports read it at load. Moving the receipt into its own
+  module instead would have changed the school's site bytes, so it was not
+  done. The school's functions bundle is untouched (it never imports
+  `sheetAreas.ts`).
+
+Proof: `functions/src/sheetTable.selfcheck.ts` (both tabs: first pass, a
+second pass changes nothing, one edit each way, a clash, rows added and
+deleted, refusals, a mass delete, an empty tab) and
+`scripts/sheet-tabs.emulator-proof.mjs` (the real engine, emulator, fake
+Sheets: the menu, first passes, both directions, the change receipt, echo
+skip, rows, refusals, the Hub tab, Sheet1 untouched). Both emulator proofs
+now run under `npx tsx --import ./scripts/vite-defines-shim.mjs`.
+
+Not live yet: deploying the functions, the rules and the new workbook
+script to `aisymphony-hub` waits for Grant's yes.
+
 ## Tab-per-area decisions (Grant, 2026-11-25: "Yes, A + defaults")
 
 - **A**: tabs are linked through the `sheetLinks` registry, by tab id, with
   one engine and one adapter per area (built in step 3).
 - **Next areas**, after the concert roster is live (steps 4 and 5) and nothing
   else until Grant asks: Musicians (master roster and sub list, one tab for
-  the orchestra) and Schedule (calendar, one tab per season).
+  the orchestra) and Schedule (calendar, one tab per season). Both built
+  2026-11-26 (above, "Musicians and Schedule tabs").
 - **Who may connect a tab**: anyone who can edit the workbook.
 - **Payments** are edited only through the roster's Paid column. A Payments
   ledger tab, if one is ever built, is Hub → sheet only.

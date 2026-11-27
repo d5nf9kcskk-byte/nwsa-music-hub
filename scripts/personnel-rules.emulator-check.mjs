@@ -107,6 +107,18 @@ for (const who of ['owner', 'director']) {
   await expect(`${who} cannot link a concert that does not exist`, 'deny', call(who, 'PATCH', '/sheetLinks/concertRoster__no-such-event', { ...link, concertId: 'no-such-event' }));
   await expect(`${who} cannot add a key to a link`, 'deny', call(who, 'PATCH', '/sheetLinks/concertRoster__concert-1', { ...link, tabName: 'Roster' }));
   await expect(`${who} unlinks (delete)`, 'allow', call(who, 'DELETE', '/sheetLinks/concertRoster__concert-1'));
+  // The flat tabs (#aiso-personnel, Musicians and Schedule): one shape per kind.
+  const flat = { spreadsheetId: link.spreadsheetId, sheetId: 77 };
+  await expect(`${who} registers the Musicians tab`, 'allow', call(who, 'PATCH', '/sheetLinks/musicians__roster', { ...flat, kind: 'musicians' }));
+  await expect(`${who} cannot file Musicians under another id`, 'deny', call(who, 'PATCH', '/sheetLinks/musicians__other', { ...flat, kind: 'musicians' }));
+  await expect(`${who} cannot give the Musicians tab a concert`, 'deny', call(who, 'PATCH', '/sheetLinks/musicians__roster', { ...flat, kind: 'musicians', concertId: 'concert-1' }));
+  await expect(`${who} registers a season's Schedule tab`, 'allow', call(who, 'PATCH', '/sheetLinks/schedule__2026-27', { ...flat, kind: 'schedule', season: '2026-27' }));
+  await expect(`${who} cannot file a season under another season's id`, 'deny', call(who, 'PATCH', '/sheetLinks/schedule__2027-28', { ...flat, kind: 'schedule', season: '2026-27' }));
+  await expect(`${who} cannot name a season in words`, 'deny', call(who, 'PATCH', '/sheetLinks/schedule__this-year', { ...flat, kind: 'schedule', season: 'this-year' }));
+  await expect(`${who} cannot register a Schedule tab with no season`, 'deny', call(who, 'PATCH', '/sheetLinks/schedule__', { ...flat, kind: 'schedule' }));
+  await expect(`${who} cannot put a season on a concert's tab`, 'deny', call(who, 'PATCH', '/sheetLinks/concertRoster__concert-1', { ...link, season: '2026-27' }));
+  await expect(`${who} unlinks a Schedule tab`, 'allow', call(who, 'DELETE', '/sheetLinks/schedule__2026-27'));
+  await expect(`${who} unlinks the Musicians tab`, 'allow', call(who, 'DELETE', '/sheetLinks/musicians__roster'));
   await expect(`${who} cannot store 301 said-yes ids`, 'deny', call(who, 'PATCH', '/concertPersonnel/concert-1', { saidYes: Array.from({ length: 301 }, (_, i) => `p${i}`) }));
 }
 await expect('director deletes a concert link', 'allow', call('director', 'DELETE', '/concertPersonnel/concert-1'));
@@ -120,6 +132,8 @@ for (const who of ['teacher', 'unlisted', 'nobody']) {
   await expect(`${who} cannot read a concert's link`, 'deny', call(who, 'GET', '/concertPersonnel/concert-1'));
   await expect(`${who} cannot read the sheet registry`, 'deny', call(who, 'GET', '/sheetLinks/concertRoster__concert-1'));
   await expect(`${who} cannot register a tab`, 'deny', call(who, 'PATCH', '/sheetLinks/concertRoster__concert-1', link));
+  await expect(`${who} cannot register the Musicians tab`, 'deny', call(who, 'PATCH', '/sheetLinks/musicians__roster', { spreadsheetId: link.spreadsheetId, sheetId: 77, kind: 'musicians' }));
+  await expect(`${who} cannot register a Schedule tab`, 'deny', call(who, 'PATCH', '/sheetLinks/schedule__2026-27', { spreadsheetId: link.spreadsheetId, sheetId: 77, kind: 'schedule', season: '2026-27' }));
   await expect(`${who} cannot change who said yes`, 'deny', call(who, 'PATCH', '/concertPersonnel/concert-1', { saidYes: ['p9'] }));
   await expect(`${who} cannot delete a concert link`, 'deny', call(who, 'DELETE', '/concertPersonnel/concert-1'));
 }

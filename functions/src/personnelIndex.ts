@@ -16,9 +16,10 @@
  *   memberMailSend / memberMailStatus / officeMessageSent
  *                   tracked broadcasts, their delivery status, and the office
  *                   threads (memberMessages.ts, #messages).
- *   sheetPush*      the Hub's roster changes, written into each Google Sheet
- *   sheetEdited     tab registered in sheetLinks, and the sheet's edits
- *                   written into the Hub (sheetPush.ts, #aiso-personnel).
+ *   sheetPush*      the Hub's roster and calendar changes, written into each
+ *   sheetEdited     Google Sheet tab registered in sheetLinks (a concert's
+ *                   players, Musicians, a season's Schedule), and the sheet's
+ *                   edits written into the Hub (sheetPush.ts, #aiso-personnel).
  *
  * Mail the Hub sends (the invitation, "a password was just set") is a `mail`
  * doc; the Trigger Email extension (firebase.json "extensions") sends it.
@@ -58,6 +59,8 @@ export const sheetPushContacts = rosterWrite('personnelContacts/{id}');
 export const sheetPushContracts = rosterWrite('contracts/{id}');
 export const sheetPushPayments = rosterWrite('payments/{id}');
 export const sheetPushConcert = rosterWrite('concertPersonnel/{id}');
+// The Schedule tab (and a concert tab's date) follows the calendar.
+export const sheetPushEvents = rosterWrite('events/{id}');
 export const sheetPushLink = firestore.document('sheetLinks/{id}').onWrite((change, ctx) =>
   linkChanged(getFirestore(), ctx.params.id, change.before.data(), change.after.data()));
 
@@ -71,8 +74,8 @@ export const sheetPushLink = firestore.document('sheetLinks/{id}').onWrite((chan
  * pass re-reads the real sheet itself. Answers { ok, notes } (status lines).
  *
  * The workbook's "AISO Hub → Connect this tab…" menu uses the same door:
- *   { action: 'choices', spreadsheetId, sheetId }   → { ok, tab, kinds, concerts, current }
- *   { action: 'connect', spreadsheetId, sheetId, kind, concertId } → { ok, message }
+ *   { action: 'choices', spreadsheetId, sheetId }   → { ok, tab, kinds, concerts, seasons, current }
+ *   { action: 'connect', spreadsheetId, sheetId, kind, concertId?, season? } → { ok, message }
  * (sheetPush.ts connectChoices / connectTab.)
  */
 export const sheetEdited = https.onRequest(async (req, res) => {
@@ -102,10 +105,10 @@ export const sheetEdited = https.onRequest(async (req, res) => {
   const action = (req.body as { action?: unknown }).action;
   if (action === 'choices' || action === 'connect') {
     if (sheetId == null) { refuse(400, 'Which tab?'); return; }
-    const { kind, concertId } = req.body as { kind?: unknown; concertId?: unknown };
+    const { kind, concertId, season } = req.body as { kind?: unknown; concertId?: unknown; season?: unknown };
     try {
       if (action === 'choices') res.status(200).json({ ok: true, ...(await connectChoices(db, spreadsheetId, sheetId as number)) });
-      else res.status(200).json({ ok: true, message: await connectTab(db, caller, spreadsheetId, sheetId as number, kind, concertId) });
+      else res.status(200).json({ ok: true, message: await connectTab(db, caller, spreadsheetId, sheetId as number, kind, concertId, season) });
     } catch (e) {
       // The words are for the person at the sheet (sheetsError, or connectTab's own); nothing logged.
       refuse(400, e instanceof Error ? e.message : 'That did not work on our side. Try again.');

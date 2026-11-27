@@ -41,8 +41,10 @@ await build({
   bundle: true, platform: 'node', target: 'node22', format: 'esm',
   outfile: resolve(here, 'lib/index.js'),
   external: ['firebase-functions', 'firebase-admin'],
-  // Every org built here is a personnel org (checked above); Vite defines this for the site.
-  define: { __ORG_PERSONNEL__: 'true' },
+  // Every org built here is a personnel org (checked above); Vite defines these for the site.
+  // __ORG_CONFIG__: the Schedule tab imports the app's own change receipt
+  // (changePlan.ts), whose module graph reads the org config at load.
+  define: { __ORG_PERSONNEL__: 'true', __ORG_CONFIG__: readFileSync(config, 'utf8') },
   plugins: [{
     name: 'org-config',
     setup(b) {

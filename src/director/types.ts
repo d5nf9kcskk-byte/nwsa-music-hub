@@ -2044,12 +2044,15 @@ export interface ConcertPersonnel {
   updatedByRole?: StaffRole;
 }
 
-/** The kinds of Hub area a sheet tab can feed. Each is one adapter in
- *  functions/src/sheetPush.ts; add a kind there AND in firestore.rules. */
-export type SheetLinkKind = 'concertRoster';
+/** The kinds of Hub area a sheet tab can feed. Each is one adapter behind
+ *  functions/src/sheetPush.ts (concertRoster: sheetPlan.ts; musicians and
+ *  schedule: sheetTable.ts + sheetAreas.ts); add a kind there AND in
+ *  firestore.rules. */
+export type SheetLinkKind = 'concertRoster' | 'musicians' | 'schedule';
 
 /**
- * Which Google Sheet tab feeds which part of the Hub (`sheetLinks/{kind__concertId}`).
+ * Which Google Sheet tab feeds which part of the Hub: `sheetLinks/concertRoster__<concertId>`,
+ * `sheetLinks/musicians__roster` (the one roster tab), `sheetLinks/schedule__<season>`.
  * Only a registered tab syncs. The tab is bound by its permanent numeric id
  * (the `gid` in its address), never its name or position, so renaming tabs
  * cannot break the link and moving to a new tab is a change to this record.
@@ -2060,7 +2063,10 @@ export interface SheetLink {
   /** The tab's gid. */
   sheetId: number;
   kind: SheetLinkKind;
-  concertId: string;
+  /** concertRoster only. */
+  concertId?: string;
+  /** schedule only: "2026-27" = Aug 1, 2026 to Jul 31, 2027. */
+  season?: string;
   /** The function's last pass, in counts only; `tab` is the tab's name then, `problems` the rows to look at (row number and why, never a value). */
   sync?: { at: number; ok: boolean; note: string; tab?: string; problems?: { row: number; why: string }[] };
   updatedAt?: number;

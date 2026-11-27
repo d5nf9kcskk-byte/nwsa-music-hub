@@ -1793,18 +1793,29 @@ service cloud.firestore {
       allow read: if isStaff();
       allow create, update: if isStaff()
         && request.resource.data.keys().hasOnly([
-             'spreadsheetId', 'sheetId', 'kind', 'concertId', 'sync',
+             'spreadsheetId', 'sheetId', 'kind', 'concertId', 'season', 'sync',
              'updatedAt', 'updatedBy', 'updatedByRole',
            ])
-        && request.resource.data.kind in ['concertRoster']
         && request.resource.data.spreadsheetId is string
         && request.resource.data.spreadsheetId.size() >= 20
         && request.resource.data.spreadsheetId.size() <= 100
         && request.resource.data.sheetId is int
         && request.resource.data.sheetId >= 0
-        && request.resource.data.concertId is string
-        && linkId == request.resource.data.kind + '__' + request.resource.data.concertId
-        && exists(/databases/$(database)/documents/events/$(request.resource.data.concertId));
+        // One shape per kind: a concert's players (by concert), the one
+        // Musicians roster tab, a season's Schedule ("2026-27").
+        && ((request.resource.data.kind == 'concertRoster'
+              && !('season' in request.resource.data)
+              && request.resource.data.concertId is string
+              && linkId == 'concertRoster__' + request.resource.data.concertId
+              && exists(/databases/$(database)/documents/events/$(request.resource.data.concertId)))
+          || (request.resource.data.kind == 'musicians'
+              && !('season' in request.resource.data) && !('concertId' in request.resource.data)
+              && linkId == 'musicians__roster')
+          || (request.resource.data.kind == 'schedule'
+              && !('concertId' in request.resource.data)
+              && request.resource.data.season is string
+              && request.resource.data.season.matches('^20[0-9]{2}-[0-9]{2}$')
+              && linkId == 'schedule__' + request.resource.data.season));
       allow delete: if isStaff();
     }
 

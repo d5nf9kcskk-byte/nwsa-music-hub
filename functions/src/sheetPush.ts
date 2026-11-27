@@ -42,6 +42,8 @@ import type { Firestore, DocumentReference, Timestamp } from 'firebase-admin/fir
 import { FieldValue } from 'firebase-admin/firestore';
 import { entryLock } from './entryLock.ts';
 import { planSheetSync, rowOps, sectionKey, type Cell, type HubChange, type SheetBase, type SheetEdits, type SheetModel, type SheetPlayer } from './sheetPlan.ts';
+import { planTableSync, seasonOf, seasonRange, isSeason, type Out, type TableBase, type TableEdits, type TableSpec } from './sheetTable.ts';
+import { areaFor, type Write } from './sheetAreas.ts';
 import { calledIds } from '../../src/director/personnel/personnelOrder.ts';
 import { contractTotalCents } from '../../src/director/personnel/contractMoney.ts';
 import { toLastFirst } from '../../src/director/personnel/importPlan.ts';
@@ -175,10 +177,17 @@ export async function tabsOf(spreadsheetId: string): Promise<Tab[]> {
 }
 
 /** The batchUpdate body for a plan: cell writes first, then row edits deepest first. */
-export function requestsFor(gid: number, columnCount: number, e: SheetEdits): object[] {
+export function requestsFor(gid: number, columnCount: number, e: Pick<SheetEdits | TableEdits, 'cells' | 'deletes' | 'inserts' | 'newIdCol'>): object[] {
   const v = (x: Cell) => (typeof x === 'number' ? { numberValue: x } : typeof x === 'boolean' ? { boolValue: x } : { stringValue: x });
-  const cells = (r: number, c: number, rows: Cell[][]) => ({
-    updateCells: { start: { sheetId: gid, rowIndex: r, columnIndex: c }, rows: rows.map(row => ({ values: row.map(x => ({ userEnteredValue: v(x) })) })), fields: 'userEnteredValue' },
+  // A date or time goes in as Sheets' own number with its display pattern, so it sorts as a date.
+  const one = (x: Out) => (typeof x === 'object'
+    ? { userEnteredValue: { numberValue: x.serial }, userEnteredFormat: { numberFormat: { type: /y/.test(x.pattern) ? 'DATE' : 'TIME', pattern: x.pattern } } }
+    : { userEnteredValue: v(x) });
+  const cells = (r: number, c: number, rows: Out[][]) => ({
+    updateCells: {
+      start: { sheetId: gid, rowIndex: r, columnIndex: c }, rows: rows.map(row => ({ values: row.map(one) })),
+      fields: rows.some(row => row.some(x => typeof x === 'object')) ? 'userEnteredValue,userEnteredFormat.numberFormat' : 'userEnteredValue',
+    },
   });
   const out: object[] = [];
   const widest = Math.max(e.newIdCol ?? 0, ...e.cells.map(x => x.c), ...e.inserts.flatMap(i => i.rows.map(r => r.length - 1)));
@@ -189,7 +198,7 @@ export function requestsFor(gid: number, columnCount: number, e: SheetEdits): ob
     out.push({ updateDimensionProperties: { range: col, properties: { hiddenByUser: true }, fields: 'hiddenByUser' } });
     out.push({ addProtectedRange: { protectedRange: { range: { sheetId: gid, startColumnIndex: e.newIdCol, endColumnIndex: e.newIdCol + 1 }, description: 'Hub ID: ties a row to its player. Nobody types here.', warningOnly: true } } });
   }
-  for (const op of rowOps(e)) {
+  for (const op of rowOps<Out>(e)) {
     if (op.kind === 'delete') out.push({ deleteDimension: { range: { sheetId: gid, dimension: 'ROWS', startIndex: op.r, endIndex: op.r + 1 } } });
     else {
       out.push({ insertDimension: { range: { sheetId: gid, dimension: 'ROWS', startIndex: op.after + 1, endIndex: op.after + 1 + op.rows.length }, inheritFromBefore: true } });
@@ -310,10 +319,25 @@ async function writeHub(db: Firestore, ctx: Ctx, changes: HubChange[]): Promise<
 /** A commit time as text; the same text a trigger computes from the document's update time. */
 export const stamp = (t: Timestamp) => `${t.seconds}.${t.nanoseconds}`;
 
+/** A flat tab's Hub writes (sheetAreas.ts), in one batch; answers the echo marks.
+ *  ponytail: one batch holds 500 writes; a first link of a roster over ~250 players would need two. */
+async function commit(db: Firestore, writes: Write[]): Promise<Record<string, string>> {
+  if (!writes.length) return {};
+  const batch = db.batch();
+  for (const w of writes) {
+    const ref = db.doc(w.path);
+    if (w.mode === 'create') batch.create(ref, w.data);
+    else if (w.mode === 'update') batch.update(ref, w.data);
+    else batch.set(ref, w.data, { merge: true });
+  }
+  const results = await batch.commit();
+  return Object.fromEntries(writes.map((w, i) => [w.path, stamp(results[i].writeTime)]));
+}
+
 /** One Hub write, as a trigger sees it: which document, and its commit time ('deleted' when gone). */
 export interface Cause { path: string; stamp: string }
 
-interface State { base?: SheetBase; sheetAt?: Record<string, number>; echo?: Record<string, string> }
+interface State { base?: SheetBase | TableBase; sheetAt?: Record<string, number>; echo?: Record<string, string> }
 const isEcho = (s: State | undefined, cause?: Cause) => !!cause && s?.echo?.[cause.path] === cause.stamp;
 
 /** One pass for one registered tab. Answers the status line it saved, or
@@ -330,27 +354,40 @@ export async function pushLink(db: Firestore, linkId: string, cause?: Cause): Pr
     const link = { id: linkId, ...snap.data() } as SheetLink;
     let note: string, ok = true, title: string | undefined, tabs: Tab[] | undefined, problems: SheetEdits['problems'] = [];
     try {
-      if (link.kind !== 'concertRoster') throw new Error(`Nothing in the Hub reads a “${link.kind}” tab yet.`);
+      const area = areaFor(db, link);
+      if (!area && link.kind !== 'concertRoster') throw new Error(`Nothing in the Hub reads a “${link.kind}” tab yet.`);
       const base = sheetUrl(link.spreadsheetId);
       tabs = await tabsOf(link.spreadsheetId);
       const tab = tabs.find(x => x.sheetId === link.sheetId);
       if (!tab || tab.status) throw new Error('The linked tab is gone from the sheet. Link the tab again.');
       title = tab.title;
       const values = await google<{ values?: Cell[][] }>(`${base}/values/${encodeURIComponent(`'${tab.title.replace(/'/g, "''")}'`)}?valueRenderOption=UNFORMATTED_VALUE`);
-      const { model, ctx } = await concertModel(db, link.concertId);
-      const edits = planSheetSync(values.values ?? [], model, {
-        base: state?.base, sheetAt: state?.sheetAt,
-        newId: () => db.collection('personnel').doc().id,
-      });
-      // The Hub first: if the sheet write then fails, the next pass finds the
-      // Hub already agreeing with the sheet and only the sheet left to write.
-      const echo = await writeHub(db, ctx, edits.hub);
+      let edits: SheetEdits | TableEdits, echo: Record<string, string>, spec: TableSpec | undefined;
+      if (area) {
+        const a = await area;
+        spec = a.spec;
+        edits = planTableSync(values.values ?? [], a.spec, a.recs, {
+          base: state?.base as TableBase | undefined, sheetAt: state?.sheetAt,
+          newId: () => db.collection(a.collection).doc().id,
+        });
+        // The Hub first: if the sheet write then fails, the next pass finds the
+        // Hub already agreeing with the sheet and only the sheet left to write.
+        echo = await commit(db, a.writes(edits.hub));
+      } else {
+        const { model, ctx } = await concertModel(db, link.concertId ?? '');
+        const roster = planSheetSync(values.values ?? [], model, {
+          base: state?.base as SheetBase | undefined, sheetAt: state?.sheetAt,
+          newId: () => db.collection('personnel').doc().id,
+        });
+        edits = roster;
+        echo = await writeHub(db, ctx, roster.hub);
+      }
       const requests = requestsFor(tab.sheetId, tab.columnCount, edits);
       if (requests.length) await google(`${base}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests }) });
       // Echo marks live two minutes: a trigger for our own write arrives in seconds.
       const fresh = Object.fromEntries(Object.entries(state?.echo ?? {}).filter(([, v]) => Number(v.split('.')[0]) * 1000 > Date.now() - 120_000));
       await stateRef.set({ base: edits.base, echo: { ...fresh, ...echo }, at: Date.now() }, { mergeFields: ['base', 'echo', 'at'] });
-      note = statusNote(edits, requests.length);
+      note = spec ? tableNote(edits as TableEdits, requests.length, spec) : statusNote(edits as SheetEdits, requests.length);
       problems = edits.problems;
     } catch (e) {
       ok = false;
@@ -379,6 +416,22 @@ export function statusNote(e: SheetEdits, requests: number): string {
   if (refused) note += ` ${n(refused, 'value')} the Hub cannot take ${refused === 1 ? 'was' : 'were'} put back (a tax ID's shape, a word in Seat, a fee on a signed contract, a season player's row).`;
   if (restored) note += ` ${restored} rows vanished at once, so the Hub put them back. Take players off a few at a time.`;
   if (unknown) note += ` ${n(unknown, 'row')} the Hub does not know left alone.`;
+  return note;
+}
+
+/** The status line for a flat tab (Musicians, Schedule), in counts only. */
+export function tableNote(e: TableEdits, requests: number, spec: Pick<TableSpec, 'noun' | 'goneWhy'>): string {
+  const { added, removed, unknown, fromSheet, refused, clashes, restored } = e.counts;
+  const parts: string[] = [];
+  if (fromSheet) parts.push(`took ${n(fromSheet, 'change')} from the sheet`);
+  if (requests) parts.push(`wrote ${n(e.cells.length, 'cell')}, added ${added}, removed ${n(removed, 'row')} on the sheet`);
+  let note = parts.length ? `${parts.join('; ')}.` : 'Up to date.';
+  note = note[0].toUpperCase() + note.slice(1);
+  note += ` ${n(Object.keys(e.base.rows).length, ...spec.noun)} on the tab.`;
+  if (clashes) note += ` ${n(clashes, 'cell')} changed on both sides at once: the later edit was kept.`;
+  if (refused) note += ` ${n(refused, 'value')} the Hub cannot take ${refused === 1 ? 'was' : 'were'} put back.`;
+  if (restored) note += restored > 5 ? ` ${restored} rows vanished at once, so the Hub put them back. Delete a few at a time.` : ` ${spec.goneWhy}`;
+  if (unknown) note += ` ${n(unknown, 'row')} the Hub could not use left alone.`;
   return note;
 }
 
@@ -455,9 +508,8 @@ export async function writeStatusTab(db: Firestore, spreadsheetId: string, tabs?
   ];
   if (!links.length) rows.push(['No tab is connected yet.']);
   for (const l of links) {
-    const ev = (await db.doc(`events/${l.concertId}`).get()).data() as CalendarEvent | undefined;
     const tab = tabs.find(t => t.sheetId === l.sheetId);
-    rows.push([tab?.title ?? '(tab gone)', ev ? concertLabel(ev) : '(concert gone)', l.sync ? WHEN.format(l.sync.at) : 'Not yet', l.sync ? `${l.sync.ok ? '' : 'Problem: '}${l.sync.note}` : '']);
+    rows.push([tab?.title ?? '(tab gone)', await targetLabel(db, l), l.sync ? WHEN.format(l.sync.at) : 'Not yet', l.sync ? `${l.sync.ok ? '' : 'Problem: '}${l.sync.note}` : '']);
     for (const p of l.sync?.problems ?? []) rows.push(['', `Row ${p.row}`, '', p.why]);
   }
   const requests: object[] = [];
@@ -479,6 +531,21 @@ export async function writeStatusTab(db: Firestore, spreadsheetId: string, tabs?
   await google(`${sheetUrl(spreadsheetId)}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests }) });
 }
 
+const KINDS = [
+  { id: 'concertRoster', label: 'A concert\'s players' },
+  { id: 'musicians', label: 'Musicians: the roster and sub list' },
+  { id: 'schedule', label: 'Schedule: one season' },
+] as const;
+const seasonLabel = (s: string) => { const [a, b] = seasonRange(s); return `${s} season (${YEAR_DAY.format(new Date(`${a}T00:00:00Z`))} to ${YEAR_DAY.format(new Date(`${b}T00:00:00Z`))})`; };
+
+/** What a link is connected to, in words, for the Hub tab and the Connect window. */
+async function targetLabel(db: Firestore, l: Pick<SheetLink, 'kind' | 'concertId' | 'season'>): Promise<string> {
+  if (l.kind === 'musicians') return 'Musicians: the roster and sub list';
+  if (l.kind === 'schedule') return `Schedule: the ${seasonLabel(l.season ?? '')}`;
+  const ev = (await db.doc(`events/${l.concertId}`).get()).data() as CalendarEvent | undefined;
+  return ev ? concertLabel(ev) : '(concert gone)';
+}
+
 /** A tab that may never be connected: the Hub's status tab, and Sheet1 (Grant's standing rule). */
 const unconnectable = (t: Tab) => (t.status ? 'This is the Hub\'s own status tab. Open the tab you want to connect, then try again.'
   : t.title === 'Sheet1' ? 'Sheet1 stays unconnected. Open a concert\'s tab, then try again.' : '');
@@ -496,11 +563,17 @@ export async function connectChoices(db: Firestore, spreadsheetId: string, sheet
     .filter(c => c.status !== 'Cancelled' && (c.date >= since || c.id === current?.concertId))
     .sort((a, b) => a.date.localeCompare(b.date))
     .map(c => ({ id: c.id, label: concertLabel(c) }));
+  // Last season, this one and the next two, and whatever this tab already shows.
+  const now = seasonOf(new Date().toISOString().slice(0, 10));
+  const y = Number(now.slice(0, 4));
+  const seasons = [...new Set([y - 1, y, y + 1, y + 2].map(x => seasonOf(`${x}-08-01`)).concat(current?.season ? [current.season] : []))]
+    .sort().map(id => ({ id, label: seasonLabel(id) }));
   return {
     tab: tab.title,
-    kinds: [{ id: 'concertRoster', label: 'A concert\'s players' }],
+    kinds: [...KINDS],
     concerts,
-    current: current ? { kind: current.kind, concertId: current.concertId } : null,
+    seasons,
+    current: current ? { kind: current.kind, concertId: current.concertId, season: current.season } : null,
   };
 }
 
@@ -511,22 +584,29 @@ export async function connectChoices(db: Firestore, spreadsheetId: string, sheet
  * already on another tab moves here (that tab stops syncing). The registry
  * trigger then runs the first pass.
  */
-export async function connectTab(db: Firestore, email: string, spreadsheetId: string, sheetId: number, kind: unknown, concertId: unknown): Promise<string> {
-  if (kind !== 'concertRoster') throw new Error('Choose what the tab is.');
-  if (typeof concertId !== 'string' || !/^[\w-]{1,100}$/.test(concertId)) throw new Error('Choose a concert.');
+export async function connectTab(db: Firestore, email: string, spreadsheetId: string, sheetId: number, kind: unknown, concertId: unknown, season?: unknown): Promise<string> {
+  if (!KINDS.some(k => k.id === kind)) throw new Error('Choose what the tab is.');
+  let target: string, what: Record<string, string>, label: string;
   const choices = await connectChoices(db, spreadsheetId, sheetId);
-  const concert = choices.concerts.find(c => c.id === concertId);
-  if (!concert) throw new Error('That concert is not on the calendar, or it was cancelled.');
-  const id = `${kind}__${concertId}`;
+  if (kind === 'concertRoster') {
+    if (typeof concertId !== 'string' || !/^[\w-]{1,100}$/.test(concertId)) throw new Error('Choose a concert.');
+    const concert = choices.concerts.find(c => c.id === concertId);
+    if (!concert) throw new Error('That concert is not on the calendar, or it was cancelled.');
+    [target, what, label] = [concertId, { concertId }, concert.label];
+  } else if (kind === 'schedule') {
+    if (!isSeason(season) || !choices.seasons.some(s => s.id === season)) throw new Error('Choose a season.');
+    [target, what, label] = [season, { season }, `the schedule for the ${seasonLabel(season)}`];
+  } else [target, what, label] = ['roster', {}, 'the Musicians roster'];
+  const id = `${kind}__${target}`;
   const ref = db.doc(`sheetLinks/${id}`);
   const before = (await ref.get()).data() as SheetLink | undefined;
   const others = await db.collection('sheetLinks').where('spreadsheetId', '==', spreadsheetId).where('sheetId', '==', sheetId).get();
   const batch = db.batch();
   for (const d of others.docs) if (d.id !== id) batch.delete(d.ref);
-  batch.set(ref, { spreadsheetId, sheetId, kind, concertId, updatedAt: Date.now(), updatedBy: email });
+  batch.set(ref, { spreadsheetId, sheetId, kind, ...what, updatedAt: Date.now(), updatedBy: email });
   await batch.commit();
   const moved = before && (before.spreadsheetId !== spreadsheetId || before.sheetId !== sheetId);
-  return `Connected “${choices.tab}” to ${concert.label}.${moved ? ' That concert was on another tab before; that tab no longer syncs.' : ''} The Hub is filling it in now; the Hub tab shows how it went.`;
+  return `Connected “${choices.tab}” to ${label}.${moved ? ' It was on another tab before; that tab no longer syncs.' : ''} The Hub is filling it in now; the Hub tab shows how it went.`;
 }
 
 /**

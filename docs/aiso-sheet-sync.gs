@@ -14,8 +14,9 @@
  *     address in WORKBOOK below, Save, choose "connect" and Run.
  * Google asks to allow it the first time.
  *
- * AISO Hub → Connect this tab… asks what the open tab is and which concert,
- * and the Hub registers it (the same record as Personnel's "Link the
+ * AISO Hub → Connect this tab… asks what the open tab is (a concert's
+ * players, the Musicians roster, or a season's Schedule) and which concert or
+ * season, and the Hub registers it (the same record as Personnel's "Link the
  * personnel sheet"). Anyone who can open the menu can use it, but the Hub
  * acts only for an Owner or Director. The Hub keeps a locked "Hub" tab in the
  * workbook: each connected tab, its last sync, and the rows to look at.
@@ -70,28 +71,34 @@ function changed(e) {
 
 function ring() { return post_(null, []); }
 
-/** The menu: what this tab is and which concert, in a small dialog. */
+/** The menu: what this tab is (a concert's players, Musicians, a season's
+ *  Schedule) and, for a concert or a season, which one, in a small dialog. */
 function connectThisTab() {
   var ui = SpreadsheetApp.getUi();
   var sheetId = SpreadsheetApp.getActiveSheet().getSheetId();
   var got = call_({ action: 'choices', sheetId: sheetId });
   if (!got.ok) { ui.alert(got.message); return; }
-  if (!got.concerts.length) { ui.alert('There is no concert on the Hub\'s calendar to connect this tab to.'); return; }
   var esc = function (s) { return String(s).replace(/[&<>"']/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; }); };
   var options = function (list, pick) {
     return list.map(function (x) { return '<option value="' + esc(x.id) + '"' + (x.id === pick ? ' selected' : '') + '>' + esc(x.label) + '</option>'; }).join('');
   };
   var cur = got.current || {};
+  var seasons = got.seasons || [];
+  var now = cur.season || (seasons[1] || seasons[0] || {}).id;
   // Connect posts to the Hub from the pop-up itself, with this person's own
   // short-lived Google token: google.script.run fails (PERMISSION_DENIED) in
   // any browser with several Google accounts signed in.
   var send = JSON.stringify({ url: HUB, token: ScriptApp.getOAuthToken(), body: { spreadsheetId: book_().getId(), action: 'connect', sheetId: sheetId } }).replace(/</g, '\\u003c');
   var html ='<style>body{font:14px Arial,sans-serif}label{display:block;margin:12px 0 4px}select{width:100%;padding:4px}button{margin:16px 8px 0 0}</style>'
     + '<label for="k">What is this tab?</label><select id="k">' + options(got.kinds, cur.kind) + '</select>'
-    + '<label for="c">Which concert?</label><select id="c">' + options(got.concerts, cur.concertId) + '</select>'
+    + '<div id="cc"><label for="c">Which concert?</label><select id="c">' + options(got.concerts, cur.concertId) + '</select></div>'
+    + '<div id="ss"><label for="s">Which season?</label><select id="s">' + options(seasons, now) + '</select></div>'
     + '<p id="m" role="status"></p><button id="go">Connect</button><button onclick="google.script.host.close()">Close</button>'
-    + '<script>var S=' + send + ',m=document.getElementById("m"),b=document.getElementById("go");b.onclick=function(){b.disabled=true;m.textContent="Connecting…";'
-    + 'S.body.kind=document.getElementById("k").value;S.body.concertId=document.getElementById("c").value;'
+    + '<script>var S=' + send + ',m=document.getElementById("m"),b=document.getElementById("go"),k=document.getElementById("k");'
+    + 'function show(){var v=k.value;document.getElementById("cc").style.display=v==="concertRoster"?"":"none";document.getElementById("ss").style.display=v==="schedule"?"":"none";'
+    + 'm.textContent=v==="concertRoster"&&!document.getElementById("c").options.length?"There is no concert on the Hub\'s calendar to connect this tab to.":"";}k.onchange=show;show();'
+    + 'b.onclick=function(){b.disabled=true;m.textContent="Connecting…";'
+    + 'S.body.kind=k.value;S.body.concertId=document.getElementById("c").value;S.body.season=document.getElementById("s").value;'
     + 'fetch(S.url,{method:"POST",headers:{Authorization:"Bearer "+S.token,"Content-Type":"application/json"},body:JSON.stringify(S.body)})'
     + '.then(function(r){return r.json();}).then(function(o){if(!o.ok)throw new Error(o.message||"The Hub said no.");m.textContent=o.message;b.style.display="none";})'
     + '.catch(function(e){m.textContent=e instanceof TypeError?"Could not reach the Hub. Try again.":e.message;b.disabled=false;});};</script>';

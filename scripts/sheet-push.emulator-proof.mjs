@@ -5,9 +5,13 @@
  * Sheets server that keeps one tab in memory and applies the same batchUpdate
  * requests Google would. Asserts; a wrong answer exits 1. Everyone is invented.
  *
- *   PATH="/opt/homebrew/opt/openjdk/bin:$PATH" npx firebase emulators:exec \
+ *   PATH="/opt/homebrew/opt/openjdk/bin:$PATH" VITE_ORG=aiso npx firebase emulators:exec \
  *     --config firebase.emulators.json --only firestore --project demo-sheet-push \
- *     "node --experimental-strip-types scripts/sheet-push.emulator-proof.mjs"
+ *     "npx tsx --import ./scripts/vite-defines-shim.mjs scripts/sheet-push.emulator-proof.mjs"
+ *
+ * (tsx and the shim since the engine also runs the Schedule tab, which imports
+ * the app's change receipt from changePlan.ts. The Musicians and Schedule tabs
+ * have their own proof: scripts/sheet-tabs.emulator-proof.mjs.)
  */
 import http from 'node:http';
 import { initializeApp } from '../functions/node_modules/firebase-admin/lib/esm/app/index.js';
